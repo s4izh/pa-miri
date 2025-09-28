@@ -32,7 +32,9 @@ for a specific core just run:
 make <action> CORE=<core>
 ```
 
-## `pa_cpu_mini1`
+## Cores
+
+### `pa_cpu_mini1`
 
 Every command has a dependency on every other command it needs, so theres no
 need to run all the commands if you just want to see the waves, just go `make
@@ -44,3 +46,10 @@ make compile CORE=pa_cpu_mini1
 make simulate CORE=pa_cpu_mini1
 make waves CORE=pa_cpu_mini1
 ```
+
+## Libraries
+
+All libraries under `lib/src` will get automatically added to the compilation
+if the modules need them.
+
+TODO: add testbenches for the libraries.
