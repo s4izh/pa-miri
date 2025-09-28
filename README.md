@@ -32,13 +32,13 @@ for a specific core just run:
 make <action> CORE=<core>
 ```
 
-## Cores
-
-### `pa_cpu_mini1`
-
 Every command has a dependency on every other command it needs, so theres no
 need to run all the commands if you just want to see the waves, just go `make
 waves CORE=pa_cpu_mini1`.
+
+## Cores
+
+### `pa_cpu_mini1`
 
 ```
 make check CORE=pa_cpu_mini1
