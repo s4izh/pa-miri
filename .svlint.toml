@@ -1,0 +1,6 @@
+[verilog]
+include_paths = ["lib/src", "cores/pa_cpu_mini1/src"]
+defines = ["DEBUG", "VAR=1"]
+
+[option]
+linter = true

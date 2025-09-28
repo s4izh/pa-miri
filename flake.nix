@@ -16,6 +16,7 @@
           iverilog
           gtkwave
           surfer
+          svls
         ];
       };
     }
