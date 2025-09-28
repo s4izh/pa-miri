@@ -47,7 +47,7 @@ cores:
 	@basename -a cores/*
 
 help:
-	@echo "Usage: make <target> [CORE=<core_name>]
+	@echo "Usage: make <target> [CORE=<core_name>]"
 	@echo ""
 	@echo "Available targets:"
 	@echo "  all        - Compile and simulate the core (default)"
@@ -58,8 +58,3 @@ help:
 	@echo "  clean      - Remove all generated files"
 	@echo "  cores      - List all available cores"
 	@echo "  help       - Show this help message"
-	@echo ""
-	@echo "Examples:"
-	@echo "  make waves"
-	@echo "  make waves CORE=pa_cpu_mini2"
-	@echo "  make waves VCD_FILE=./my_special_test.vcd"
