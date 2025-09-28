@@ -63,4 +63,5 @@ help:
 	@echo "  clean     - Remove generated files"
 	@echo "  help      - Show this help message"
 
+.DEFAULT_GOAL := help
 .PHONY: all compile simulate waves clean check help
