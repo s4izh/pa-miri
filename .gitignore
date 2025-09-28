@@ -1,0 +1,34 @@
+# SystemVerilog simulation artifacts
+*.vvp
+*.vcd
+*.lxt
+*.lxt2
+*.fst
+
+# Log files
+*.log
+
+# Temporary files
+*~
+*.tmp
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.sublime-*
+
+# Build directories
+build/
+obj/
+bin/
