@@ -32,3 +32,6 @@ Thumbs.db
 build/
 obj/
 bin/
+
+# other
+.direnv/

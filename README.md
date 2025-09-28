@@ -1,62 +1,46 @@
 # pa-miri
 
-Simple SystemVerilog Processor Development Environment
+## Dev environment
 
-This repository contains a minimal SystemVerilog development environment for processor design and simulation.
+Just run:
 
-## Files
-
-- `simple_processor.sv` - A basic SystemVerilog processor module with:
-  - 4-state FSM (IDLE, LOAD, PROC, OUT)
-  - 8-bit data processing
-  - Clock and reset functionality
-  - Simple increment operation
-
-- `simple_processor_tb.sv` - Comprehensive testbench that:
-  - Tests multiple input values
-  - Verifies state transitions
-  - Checks overflow behavior
-  - Provides detailed simulation output
-
-- `Makefile` - Build automation with targets for:
-  - Compilation, simulation, syntax checking
-  - Waveform generation
-  - Clean up operations
-
-## Prerequisites
-
-- Icarus Verilog (iverilog) - SystemVerilog compiler and simulator
-- VVP - Verilog runtime engine
-
-Install on Ubuntu/Debian:
-```bash
-sudo apt update
-sudo apt install iverilog
+```
+nix develop
 ```
 
-## Usage
+And start developing:
 
-### Basic simulation
-```bash
-make all
-# or simply
-make
+```
+$ make help
+Usage: make <target> [CORE=<core_name>]
+
+Available targets:
+  all        - Compile and simulate the core (default)
+  simulate   - Run the simulation and generate waveforms
+  compile    - Compile the source files if they have changed
+  waves      - Look at the generated wavefile
+  check      - Check SystemVerilog syntax
+  clean      - Remove all generated files
+  cores      - List all available cores
+  help       - Show this help message
 ```
 
-### Available make targets
-```bash
-make compile   # Compile SystemVerilog files
-make simulate  # Run simulation
-make waves     # Generate VCD waveform file
-make check     # Syntax check only
-make clean     # Remove generated files
-make help      # Show all available targets
+Available cores are under `cores/*`, to run an action
+for a specific core just run:
+
+```
+make <action> CORE=<core>
 ```
 
-### Expected output
-The simulation should show:
-- State transitions for the processor FSM
-- Test results for different input values
-- Proper overflow handling (0xFF + 1 = 0x00)
+## `pa_cpu_mini1`
 
-All tests should show "TEST PASS" messages, indicating the processor is working correctly.
+Every command has a dependency on every other command it needs, so theres no
+need to run all the commands if you just want to see the waves, just go `make
+waves CORE=pa_cpu_mini1`.
+
+```
+make check CORE=pa_cpu_mini1
+make compile CORE=pa_cpu_mini1
+make simulate CORE=pa_cpu_mini1
+make waves CORE=pa_cpu_mini1
+```

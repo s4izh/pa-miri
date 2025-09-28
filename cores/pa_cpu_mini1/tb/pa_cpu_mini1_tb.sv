@@ -1,6 +1,3 @@
-// Testbench for Simple Processor
-// This testbench verifies the basic functionality of the simple processor
-
 `timescale 1ns/1ps
 
 module pa_cpu_mini1_tb;
@@ -19,8 +16,15 @@ module pa_cpu_mini1_tb;
     end
     
     initial begin
-        $dumpfile("pa_cpu_mini1.vcd");
-        $dumpvars(0, simple_processor_tb);
+        reg [128*8-1:0] vcd_filename;
+
+        if ($value$plusargs("VCD_FILE=%s", vcd_filename)) begin
+            $display("VCD dumping enabled. Output file: %s", vcd_filename);
+            $dumpfile(vcd_filename);
+            $dumpvars(0, pa_cpu_mini1_tb.dut);
+        end else begin
+            $display("VCD dumping disabled. To enable, pass +VCD_FILE=<filename> to the simulator.");
+        end
         
         reset_n = 0;
 

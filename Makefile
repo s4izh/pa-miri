@@ -1,67 +1,65 @@
-# Makefile for Simple Processor SystemVerilog project
-# Uses Icarus Verilog for compilation and simulation
+CORE ?= pa_cpu_mini1
 
-# Project configuration
-PROJECT_NAME = simple_processor
-TOP_MODULE = simple_processor_tb
-SV_FILES = simple_processor.sv simple_processor_tb.sv
+BUILD_DIR := build
+CORE_DIR  := cores/$(CORE)
+LIB_DIR   := lib
 
-# Simulation configuration
-VVP_FILE = $(PROJECT_NAME).vvp
-VCD_FILE = $(PROJECT_NAME).vcd
+TOP_MODULE := $(CORE)_tb
 
-# Compiler and simulator
-IVERILOG = iverilog
-VVP = vvp
+IVERILOG := iverilog
+VVP      := vvp
 
-# Compilation flags
-IV_FLAGS = -g2012 -Wall
+IV_FLAGS := -g2012 -Wall -I$(CORE_DIR)/src -I$(LIB_DIR)/src
 
-# Default target
-all: compile simulate
+SV_FILES := $(wildcard $(CORE_DIR)/src/*.sv) $(wildcard $(CORE_DIR)/tb/*.sv) $(wildcard $(LIB_DIR)/src/*.sv)
 
-# Compile SystemVerilog files
-compile: $(VVP_FILE)
-
-$(VVP_FILE): $(SV_FILES)
-	@echo "Compiling SystemVerilog files..."
-	$(IVERILOG) $(IV_FLAGS) -o $(VVP_FILE) -s $(TOP_MODULE) $(SV_FILES)
-	@echo "Compilation successful!"
-
-# Run simulation
-simulate: $(VVP_FILE)
-	@echo "Running simulation..."
-	$(VVP) $(VVP_FILE)
-	@echo "Simulation completed!"
-
-# Generate VCD waveform file
-waves: $(VVP_FILE)
-	@echo "Generating waveform file..."
-	$(VVP) $(VVP_FILE) +vcd
-	@echo "Waveform file $(VCD_FILE) generated!"
-
-# Clean generated files
-clean:
-	@echo "Cleaning up..."
-	rm -f $(VVP_FILE) $(VCD_FILE)
-	@echo "Clean completed!"
-
-# Check syntax without running simulation
-check: $(SV_FILES)
-	@echo "Checking syntax..."
-	$(IVERILOG) $(IV_FLAGS) -t null -o /dev/null $(SV_FILES)
-	@echo "Syntax check passed!"
-
-# Show help
-help:
-	@echo "Available targets:"
-	@echo "  all       - Compile and simulate (default)"
-	@echo "  compile   - Compile SystemVerilog files"
-	@echo "  simulate  - Run simulation"
-	@echo "  waves     - Generate VCD waveform file"
-	@echo "  check     - Check syntax only"
-	@echo "  clean     - Remove generated files"
-	@echo "  help      - Show this help message"
+VVP_FILE := $(BUILD_DIR)/$(CORE)/$(CORE).vvp
+VCD_DIR  := $(dir $(VVP_FILE))
+VCD_FILE ?= $(VCD_DIR)$(CORE).vcd
 
 .DEFAULT_GOAL := help
-.PHONY: all compile simulate waves clean check help
+
+.PHONY: all compile simulate waves check clean cores help
+
+all: simulate
+
+$(VVP_FILE): $(SV_FILES)
+	@mkdir -p $(VCD_DIR)
+	$(IVERILOG) $(IV_FLAGS) -o $@ -s $(TOP_MODULE) $(SV_FILES)
+
+compile: $(VVP_FILE)
+
+simulate: $(VVP_FILE)
+	@mkdir -p $(dir $(VCD_FILE))
+	$(VVP) $< +VCD_FILE=$(VCD_FILE)
+
+waves: simulate
+	surfer $(VCD_FILE)
+
+check:
+	$(IVERILOG) $(IV_FLAGS) -t null $(SV_FILES)
+
+clean:
+	rm -rvf $(BUILD_DIR)
+
+cores:
+	@echo "Available cores:"
+	@basename -a cores/*
+
+help:
+	@echo "Usage: make <target> [CORE=<core_name>]
+	@echo ""
+	@echo "Available targets:"
+	@echo "  all        - Compile and simulate the core (default)"
+	@echo "  simulate   - Run the simulation"
+	@echo "  compile    - Compile the source files if they have changed"
+	@echo "  waves      - Run simulation and generate a VCD waveform"
+	@echo "  check      - Check SystemVerilog syntax"
+	@echo "  clean      - Remove all generated files"
+	@echo "  cores      - List all available cores"
+	@echo "  help       - Show this help message"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make waves"
+	@echo "  make waves CORE=pa_cpu_mini2"
+	@echo "  make waves VCD_FILE=./my_special_test.vcd"
