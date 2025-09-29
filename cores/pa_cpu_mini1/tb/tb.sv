@@ -11,7 +11,7 @@ module tb (
     );
 
     initial begin
-        @(posedge clk)
+        @(posedge reset_n)
         repeat(100) @(posedge clk);
         $finish;
     end
