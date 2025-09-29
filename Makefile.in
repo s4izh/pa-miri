@@ -1,0 +1,62 @@
+export CORE ?= pa_cpu_mini1
+FILELIST ?= filelist_tb.f
+
+TOP_MODULE := top_tb
+
+BUILD_DIR := build
+
+IVERILOG := iverilog
+VVP      := vvp
+
+IV_FLAGS := -g2012 -Wall
+
+SV_FILES = $(shell python3 $(PROJ_DIR)/utils/parse_filelist.py ${FILELIST})
+
+VVP_FILE := $(BUILD_DIR)/$(CORE)/$(CORE).vvp
+VCD_DIR  := $(dir $(VVP_FILE))
+VCD_FILE ?= $(VCD_DIR)$(CORE).vcd
+
+WAVE_VIEWER ?= gtkwave
+
+.DEFAULT_GOAL := help
+
+.PHONY: all compile simulate waves check clean cores help
+
+all: simulate
+
+# $(SV_FILES)
+$(VVP_FILE):
+	@mkdir -p $(VCD_DIR)
+	$(IVERILOG) $(IV_FLAGS) -o $@ -s $(TOP_MODULE) $(SV_FILES)
+
+compile: $(VVP_FILE)
+
+simulate: $(VVP_FILE)
+	@mkdir -p $(dir $(VCD_FILE))
+	$(VVP) $< +VCD_FILE=$(VCD_FILE)
+
+waves: simulate
+	$(WAVE_VIEWER) $(VCD_FILE)
+
+check:
+	$(IVERILOG) $(IV_FLAGS) -t null $(SV_FILES)
+
+clean:
+	rm -rvf $(BUILD_DIR)
+
+cores:
+	@echo "Available cores:"
+	@basename -a cores/*
+
+help:
+	@echo "Usage: make <target> [FILELIST=<filelist_path>][CORE=<core_name>]"
+	@echo ""
+	@echo "Available targets:"
+	@echo "  all        - Compile and simulate the component (default)"
+	@echo "  simulate   - Run the simulation"
+	@echo "  compile    - Compile the source files if they have changed"
+	@echo "  waves      - Run simulation and generate a VCD waveform"
+	@echo "  check      - Check SystemVerilog syntax"
+	@echo "  clean      - Remove all generated files"
+	@echo "  cores      - List all available cores"
+	@echo "  help       - Show this help message"
