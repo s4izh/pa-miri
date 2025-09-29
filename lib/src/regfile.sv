@@ -34,7 +34,7 @@ module regfile#(
         end
     end
 
-    assign ra_data_i = regs[ra_addr_i];
-    assign rb_data_i = regs[rb_addr_i];
+    assign ra_data_o = regs[ra_addr_i];
+    assign rb_data_o = regs[rb_addr_i];
 
 endmodule
