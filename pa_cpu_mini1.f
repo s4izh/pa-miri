@@ -1,0 +1,2 @@
+-f $(LIB_DIR)/regfile/filelist_rtl.f
+-f $(SRC_DIR)/pa_cpu_mini1/filelist_tb.f
