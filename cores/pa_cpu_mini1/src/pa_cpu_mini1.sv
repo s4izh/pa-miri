@@ -29,45 +29,54 @@ module pa_cpu_mini1# (
         .XLEN(XLEN),
         .NREG(NREG)
     ) regs (
-        .clk(clk),
-        .reset_n(reset_n),
-        .ra_addr(regs_ra_addr),
-        .rb_addr(regs_rb_addr),
-        .rd_we(regs_rd_we),
-        .rd_addr(regs_rd_addr),
-        .rd_data(regs_rd_data),
-        .ra_data(regs_ra_data),
-        .rb_data(regs_rb_data)
+        .clk,
+        .reset_n,
+
+        .ra_addr_i(regs_ra_addr),
+        .ra_data_o(regs_ra_data),
+
+        .rb_addr_i(regs_rb_addr),
+        .rb_data_o(regs_rb_data),
+
+        .rd_addr_i(regs_rd_addr),
+        .rd_data_i(regs_rd_data),
+        .rd_we_i(regs_rd_we)
     );
 
     regfile #(
         .XLEN(XLEN),
         .NREG(IMEM_SIZE)
     ) imem (
-        .clk(clk),
-        .reset_n(reset_n),
-        .ra_addr(imem_ra_addr),
-        .rb_addr(IMEM_ADDR_WIDTH'(0)),
-        .rd_we(1'b0),
-        .rd_addr(imem_rd_addr),
-        .rd_data(imem_rd_data),
-        .ra_data(imem_ra_data)
-        // .rb_data(XLEN'(0))
+        .clk,
+        .reset_n,
+
+        .ra_addr_i(imem_ra_addr),
+        .ra_data_o(imem_ra_data),
+
+        .rb_addr_i(IMEM_ADDR_WIDTH'(0)),
+        // .rb_data_o(XLEN'(0)),
+
+        .rd_addr_i(imem_rd_addr),
+        .rd_data_i(imem_rd_data),
+        .rd_we_i(1'b0)
     );
 
     regfile #(
         .XLEN(XLEN),
         .NREG(DMEM_SIZE)
     ) dmem (
-        .clk(clk),
-        .reset_n(reset_n),
-        .ra_addr(dmem_ra_addr),
-        .rb_addr(DMEM_ADDR_WIDTH'(0)),
-        .rd_we(dmem_rd_we),
-        .rd_addr(dmem_rd_addr),
-        .rd_data(dmem_rd_data),
-        .ra_data(dmem_ra_data)
-        // .rb_data(XLEN'(0))
+        .clk,
+        .reset_n,
+
+        .ra_addr_i(dmem_ra_addr),
+        .ra_data_o(dmem_ra_data),
+
+        .rb_addr_i(DMEM_ADDR_WIDTH'(0)),
+        // .rb_data_i(XLEN'(0))
+
+        .rd_addr_i(dmem_rd_addr),
+        .rd_data_i(dmem_rd_data),
+        .rd_we_i(dmem_rd_we)
     );
 
 endmodule

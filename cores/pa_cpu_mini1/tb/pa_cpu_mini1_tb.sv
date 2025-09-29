@@ -6,8 +6,8 @@ module pa_cpu_mini1_tb;
     logic reset_n;
 
     pa_cpu_mini1 dut (
-        .clk(clk),
-        .reset_n(reset_n)
+        .clk,
+        .reset_n
     );
 
     initial begin
