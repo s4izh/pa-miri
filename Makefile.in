@@ -16,6 +16,8 @@ VVP_FILE := $(BUILD_DIR)/$(CORE)/$(CORE).vvp
 VCD_DIR  := $(dir $(VVP_FILE))
 VCD_FILE ?= $(VCD_DIR)$(CORE).vcd
 
+WAVE_VIEWER ?= gtkwave
+
 .DEFAULT_GOAL := help
 
 .PHONY: all compile simulate waves check clean cores help
@@ -34,7 +36,7 @@ simulate: $(VVP_FILE)
 	$(VVP) $< +VCD_FILE=$(VCD_FILE)
 
 waves: simulate
-	gtkwave $(VCD_FILE)
+	$(WAVE_VIEWER) $(VCD_FILE)
 
 check:
 	$(IVERILOG) $(IV_FLAGS) -t null $(SV_FILES)
