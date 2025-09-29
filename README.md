@@ -12,10 +12,10 @@ And start developing:
 
 ```
 $ make help
-Usage: make <target> [CORE=<core_name>]
+Usage: make <target> [FILELIST=<filelist_path>][CORE=<core_name>]
 
 Available targets:
-  all        - Compile and simulate the core (default)
+  all        - Compile and simulate the component (default)
   simulate   - Run the simulation and generate waveforms
   compile    - Compile the source files if they have changed
   waves      - Look at the generated wavefile

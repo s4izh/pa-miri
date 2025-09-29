@@ -47,10 +47,10 @@ cores:
 	@basename -a cores/*
 
 help:
-	@echo "Usage: make <target> [FILELIST=<filelist_path>]"
+	@echo "Usage: make <target> [FILELIST=<filelist_path>][CORE=<core_name>]"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  all        - Compile and simulate the core (default)"
+	@echo "  all        - Compile and simulate the component (default)"
 	@echo "  simulate   - Run the simulation"
 	@echo "  compile    - Compile the source files if they have changed"
 	@echo "  waves      - Run simulation and generate a VCD waveform"
