@@ -1,5 +1,12 @@
 # pa-miri
 
+## Plan
+
+- [x] `ROM` from to read the program
+- [ ] `SRAM`, async read, sync write
+- [ ] Define instruction set 
+- [ ] Instruction decoder
+
 ## Dev environment
 
 Just run:
