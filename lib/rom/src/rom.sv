@@ -5,9 +5,6 @@ module rom #(
 
     parameter ADDR_WIDTH = $clog2(NREG)
 )(
-    input logic clk,
-    // input logic reset_n,
-
     input logic [ADDR_WIDTH-1:0] addr_i,
     output logic [XLEN-1:0] data_o
 );
