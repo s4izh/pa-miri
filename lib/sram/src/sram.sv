@@ -5,12 +5,13 @@ module sram #(
 )(
     input logic clk,
 
-    // write port a
-    input logic we_i,
     input logic [ADDR_WIDTH-1:0] addr_i,
+
+    // write port
+    input logic we_i,
     input logic [XLEN-1:0] data_i,
 
-    // write read b
+    // read port
     output logic [XLEN-1:0] data_o
 );
     reg [XLEN-1:0] sram_r[NREG-1:0];
