@@ -3,7 +3,8 @@
 ## Plan
 
 - [x] `ROM` from to read the program
-- [ ] `SRAM`, async read, sync write
+- [x] `SRAM`, async read, sync write
+  - [ ] Tests
 - [ ] Define instruction set 
 - [ ] Instruction decoder
 
