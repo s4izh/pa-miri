@@ -1,7 +1,7 @@
 module decoder #(
     parameter int XLEN = 32,
     parameter int INS_WIDTH = 32,
-    parameter int NREG = 32,
+    parameter int NREG = 32
 )(
     input logic[INS_WIDTH-1:0] ins_i,
 
