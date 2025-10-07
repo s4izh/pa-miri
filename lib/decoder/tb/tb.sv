@@ -4,12 +4,14 @@ module tb (
     input logic clk,
     input logic reset_n
 );
-    localparam XLEN = 32;
-    localparam NREG = 32;
-    localparam INS_WIDTH = 32;
+    localparam int XLEN = 32;
+    localparam int NREG = 32;
+    localparam int INS_WIDTH = 32;
+
+    int seed = 1123;
 
     logic[INS_WIDTH-1:0] ins_i;
-    logic [XLEN-1:0] immed;
+    logic [XLEN-1:0] immed_o;
     logic [4:0] ra_o;
     logic [4:0] rb_o;
     logic [4:0] rd_o;
@@ -35,10 +37,10 @@ module tb (
 
     always @(posedge clk) begin
         if (!reset_n) begin
-            ins_i <= 32'h1234567;
+            ins_i <= 32'h00000000;
             $display("Reset applied");
         end else begin
-            ins_i <= ins_i + INS_WIDTH'(1);
+            ins_i <= $urandom(seed);
         end
     end
 
