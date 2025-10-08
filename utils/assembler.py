@@ -121,7 +121,7 @@ def assemble_instruction(asm_code):
 
     if len(machine_code) != 32: raise AssemblerError(f"Internal error: Generated machine code is not 32 bits long.")
     
-    hex_code = f"0x{int(machine_code, 2):08X}"
+    hex_code = f"{int(machine_code, 2):08X}"
     return machine_code, hex_code
 
 def process_file(input_path, output_path, output_format):
