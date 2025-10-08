@@ -7,8 +7,7 @@ module tb (
     localparam int XLEN = 32;
     localparam int NREG = 32;
     localparam int INS_WIDTH = 32;
-
-    int seed = 1123;
+    int SEED = 123;
 
     logic[INS_WIDTH-1:0] ins_i;
     logic [XLEN-1:0] immed_o;
@@ -17,7 +16,7 @@ module tb (
     logic [4:0] rd_o;
     logic mux_ra_o;
     logic mux_rb_o;
-    logic mux_mem_o;
+    logic is_ld_o;
     logic is_wb_o;
     logic is_st_o;
     logic mux_pc_o;
@@ -40,7 +39,7 @@ module tb (
             ins_i <= 32'h00000000;
             $display("Reset applied");
         end else begin
-            ins_i <= $urandom(seed);
+            ins_i <= $urandom(SEED);
         end
     end
 

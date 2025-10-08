@@ -1,44 +1,58 @@
+import datapath_pkg::*;
+
 module decoder #(
     parameter int XLEN = 32,
     parameter int INS_WIDTH = 32,
     parameter int NREG = 32
 )(
     input logic[INS_WIDTH-1:0] ins_i,
-
     output logic [XLEN-1:0] immed_o,
     output logic [4:0] ra_o,
     output logic [4:0] rb_o,
     output logic [4:0] rd_o,
-    output logic mux_ra_o,
-    output logic mux_rb_o,
-    output logic mux_mem_o,
+    output logic[`MUX_RA_WIDTH-1:0] mux_ra_o,
+    output logic[`MUX_RB_WIDTH-1:0] mux_rb_o,
+    output logic is_ld_o,
     output logic is_wb_o,
     output logic is_st_o,
     output logic mux_pc_o
 );
-    import decoder_pkg::*;
-
+    // Local parameters
+    localparam int OPCODE_WIDTH = 4;
     localparam int NREG_WIDTH = $clog2(NREG);
 
-    decoder_pkg::opcode_e opcode;
+    // Opcode enumeration
+    typedef enum logic[OPCODE_WIDTH-1:0] {
+        OPCODE_ADD = 4'b0001,
+        OPCODE_LI  = 4'b0011,
+        OPCODE_LW  = 4'b1000,
+        OPCODE_SW  = 4'b1001,
+        OPCODE_JMP = 4'b0100,
+        OPCODE_BEQ = 4'b0101,
+        OPCODE_BLT = 4'b0110,
+        OPCODE_BGT = 4'b0111
+    } opcode_e;
 
-    assign opcode = opcode_e'(ins_i[decoder_pkg::OPCODE_WIDTH-1:0]);
+    opcode_e opcode;
+
+    assign opcode = opcode_e'(ins_i[OPCODE_WIDTH-1:0]);
 
     // Sign extended immediate extracted from the instruction
-    // assign immed_o = $signed(ins_i[XLEN-1:19]); // Sign extended
     always_comb begin
         case (opcode)
             OPCODE_LI:
-                immed_o = $signed(ins_i[XLEN-1:1*NREG_WIDTH+OPCODE_WIDTH]);
+                // 23 bit
+                immed_o = $signed(ins_i[INS_WIDTH-1:1*$bits(reg_t)+OPCODE_WIDTH]);
             default:
-                immed_o = $signed(ins_i[XLEN-1:3*NREG_WIDTH+OPCODE_WIDTH]);
+                // 13 bit
+                immed_o = $signed(ins_i[INS_WIDTH-1:3*$bits(reg_t)+OPCODE_WIDTH]);
         endcase
     end
 
     // Addresses of all regiters of the operation
-    assign rd_o = ins_i[1*NREG_WIDTH+OPCODE_WIDTH-1 +: NREG_WIDTH];
-    assign rb_o = ins_i[2*NREG_WIDTH+OPCODE_WIDTH-1 +: NREG_WIDTH];
-    assign ra_o = ins_i[3*NREG_WIDTH+OPCODE_WIDTH-1 +: NREG_WIDTH];
+    assign rd_o = ins_i[1*$bits(reg_t)+OPCODE_WIDTH-1 +: NREG_WIDTH];
+    assign rb_o = ins_i[2*$bits(reg_t)+OPCODE_WIDTH-1 +: NREG_WIDTH];
+    assign ra_o = ins_i[3*$bits(reg_t)+OPCODE_WIDTH-1 +: NREG_WIDTH];
 
     // Decides the entry of ra into the adder
     assign mux_ra_o = 0;
@@ -47,10 +61,9 @@ module decoder #(
 
     // Indicates who is writen back: memory or arithmetic result (also called
     // is_load by Roger)
-    assign mux_mem_o = (opcode == OPCODE_LW) ? 1'b1 : 1'b0;
+    assign is_ld_o = (opcode == OPCODE_LW) ? 1'b1 : 1'b0;
 
     // Indicates if there is a result to write back into the register file
-    // assign is_wb_o = (opcode inside {OPCODE_ADD, OPCODE_LI, OPCODE_LW}) ? 1'b1 : 1'b0;
     always_comb begin
         case (opcode)
             OPCODE_ADD,
