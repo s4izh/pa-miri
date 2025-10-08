@@ -11,4 +11,9 @@ package datapath_pkg;
         MUX_RB_RB    = 1
     } mux_rb_e;
 
+    typedef enum logic {
+        MUX_PC_MAS_UNO = 0,
+        MUX_PC_BRANCH  = 1
+    } mux_pc_e;
+
 endpackage

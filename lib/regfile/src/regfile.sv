@@ -1,4 +1,5 @@
-`timescale 1ns/1ps
+`ifndef REGFILE_M_
+`define REGFILE_M_
 
 module regfile#(
     parameter int XLEN = 32,
@@ -38,3 +39,6 @@ module regfile#(
     assign rb_data_o = regs[rb_addr_i];
 
 endmodule
+
+`endif
+

@@ -8,37 +8,35 @@ module tb (
     string test_filename = "";
 
     parameter int XLEN = 32;
-    parameter int ALEN = 5;
+    parameter int IALEN = 12;
+    parameter int DALEN = 12;
     parameter int NREG = 32;
-    parameter int ADDR_WIDTH = $clog2(NREG);
-    parameter int DMEM_SIZE = 4096;
-    parameter int IMEM_SIZE = 4096;
-    parameter int DMEM_ADDR_WIDTH = $clog2(DMEM_SIZE);
-    parameter int IMEM_ADDR_WIDTH = $clog2(IMEM_SIZE);
 
-    logic[IMEM_ADDR_WIDTH-1:0]   imem_addr_o;
-    logic[XLEN-1:0]              imem_data_i;
+    logic[IALEN-1:0]    imem_addr_o;
+    logic[XLEN-1:0]     imem_data_i;
 
-    logic[IMEM_ADDR_WIDTH-1:0]   dmem_addr_o;
-    logic[XLEN-1:0]              dmem_data_o;
-    logic                        dmem_we_o;
-    logic[XLEN-1:0]              dmem_data_i;
+    logic[DALEN-1:0]    dmem_addr_o;
+    logic[XLEN-1:0]     dmem_data_o;
+    logic               dmem_we_o;
+    logic[XLEN-1:0]     dmem_data_i;
 
     pa_cpu_mini1 #(
-        .XLEN(XLEN)
+        .XLEN(XLEN),
+        .IALEN(IALEN),
+        .DALEN(DALEN)
     ) dut (.*);
 
     rom #(
-        .XLEN(XLEN),
-        .NREG(NREG)
+        .DATA_WIDTH(XLEN),
+        .ADDR_WIDTH(IALEN)
     ) imem (
         .addr_i(imem_addr_o),
         .data_o(imem_data_i)
     );
 
     sram #(
-        .XLEN(XLEN),
-        .NREG(NREG)
+        .DATA_WIDTH(XLEN),
+        .ADDR_WIDTH(DALEN)
     ) dmem (
         .clk,
         .addr_i(dmem_addr_o),

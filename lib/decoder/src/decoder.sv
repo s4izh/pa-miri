@@ -14,8 +14,7 @@ module decoder #(
     output mux_rb_e mux_rb_o,
     output logic is_ld_o,
     output logic is_wb_o,
-    output logic is_st_o,
-    output logic mux_pc_o
+    output logic is_st_o
 );
     // Local parameters
     localparam int OPCODE_WIDTH = 4;
@@ -99,8 +98,5 @@ module decoder #(
 
     // Active when the operation is a store
     assign is_st_o = (opcode == OPCODE_SW) ? 1'b1 : 1'b0;
-
-    // Decides what address is written into the pc register
-    assign mux_pc_o = 0;
 
 endmodule
