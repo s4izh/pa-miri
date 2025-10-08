@@ -10,8 +10,8 @@ module decoder #(
     output logic [4:0] ra_o,
     output logic [4:0] rb_o,
     output logic [4:0] rd_o,
-    output logic[`MUX_RA_WIDTH-1:0] mux_ra_o,
-    output logic[`MUX_RB_WIDTH-1:0] mux_rb_o,
+    output mux_ra_e mux_ra_o,
+    output mux_rb_e mux_rb_o,
     output logic is_ld_o,
     output logic is_wb_o,
     output logic is_st_o,
@@ -42,22 +42,44 @@ module decoder #(
         case (opcode)
             OPCODE_LI:
                 // 23 bit
-                immed_o = $signed(ins_i[INS_WIDTH-1:1*$bits(reg_t)+OPCODE_WIDTH]);
+                immed_o = $signed(ins_i[INS_WIDTH-1:1*NREG_WIDTH+OPCODE_WIDTH]);
             default:
                 // 13 bit
-                immed_o = $signed(ins_i[INS_WIDTH-1:3*$bits(reg_t)+OPCODE_WIDTH]);
+                immed_o = $signed(ins_i[INS_WIDTH-1:3*NREG_WIDTH+OPCODE_WIDTH]);
         endcase
     end
 
     // Addresses of all regiters of the operation
-    assign rd_o = ins_i[1*$bits(reg_t)+OPCODE_WIDTH-1 +: NREG_WIDTH];
-    assign rb_o = ins_i[2*$bits(reg_t)+OPCODE_WIDTH-1 +: NREG_WIDTH];
-    assign ra_o = ins_i[3*$bits(reg_t)+OPCODE_WIDTH-1 +: NREG_WIDTH];
+    assign rd_o = ins_i[1*NREG_WIDTH+OPCODE_WIDTH-1 +: NREG_WIDTH];
+    assign rb_o = ins_i[2*NREG_WIDTH+OPCODE_WIDTH-1 +: NREG_WIDTH];
+    assign ra_o = ins_i[3*NREG_WIDTH+OPCODE_WIDTH-1 +: NREG_WIDTH];
 
     // Decides the entry of ra into the adder
-    assign mux_ra_o = 0;
+    always_comb begin
+        case (opcode)
+            OPCODE_ADD,
+            OPCODE_LW,
+            OPCODE_SW:
+                mux_ra_o = MUX_RA_RA;
+            OPCODE_LI,
+            OPCODE_JMP:
+                mux_ra_o = MUX_RA_0;
+            default:
+                // Branches
+                mux_ra_o = MUX_RA_PC;
+        endcase
+    end
+
     // Decides the entry of rb into the adder
-    assign mux_rb_o = 0;
+    always_comb begin
+        case (opcode)
+            OPCODE_ADD,
+            OPCODE_JMP:
+                mux_rb_o = MUX_RB_RB;
+            default:
+                mux_rb_o = MUX_RB_IMMED;
+        endcase
+    end
 
     // Indicates who is writen back: memory or arithmetic result (also called
     // is_load by Roger)
