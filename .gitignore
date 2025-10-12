@@ -35,3 +35,6 @@ bin/
 
 # other
 .direnv/
+.tags
+TAGS
+tags

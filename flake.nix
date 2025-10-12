@@ -17,6 +17,7 @@
           gtkwave
           surfer
           svls
+          ctags
         ];
       };
     }

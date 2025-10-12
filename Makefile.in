@@ -17,6 +17,7 @@ VCD_DIR  := $(dir $(VVP_FILE))
 VCD_FILE ?= $(VCD_DIR)$(CORE).vcd
 
 WAVE_VIEWER ?= gtkwave
+TAGS_FILE ?= TAGS
 
 .DEFAULT_GOAL := help
 
@@ -30,6 +31,7 @@ $(VVP_FILE):
 	$(IVERILOG) $(IV_FLAGS) -o $@ -s $(TOP_MODULE) $(SV_FILES)
 
 compile: $(VVP_FILE)
+	@ctags -R -f $(TAGS_FILE) --exclude=".direnv" --exclude="build"
 
 simulate: $(VVP_FILE)
 	@mkdir -p $(dir $(VCD_FILE))
