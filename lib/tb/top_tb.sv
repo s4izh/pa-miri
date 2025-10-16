@@ -1,5 +1,3 @@
-`timescale 1ns/1ps
-
 module top_tb;
 
     logic clk;
@@ -23,7 +21,7 @@ module top_tb;
 
         reset_n = 0;
 
-        repeat(3) @(posedge clk);
+        repeat(3) @(negedge clk);
 
         reset_n = 1;
     end

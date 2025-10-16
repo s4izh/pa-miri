@@ -1,10 +1,7 @@
-`timescale 1ns/1ps
-
 module tb (
     input logic clk,
     input logic reset_n
 );
-
     // Parameters
     localparam XLEN = 32;
     localparam NREG = 32;

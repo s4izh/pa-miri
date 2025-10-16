@@ -14,7 +14,8 @@ module decoder #(
     output mux_rb_e mux_rb_o,
     output logic is_ld_o,
     output logic is_wb_o,
-    output logic is_st_o
+    output logic is_st_o,
+    output compare_op_e compare_op_o
 );
     // Local parameters
     localparam int OPCODE_WIDTH = 4;
@@ -34,27 +35,19 @@ module decoder #(
 
     opcode_e opcode;
 
+    // icarus verilog things
+    assign immed_o = $signed(ins_i[INS_WIDTH-1:3*NREG_WIDTH+OPCODE_WIDTH]);
     assign opcode = opcode_e'(ins_i[OPCODE_WIDTH-1:0]);
 
-    // Sign extended immediate extracted from the instruction
-    always_comb begin
-        case (opcode)
-            OPCODE_LI:
-                // 23 bit
-                immed_o = $signed(ins_i[INS_WIDTH-1:1*NREG_WIDTH+OPCODE_WIDTH]);
-            default:
-                // 13 bit
-                immed_o = $signed(ins_i[INS_WIDTH-1:3*NREG_WIDTH+OPCODE_WIDTH]);
-        endcase
-    end
-
     // Addresses of all regiters of the operation
-    assign rd_o = ins_i[1*NREG_WIDTH+OPCODE_WIDTH-1 +: NREG_WIDTH];
-    assign rb_o = ins_i[2*NREG_WIDTH+OPCODE_WIDTH-1 +: NREG_WIDTH];
-    assign ra_o = ins_i[3*NREG_WIDTH+OPCODE_WIDTH-1 +: NREG_WIDTH];
+    assign rd_o = ins_i[1*NREG_WIDTH+OPCODE_WIDTH-1 -: NREG_WIDTH];
+    assign rb_o = ins_i[2*NREG_WIDTH+OPCODE_WIDTH-1 -: NREG_WIDTH];
+    assign ra_o = ins_i[3*NREG_WIDTH+OPCODE_WIDTH-1 -: NREG_WIDTH];
 
     // Decides the entry of ra into the adder
     always_comb begin
+        compare_op_o = CMP_NOOP;
+        mux_ra_o = MUX_RA_PC;
         case (opcode)
             OPCODE_ADD,
             OPCODE_LW,
@@ -63,9 +56,18 @@ module decoder #(
             OPCODE_LI,
             OPCODE_JMP:
                 mux_ra_o = MUX_RA_0;
-            default:
-                // Branches
+            OPCODE_BEQ: begin
+                compare_op_o = CMP_EQ;
                 mux_ra_o = MUX_RA_PC;
+            end
+            OPCODE_BLT: begin
+                compare_op_o = CMP_LT;
+                mux_ra_o = MUX_RA_PC;
+            end
+            OPCODE_BGT: begin
+                compare_op_o = CMP_GT;
+                mux_ra_o = MUX_RA_PC;
+            end
         endcase
     end
 
@@ -75,7 +77,7 @@ module decoder #(
             OPCODE_ADD,
             OPCODE_JMP:
                 mux_rb_o = MUX_RB_RB;
-            default:
+            default: // OPCODE_LI, OPCODE_LW, OPCODE_SW, OPCODE_BEQ, OPCODE_BLT, OPCODE_BGT
                 mux_rb_o = MUX_RB_IMMED;
         endcase
     end

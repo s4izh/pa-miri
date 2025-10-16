@@ -24,23 +24,29 @@ module pa_cpu_mini1# (
     // localparam int DMEM_SIZE = 2 ** DALEN;
 
     logic [XLEN-1:0] ra_data, rb_data, rd_data;
-    logic rd_we;
     logic [RALEN-1:0] ra_addr, rb_addr, rd_addr;
+    compare_op_e compare_op;
 
     logic [IALEN-1:0] pc;
 
-    logic immed;
+    logic [XLEN-1:0] immed;
     mux_ra_e ra_m;
     mux_rb_e rb_m;
     mux_pc_e pc_m;
-    logic is_ld, is_wb, is_st;
+    logic is_ld, is_wb, is_st, doit;
 
     logic [XLEN-1:0] add_op_1, add_op_2, add_op_result;
 
+    // external interface
     assign imem_addr_o = pc;
-    assign add_op_result = add_op_1 + add_op_2;
+    assign dmem_addr_o = add_op_result;
+    assign dmem_data_o = rb_data;
+    assign dmem_we_o = is_st;
 
-    assign pc_m = MUX_PC_MAS_UNO;
+    // internal connections
+    assign add_op_result = add_op_1 + add_op_2;
+    assign pc_m = mux_pc_e'((doit == 1) ? MUX_PC_BRANCH : MUX_PC_MAS_UNO);
+    assign rd_data = (is_ld == 1) ? dmem_data_i : add_op_result;
 
     // PC
     always @(posedge clk) begin
@@ -51,7 +57,6 @@ module pa_cpu_mini1# (
                 MUX_PC_MAS_UNO:
                     pc <= pc + IALEN'(1);
                 MUX_PC_BRANCH:
-                    // TODO
                     pc <= add_op_result;
             endcase
         end
@@ -92,7 +97,7 @@ module pa_cpu_mini1# (
 
         .rd_addr_i(rd_addr),
         .rd_data_i(rd_data),
-        .rd_we_i(rd_we)
+        .rd_we_i(is_wb)
     );
 
     decoder #(
@@ -109,14 +114,16 @@ module pa_cpu_mini1# (
         .mux_rb_o(rb_m),
         .is_ld_o(is_ld),
         .is_wb_o(is_wb),
-        .is_st_o(is_st)
+        .is_st_o(is_st),
+        .compare_op_o(compare_op)
     );
 
     compare #(
         .XLEN(XLEN)
     ) cmp (
         .op1_i(ra_data),
-        .op2_i(rb_data)
-        // .op_i()
+        .op2_i(rb_data),
+        .op_i(compare_op),
+        .result_o(doit)
     );
 endmodule

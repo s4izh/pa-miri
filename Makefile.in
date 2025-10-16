@@ -16,8 +16,10 @@ VVP_FILE := $(BUILD_DIR)/$(CORE)/$(CORE).vvp
 VCD_DIR  := $(dir $(VVP_FILE))
 VCD_FILE ?= $(VCD_DIR)$(CORE).vcd
 
+TEST_FILE ?= $(PROJ_DIR)/utils/
+
 WAVE_VIEWER ?= gtkwave
-TAGS_FILE ?= TAGS
+TAGS_FILE ?= tags
 
 .DEFAULT_GOAL := help
 
@@ -35,10 +37,10 @@ compile: $(VVP_FILE)
 
 simulate: $(VVP_FILE)
 	@mkdir -p $(dir $(VCD_FILE))
-	$(VVP) $< +VCD_FILE=$(VCD_FILE)
+	$(VVP) $< +VCD_FILE=$(VCD_FILE) +TEST_FILE=$(TEST_FILE)
 
 waves: simulate
-	$(WAVE_VIEWER) $(VCD_FILE)
+	$(WAVE_VIEWER) $(VCD_FILE) save_file.gtkw
 
 check:
 	$(IVERILOG) $(IV_FLAGS) -t null $(SV_FILES)

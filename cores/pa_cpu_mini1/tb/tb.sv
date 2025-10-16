@@ -1,5 +1,3 @@
-`timescale 1ns/1ps
-
 module tb (
     input logic clk,
     input logic reset_n

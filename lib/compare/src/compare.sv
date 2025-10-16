@@ -19,6 +19,8 @@ module compare #(
                 result_o = (op1_i < op2_i) ? 1 : 0;
             CMP_GT:
                 result_o = (op1_i > op2_i) ? 1 : 0;
+            CMP_NOOP:
+                result_o = 0;
         endcase
     end
 endmodule

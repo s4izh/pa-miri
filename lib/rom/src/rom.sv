@@ -11,11 +11,12 @@ module rom #(
     reg [DATA_WIDTH-1:0] rom_r[NREG-1:0];
 
     initial begin
-        if (ROMFILE != "") begin
-            $readmemh(ROMFILE, rom_r);
-        end else begin
-            $warning("No ROMFILE specified");
-        end
+        // if (ROMFILE != "") begin
+        //     $readmemh(ROMFILE, rom_r);
+        // end else begin
+        //     $warning("No ROMFILE specified");
+        // end
+        $readmemh("utils/jajasalu2.hex", rom_r);
     end
 
     assign data_o = rom_r[addr_i];
