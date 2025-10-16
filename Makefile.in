@@ -23,7 +23,7 @@ TAGS_FILE ?= tags
 
 .DEFAULT_GOAL := help
 
-.PHONY: all compile simulate waves check clean cores help
+.PHONY: all compile simulate waves check clean cores help tags
 
 all: simulate
 
@@ -32,8 +32,19 @@ $(VVP_FILE):
 	@mkdir -p $(VCD_DIR)
 	$(IVERILOG) $(IV_FLAGS) -o $@ -s $(TOP_MODULE) $(SV_FILES)
 
-compile: $(VVP_FILE)
-	@ctags -R -f $(TAGS_FILE) --exclude=".direnv" --exclude="build"
+compile: $(VVP_FILE) tags
+
+tags:
+	ctags -R -f $(TAGS_FILE) \
+		--languages=SystemVerilog \
+        --links=no \
+		--exclude="$(BUILD_DIR)" \
+        --exclude=".git" \
+		--exclude=".direnv" \
+        --exclude="utils" \
+        --exclude="Makefile" \
+        --exclude "Makefile.in" \
+        .
 
 simulate: $(VVP_FILE)
 	@mkdir -p $(dir $(VCD_FILE))
