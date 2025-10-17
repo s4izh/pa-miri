@@ -63,6 +63,9 @@ cores:
 	@echo "Available cores:"
 	@basename -a cores/*
 
+asm:
+	python3 utils/assembler.py utils/jajasalu2.asm -o utils/jajasalu2.hex -f hex
+
 help:
 	@echo "Usage: make <target> [FILELIST=<filelist_path>][CORE=<core_name>]"
 	@echo ""

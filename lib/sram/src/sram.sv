@@ -17,6 +17,13 @@ module sram #(
 
     reg [DATA_WIDTH-1:0] sram_r[NREG-1:0];
 
+    // clear simulation memory
+    initial begin
+        for (int i = 0; i < NREG; i++) begin
+            sram_r[i] = {DATA_WIDTH{1'b0}};
+        end
+    end
+
     always_ff @(posedge clk) begin
         if (we_i) begin
             sram_r[addr_i] <= data_i;

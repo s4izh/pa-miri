@@ -78,7 +78,7 @@ module pa_cpu_mini1# (
             MUX_RB_IMMED:
                 add_op_2 = immed;
             MUX_RB_RB:
-                add_op_2 = ra_data;
+                add_op_2 = rb_data;
         endcase
     end
 

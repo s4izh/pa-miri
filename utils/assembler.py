@@ -2,7 +2,6 @@ import re
 import argparse
 import sys
 
-# Instruction Set Architecture (ISA) Definition
 ISA = {
     'add': {'opcode': '0001', 'funct': '0000000000001'},
     'li':  {'opcode': '0011'},
@@ -14,15 +13,13 @@ ISA = {
     'bgt': {'opcode': '0111'},
 }
 
-# --- CORRECTED BITS CONFIGURATION ---
-# This defines a contiguous 32-bit instruction format.
-# Total bits: 13 + 5 + 5 + 5 + 4 = 32
+# total bits: 13 + 5 + 5 + 5 + 4 = 32
 BITS_CONFIG = {
-    'imm_or_funct': 13, # Top 13 bits
+    'imm_or_funct': 13,
     'ra':           5,
     'rb':           5,
     'rd':           5,
-    'opcode':       4,  # Bottom 4 bits
+    'opcode':       4,
 }
 
 class AssemblerError(Exception):
