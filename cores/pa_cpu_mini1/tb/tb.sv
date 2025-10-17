@@ -53,7 +53,7 @@ module tb (
 
     initial begin
         @(posedge reset_n)
-        repeat(10) @(posedge clk);
+        repeat(50) @(posedge clk);
         $finish;
     end
 
@@ -64,6 +64,7 @@ module tb (
             $display("CPU STATE: PC = %h", dut.pc);
             $display("DECODER INPUT: Fetched Instruction = %h", dut.imem_data_i);
             $display("DECODER OUTPUT: is_ld=%b, is_st=%b, is_wb=%b", dut.is_ld, dut.is_st, dut.is_wb);
+            $display("REGFILE READ: ra_data = %h, rb_data = %h", dut.ra_data, dut.rb_data);
             $display("ALU INPUTS: add_op_1 = %h, add_op_2 = %h", dut.add_op_1, dut.add_op_2);
             $display("ALU OUTPUT: add_op_result = %h", dut.add_op_result);
             $display("DMEM SIGNALS: dmem_addr_o = %h, dmem_data_o = %h, dmem_data_i = %h, dmem_we_o = %b", dmem_addr_o, dmem_data_o, dmem_data_i, dmem_we_o);

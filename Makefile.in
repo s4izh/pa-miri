@@ -65,6 +65,7 @@ cores:
 
 asm:
 	python3 utils/assembler.py utils/jajasalu2.asm -o utils/jajasalu2.hex -f hex
+	python3 utils/assembler.py utils/branch.asm -o utils/branch.hex -f hex
 
 help:
 	@echo "Usage: make <target> [FILELIST=<filelist_path>][CORE=<core_name>]"
