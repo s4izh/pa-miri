@@ -1,0 +1,46 @@
+#
+# Generic Simulation Makefile Engine
+#
+export SIM ?= iverilog
+
+SV_FILES := $(shell python3 $(PROJ_ROOT)/tools/parse_filelist.py $(PROJ_ROOT)/${FILELIST})
+
+include $(PROJ_ROOT)/sim/scripts/$(SIM).mk
+
+# The build directory is now named after the generic TARGET
+BUILD_DIR := $(PROJ_ROOT)/build/$(TARGET)/$(SIM)
+COMPILED_FILE  := $(BUILD_DIR)/sim.vvp
+VCD_FILE  ?= $(BUILD_DIR)/waveform.vcd
+
+# --- DEBUG BLOCK ---
+# These lines will print the values of the variables when make is run.
+$(info --- MAKE DEBUG ---)
+$(info TARGET      = $(TARGET))
+$(info FILELIST    = $(PROJ_ROOT)/$(FILELIST))
+$(info SV_FILES    = $(SV_FILES))
+$(info COMPILED_FILE = $(COMPILED_FILE))
+$(info --- END DEBUG ---)
+# --- END DEBUG BLOCK ---
+
+.PHONY: all compile simulate waves clean
+
+all: simulate
+
+# This target is useful for compiling without running
+compile: $(COMPILED_FILE)
+
+# The recipe to build our simulation file
+$(COMPILED_FILE): $(SV_FILES)
+	@echo "--- [COMPILE] ---"
+	@mkdir -p $(BUILD_DIR)
+	$(COMPILER) -o $(COMPILED_FILE) $(COMPILE_FLAGS)
+
+# The simulate target now correctly depends on the FILE it needs to run.
+simulate: $(COMPILED_FILE)
+	@echo "--- [SIMULATE] ---"
+	cd $(BUILD_DIR) && $(SIM_COMMAND)
+
+waves:
+	@echo "--- [WAVES] ---"
+	$(MAKE) simulate
+	gtkwave $(VCD_FILE) &
