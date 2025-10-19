@@ -1,63 +1,127 @@
-# pa-miri
+# Multi-processor development environment
 
-## Plan
+Hardware design and verification environment for a series of processors. All tasks are managed via the `./tools/orchestrator` script.
 
-- [x] `ROM` from to read the program
-- [x] `SRAM`, async read, sync write
-  - [ ] Tests
-- [ ] Define instruction set 
-- [ ] Instruction decoder
+## Quickstart
 
-## Dev environment
-
-Just run:
-
-```
+**1. Enter the Environment:**
+```bash
+cd new-structure
 nix develop
+source set_env.sh
 ```
 
-And start developing:
-
-```
-$ make help
-Usage: make <target> [FILELIST=<filelist_path>][CORE=<core_name>]
-
-Available targets:
-  all        - Compile and simulate the component (default)
-  simulate   - Run the simulation and generate waveforms
-  compile    - Compile the source files if they have changed
-  waves      - Look at the generated wavefile
-  check      - Check SystemVerilog syntax
-  clean      - Remove all generated files
-  cores      - List all available cores
-  help       - Show this help message
+**2. List all available tests and simulators:**
+```bash
+./tools/orchestrator --help
 ```
 
-Available cores are under `cores/*`, to run an action
-for a specific core just run:
+**3. Run a simulation and view waves:**
+```bash
+# Example for the register file component
+./tools/orchestrator waves --test common.rv_regfile_test
 
-```
-make <action> CORE=<core>
-```
-
-Every command has a dependency on every other command it needs, so theres no
-need to run all the commands if you just want to see the waves, just go `make
-waves CORE=pa_cpu_mini1`.
-
-## Cores
-
-### `pa_cpu_mini1`
-
-```
-make check CORE=pa_cpu_mini1
-make compile CORE=pa_cpu_mini1
-make simulate CORE=pa_cpu_mini1
-make waves CORE=pa_cpu_mini1
+# Example for the full unicycle processor
+./tools/orchestrator waves --test processor_a1_unicycle
 ```
 
-## Libraries
+## Project structure
 
-All libraries under `lib/src` will get automatically added to the compilation
-if the modules need them.
+*   `rtl/`: Contains all synthesizable hardware designs (`.sv`) and their corresponding RTL-only filelists (`.f`).
+*   `tb/`: Contains all non-synthesizable testbench code.
+*   `sim/`: Contains **simulation configurations**. This is the project's
+"control panel." **Crucially, any subdirectory under `sim/` that contains a
+`filelist.f` is automatically discovered by the orchestrator as a runnable
+test.** The path to the directory becomes the test name (e.g.,
+`sim/common/rv_regfile_test` becomes the test `common.rv_regfile_test`).
+*   `asm/`: Contains assembly source (`.asm`) and compiled program (`.hex`) files.
 
-TODO: add testbenches for the libraries.
+## Workflow: Adding a new processor test
+
+This is the primary method for verifying a processor. This example adds a new test named `branch_test` to `processor_a1_unicycle`.
+
+**1. Create Program and Testbench:**
+*   Create the program `asm/branch.hex`.
+*   Create the testbench `tb/processor_a1_unicycle/branch_tb.sv`. This file must instantiate the `rom` with the new hex file and contain logic to check for a specific "pass" signature in memory.
+
+**2. Create Simulation Configuration:**
+*   Create the test directory: `mkdir -p sim/processor_a1_unicycle/branch_test`
+*   Create `sim/processor_a1_unicycle/branch_test/Makefile`:
+    ```makefile
+    TARGET := processor_a1_unicycle_branch_test
+    FILELIST := $(PROJ_ROOT)/sim/processor_a1_unicycle/branch_test/filelist.f
+    include $(PROJ_ROOT)/Makefile.in
+    ```
+*   Create the test "recipe" in `sim/processor_a1_unicycle/branch_test/filelist.f`:
+    ```makefile
+    # 1. Include the full processor RTL
+    -f $(PROJ_ROOT)/rtl/processor_a1_unicycle/processor_a1_unicycle.f
+    # 2. Include memories
+    -f $(PROJ_ROOT)/rtl/common/rom.f
+    -f $(PROJ_ROOT)/rtl/common/sram.f
+    # 3. Point to the NEW testbench
+    $(PROJ_ROOT)/tb/processor_a1_unicycle/branch_tb.sv
+    # 4. Include the top wrapper
+    $(PROJ_ROOT)/tb/common_tb/top_tb_wrapper.sv
+    ```
+
+3. **Run:** The orchestrator auto-discovers the new test as `processor_a1_unicycle.branch_test`.
+
+    ```
+    ./tools/orchestrator simulate --test processor_a1_unicycle.branch_test
+    ```
+
+## Workflow: Adding a new processor
+
+1.  **Create Directories:**
+
+    ```bash
+    mkdir -p rtl/processor_b_pipelined
+    mkdir -p tb/processor_b_pipelined
+    mkdir -p sim/processor_b_pipelined
+    ```
+
+2.  **Develop RTL & Testbench:** Create the necessary source files in the new `rtl/` and `tb/` directories. Create a top-level RTL filelist for the new processor.
+
+3.  **Create Simulation Configuration:** Add a `Makefile` and `filelist.f` to `sim/processor_b_pipelined/`.
+
+4.  **Run:** The orchestrator auto-discovers the new test (`processor_b_pipelined`).
+
+    ```bash
+    ./tools/orchestrator simulate --test processor_b_pipelined
+    ```
+
+## Workflow: Adding a new simulator
+
+The orchestrator discovers simulators by finding `*.mk` files in `sim/scripts/`.
+
+**1. Create a Simulator Configuration File:**
+*   Create `sim/scripts/<sim_name>.mk` (e.g., `sim/scripts/verilator.mk`).
+*   This file must define the `make` variables used by `Makefile.in`:
+
+    - `SIM_COMMAND`: The full command to run the simulation.
+    - `COMPILE_COMMAND`: The full command to compile the simulation.
+    - `COMPILED_FILE`: The path to the compiled simulation executable or binary.
+    - `VCD_FILE`: The name of the VCD file generated by the simulator.
+
+I don't know if this `verilator` config works, just an example:
+
+```makefile
+# Verilator compiles to a C++ executable and requires a harness
+TOP_MODULE      := top_tb_wrapper
+COMPILER        := verilator
+COMPILE_FLAGS   := -Wall --cc --exe --build -O3 --trace \
+                   -f $(PROJ_ROOT)/$(FILELIST) --top-module $(TOP_MODULE)
+
+SIMULATOR       := ./V$(TOP_MODULE)
+
+COMPILED_FILE   := $(BUILD_DIR)/V$(TOP_MODULE)
+COMPILE_COMMAND := $(COMPILER) --Mdir $(BUILD_DIR) $(COMPILE_FLAGS)
+VCD_FILE        := $(BUILD_DIR)/waveform.vcd
+SIM_COMMAND     := $(SIMULATOR)
+```
+
+**2. Run:** The orchestrator will now list `<sim_name>` as an available simulator. Use the `--sim` flag to invoke it.
+```bash
+./tools/orchestrator simulate --test <test_name> --sim <sim_name>
+```

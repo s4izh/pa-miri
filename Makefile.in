@@ -1,81 +1,41 @@
-export CORE ?= pa_cpu_mini1
-FILELIST ?= filelist_tb.f
+export SIM ?= iverilog
 
-TOP_MODULE := top_tb
+SV_FILES := $(shell python3 $(PROJ_DIR)/tools/parse_filelist.py $(FILELIST))
 
-BUILD_DIR := build
+# it's important that BUILD_DIR is
+# defined before including the simulator makefile
+# so that it can be used there
+# BUILD_DIR := $(PROJ_DIR)/build/$(TARGET)/$(SIM)
 
-IVERILOG := iverilog
-VVP      := vvp
+include $(PROJ_DIR)/sim/scripts/$(SIM).mk
 
-IV_FLAGS := -g2012 -Wall
+# $(info --- MAKE DEBUG ---)
+# $(info TARGET      = $(TARGET))
+# $(info FILELIST    = $(PROJ_DIR)/$(FILELIST))
+# $(info SV_FILES    = $(SV_FILES))
+# $(info COMPILED_FILE = $(COMPILED_FILE))
+# $(info COMPILED_FILE = $(COMPILED_FILE))
+# $(info --- END DEBUG ---)
 
-SV_FILES = $(shell python3 $(PROJ_DIR)/utils/parse_filelist.py ${FILELIST})
-
-VVP_FILE := $(BUILD_DIR)/$(CORE)/$(CORE).vvp
-VCD_DIR  := $(dir $(VVP_FILE))
-VCD_FILE ?= $(VCD_DIR)$(CORE).vcd
-
-TEST_FILE ?= $(PROJ_DIR)/utils/
-
-WAVE_VIEWER ?= gtkwave
-TAGS_FILE ?= tags
-
-.DEFAULT_GOAL := help
-
-.PHONY: all compile simulate waves check clean cores help tags
+.PHONY: all compile simulate waves clean
 
 all: simulate
 
-# $(SV_FILES)
-$(VVP_FILE):
-	@mkdir -p $(VCD_DIR)
-	$(IVERILOG) $(IV_FLAGS) -o $@ -s $(TOP_MODULE) $(SV_FILES)
+compile: $(COMPILED_FILE)
 
-compile: $(VVP_FILE) tags
+$(COMPILED_FILE): $(SV_FILES)
+	@echo "[COMPILE]"
+	@mkdir -p $(BUILD_DIR)
+	cd $(BUILD_DIR) && $(COMPILE_COMMAND)
 
-tags:
-	@ctags -R -f $(TAGS_FILE) \
-		--languages=SystemVerilog \
-        --links=no \
-		--exclude="$(BUILD_DIR)" \
-        --exclude=".git" \
-		--exclude=".direnv" \
-        --exclude="utils" \
-        --exclude="Makefile" \
-        --exclude "Makefile.in" \
-        $(PROJ_ROOT) 2>/dev/null
-
-simulate: $(VVP_FILE)
-	@mkdir -p $(dir $(VCD_FILE))
-	$(VVP) $< +VCD_FILE=$(VCD_FILE) +TEST_FILE=$(TEST_FILE)
+simulate: compile $(COMPILED_FILE)
+	@echo "[SIMULATE]"
+	cd $(BUILD_DIR) && $(SIM_COMMAND)
 
 waves: simulate
-	$(WAVE_VIEWER) $(VCD_FILE) save_file.gtkw
-
-check:
-	$(IVERILOG) $(IV_FLAGS) -t null $(SV_FILES)
+	@echo "[WAVES]"
+	gtkwave $(VCD_FILE) &
 
 clean:
-	rm -rvf $(BUILD_DIR)
-
-cores:
-	@echo "Available cores:"
-	@basename -a cores/*
-
-asm:
-	python3 utils/assembler.py utils/jajasalu2.asm -o utils/jajasalu2.hex -f hex
-	python3 utils/assembler.py utils/branch.asm -o utils/branch.hex -f hex
-
-help:
-	@echo "Usage: make <target> [FILELIST=<filelist_path>][CORE=<core_name>]"
-	@echo ""
-	@echo "Available targets:"
-	@echo "  all        - Compile and simulate the component (default)"
-	@echo "  simulate   - Run the simulation"
-	@echo "  compile    - Compile the source files if they have changed"
-	@echo "  waves      - Run simulation and generate a VCD waveform"
-	@echo "  check      - Check SystemVerilog syntax"
-	@echo "  clean      - Remove all generated files"
-	@echo "  cores      - List all available cores"
-	@echo "  help       - Show this help message"
+	@echo "[CLEAN] Removing build files"
+	rm -rf $(BUILD_DIR)
