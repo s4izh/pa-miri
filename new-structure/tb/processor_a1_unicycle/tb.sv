@@ -22,8 +22,7 @@ module tb (
 
     rom #(
         .DATA_WIDTH(XLEN),
-        .ADDR_WIDTH(IALEN),
-        .ROMFILE("asm/jajasalu2.hex")
+        .ADDR_WIDTH(IALEN)
     ) imem (
         .addr_i(imem_addr_o),
         .data_o(imem_data_i)
@@ -39,6 +38,15 @@ module tb (
         .data_i(dmem_data_o),
         .data_o(dmem_data_i)
     );
+
+    initial begin
+        string rom_file;
+        if ($value$plusargs("ROM_FILE=%s", rom_file)) begin
+            $readmemh(rom_file, imem.mem);
+        end else begin
+            $error("No ROM_FILE specified. Empty instruction memory");
+        end
+    end
 
     initial begin
         @(posedge reset_n)
