@@ -7,7 +7,7 @@ Hardware design and verification environment for a series of processors. All tas
 **1. Enter the Environment:**
 ```bash
 nix develop
-# source set_env.sh  (if it exists)
+source set_env.sh
 ```
 
 **2. List all available tests and simulators:**
