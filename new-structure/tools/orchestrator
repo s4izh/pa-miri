@@ -53,7 +53,7 @@ def run_make(test, action, sim):
     test_dir = test_name_to_folder(test)
     build_dir = test_name_to_build_dir(test, sim)
 
-    env = os.environ.copy()
+    env = os.environ
     env["PROJ_DIR"] = str(PROJ_DIR)
     env["BUILD_DIR"] = str(build_dir)
 
@@ -73,6 +73,7 @@ def run_make(test, action, sim):
         else:
             print(f"{stdout}", end="")
             print(f"[SUCCESS] {test} ({sim}) {action}")
+            # print(f"[SUCCESS] {action} --test {test} --sim {sim}")
         return True
     except subprocess.CalledProcessError as e:
         print(f"[FAIL] {test} ({sim}) {action} failed with exit code {e.returncode}")
