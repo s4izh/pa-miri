@@ -101,20 +101,20 @@ The orchestrator discovers simulators by finding `*.mk` files in `sim/scripts/`.
 
 I don't know if this `verilator` config works, just an example:
 
-    ```makefile
-    # Verilator compiles to a C++ executable and requires a harness
-    TOP_MODULE      := top_tb_wrapper
-    COMPILER        := verilator
-    COMPILE_FLAGS   := -Wall --cc --exe --build -O3 --trace \
-                       -f $(PROJ_ROOT)/$(FILELIST) --top-module $(TOP_MODULE)
+```
+# Verilator compiles to a C++ executable and requires a harness
+TOP_MODULE      := top_tb_wrapper
+COMPILER        := verilator
+COMPILE_FLAGS   := -Wall --cc --exe --build -O3 --trace \
+                   -f $(PROJ_ROOT)/$(FILELIST) --top-module $(TOP_MODULE)
 
-    SIMULATOR       := ./V$(TOP_MODULE)
+SIMULATOR       := ./V$(TOP_MODULE)
 
-    COMPILED_FILE   := $(BUILD_DIR)/V$(TOP_MODULE)
-    COMPILE_COMMAND := $(COMPILER) --Mdir $(BUILD_DIR) $(COMPILE_FLAGS)
-    VCD_FILE        := $(BUILD_DIR)/waveform.vcd
-    SIM_COMMAND     := $(SIMULATOR)
-    ```
+COMPILED_FILE   := $(BUILD_DIR)/V$(TOP_MODULE)
+COMPILE_COMMAND := $(COMPILER) --Mdir $(BUILD_DIR) $(COMPILE_FLAGS)
+VCD_FILE        := $(BUILD_DIR)/waveform.vcd
+SIM_COMMAND     := $(SIMULATOR)
+```
 
 **2. Run:** The orchestrator will now list `<sim_name>` as an available simulator. Use the `--sim` flag to invoke it.
 ```bash
