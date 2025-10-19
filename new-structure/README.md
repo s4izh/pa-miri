@@ -6,6 +6,7 @@ Hardware design and verification environment for a series of processors. All tas
 
 **1. Enter the Environment:**
 ```bash
+cd new-structure
 nix develop
 source set_env.sh
 ```
@@ -64,24 +65,28 @@ This is the primary method for verifying a processor. This example adds a new te
     $(PROJ_ROOT)/tb/common_tb/top_tb_wrapper.sv
     ```
 
-**3. Run:** The orchestrator auto-discovers the new test as `processor_a1_unicycle.branch_test`.
+3. **Run:** The orchestrator auto-discovers the new test as `processor_a1_unicycle.branch_test`.
 
-```bash
-./tools/orchestrator simulate --test processor_a1_unicycle.branch_test
-```
+    ```
+    ./tools/orchestrator simulate --test processor_a1_unicycle.branch_test
+    ```
 
 ## Workflow: Adding a new processor
 
 1.  **Create Directories:**
-    *   `mkdir -p rtl/processor_b_pipelined`
-    *   `mkdir -p tb/processor_b_pipelined`
-    *   `mkdir -p sim/processor_b_pipelined`
+
+    ```bash
+    mkdir -p rtl/processor_b_pipelined
+    mkdir -p tb/processor_b_pipelined
+    mkdir -p sim/processor_b_pipelined
+    ```
 
 2.  **Develop RTL & Testbench:** Create the necessary source files in the new `rtl/` and `tb/` directories. Create a top-level RTL filelist for the new processor.
 
 3.  **Create Simulation Configuration:** Add a `Makefile` and `filelist.f` to `sim/processor_b_pipelined/`.
 
 4.  **Run:** The orchestrator auto-discovers the new test (`processor_b_pipelined`).
+
     ```bash
     ./tools/orchestrator simulate --test processor_b_pipelined
     ```
@@ -101,7 +106,7 @@ The orchestrator discovers simulators by finding `*.mk` files in `sim/scripts/`.
 
 I don't know if this `verilator` config works, just an example:
 
-```
+```makefile
 # Verilator compiles to a C++ executable and requires a harness
 TOP_MODULE      := top_tb_wrapper
 COMPILER        := verilator
