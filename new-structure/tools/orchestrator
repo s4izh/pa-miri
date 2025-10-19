@@ -92,10 +92,10 @@ def main():
     parser = argparse.ArgumentParser(
         description=f"""PA Orchestrator
 
-Available tests:
+Available tests (select with --test):
 {tests_help}
 
-Available simulators:
+Available simulators (select with --sim):
 {sims_help}
 """,
         formatter_class=argparse.RawTextHelpFormatter,
