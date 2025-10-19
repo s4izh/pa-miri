@@ -1,4 +1,4 @@
-# Multi-Processor Development Environment
+# Multi-processor development environment
 
 Hardware design and verification environment for a series of processors. All tasks are managed via the `./tools/orchestrator` script.
 
@@ -24,14 +24,18 @@ source set_env.sh
 ./tools/orchestrator waves --test processor_a1_unicycle
 ```
 
-## Project Structure
+## Project structure
 
 *   `rtl/`: Contains all synthesizable hardware designs (`.sv`) and their corresponding RTL-only filelists (`.f`).
 *   `tb/`: Contains all non-synthesizable testbench code.
-*   `sim/`: Contains simulation configurations. Each subdirectory is a test discovered by the orchestrator.
+*   `sim/`: Contains **simulation configurations**. This is the project's
+"control panel." **Crucially, any subdirectory under `sim/` that contains a
+`filelist.f` is automatically discovered by the orchestrator as a runnable
+test.** The path to the directory becomes the test name (e.g.,
+`sim/common/rv_regfile_test` becomes the test `common.rv_regfile_test`).
 *   `asm/`: Contains assembly source (`.asm`) and compiled program (`.hex`) files.
 
-## Workflow: Adding a New Processor Test
+## Workflow: Adding a new processor test
 
 This is the primary method for verifying a processor. This example adds a new test named `branch_test` to `processor_a1_unicycle`.
 
@@ -66,7 +70,7 @@ This is the primary method for verifying a processor. This example adds a new te
 ./tools/orchestrator simulate --test processor_a1_unicycle.branch_test
 ```
 
-## Workflow: Adding a New Processor
+## Workflow: Adding a new processor
 
 1.  **Create Directories:**
     *   `mkdir -p rtl/processor_b_pipelined`
@@ -82,7 +86,7 @@ This is the primary method for verifying a processor. This example adds a new te
     ./tools/orchestrator simulate --test processor_b_pipelined
     ```
 
-## Adding a New Simulator
+## Workflow: Adding a new simulator
 
 The orchestrator discovers simulators by finding `*.mk` files in `sim/scripts/`.
 
