@@ -1,5 +1,4 @@
 module top_tb;
-
     logic clk;
     logic reset_n;
 

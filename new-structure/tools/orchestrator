@@ -6,8 +6,8 @@ import sys
 from pathlib import Path
 
 def find_proj_root():
-    """Detect or export PROJ_ROOT automatically."""
-    env_root = os.getenv("PROJ_ROOT")
+    """Detect or export PROJ_DIR automatically."""
+    env_root = os.getenv("PROJ_DIR")
     if env_root:
         root = Path(env_root).resolve()
         if root.exists():
@@ -16,27 +16,46 @@ def find_proj_root():
     current = Path(__file__).resolve()
     for parent in [current] + list(current.parents):
         if (parent / "sim").is_dir() and (parent / "rtl").is_dir():
-            os.environ["PROJ_ROOT"] = str(parent)
-            print(f"[INFO] PROJ_ROOT not set — auto-detected and exported: {parent}")
+            os.environ["PROJ_DIR"] = str(parent)
+            print(f"[INFO] PROJ_DIR not set — auto-detected and exported: {parent}")
             return parent
-    sys.exit("[ERROR] Could not determine project root. Please export PROJ_ROOT manually.")
+    sys.exit("[ERROR] Could not determine project root. Please export PROJ_DIR manually.")
 
-PROJ_ROOT = find_proj_root()
-SIM_COMMON = PROJ_ROOT / "sim" / "common"
-SIM_SCRIPTS = PROJ_ROOT / "sim" / "scripts"
+PROJ_DIR = find_proj_root()
+SIM_ROOT = PROJ_DIR / "sim"
+SIM_COMMON = SIM_ROOT / "common"
+SIM_SCRIPTS = SIM_ROOT / "scripts"
 
 def list_tests():
-    """Find all *_test directories."""
-    return sorted([d.name.replace("_test", "") for d in SIM_COMMON.glob("*_test") if d.is_dir()])
+    """
+    A valid test is any directory under sim/ that contains a filelist.f.
+    """
+    tests = []
+    for filelist_path in SIM_ROOT.rglob("filelist.f"):
+        test_dir = filelist_path.parent
+        relative_path = test_dir.relative_to(SIM_ROOT)
+        test_name = ".".join(relative_path.parts)
+        tests.append(test_name)
+    return sorted(tests)
+
+def test_name_to_folder(test_name):
+    path_parts = test_name.split(".")
+    return SIM_ROOT.joinpath(*path_parts)
+
+def test_name_to_build_dir(test_name, sim):
+    parts = test_name.split(".")
+    return PROJ_DIR / "build" / "/".join(parts) / sim
 
 def list_simulators():
-    """Find all available simulators under sim/scripts."""
     return sorted([f.stem for f in SIM_SCRIPTS.glob("*.mk")])
 
 def run_make(test, action, sim):
-    test_dir = SIM_COMMON / f"{test}_test"
+    test_dir = test_name_to_folder(test)
+    build_dir = test_name_to_build_dir(test, sim)
+
     env = os.environ.copy()
-    env["PROJ_ROOT"] = str(PROJ_ROOT)
+    env["PROJ_DIR"] = str(PROJ_DIR)
+    env["BUILD_DIR"] = str(build_dir)
 
     cmd = ["make", "-C", str(test_dir), action]
     if action != "clean":
@@ -52,11 +71,12 @@ def run_make(test, action, sim):
         elif action == "clean":
             print(f"[CLEAN] {test} cleaned")
         else:
+            print(f"{stdout}", end="")
             print(f"[SUCCESS] {test} ({sim}) {action}")
         return True
     except subprocess.CalledProcessError as e:
         print(f"[FAIL] {test} ({sim}) {action} failed with exit code {e.returncode}")
-        print(f"  --> Log output:\n{e.stdout}\n{e.stderr}")
+        print(f"{e.stdout}\n{e.stderr}")
         return False
     except KeyboardInterrupt:
         print(f"\n[INTERRUPTED] Stopped while running {test}")
@@ -88,7 +108,7 @@ Available simulators:
     args = parser.parse_args()
 
     if args.verbose:
-        print(f"PROJ_ROOT = {PROJ_ROOT}")
+        print(f"PROJ_DIR = {PROJ_DIR}")
         print(f"Detected tests: {tests}")
         print(f"Detected simulators: {sims}")
 
@@ -114,9 +134,7 @@ Available simulators:
         for f in failed:
             print(f"   - {f}")
         sys.exit(1)
-    # else:
-    #     print("All tests passed successfully!")
-
 
 if __name__ == "__main__":
     main()
+

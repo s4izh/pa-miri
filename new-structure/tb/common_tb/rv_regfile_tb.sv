@@ -13,7 +13,7 @@ module tb (
     logic            rd_we_i;
 
     // Instantiate the DUT (Design Under Test)
-    regfile #(
+    rv_regfile #(
         .XLEN(XLEN),
         .NREG(NREG)
     ) dut (.*);

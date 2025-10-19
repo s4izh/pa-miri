@@ -1,19 +1,17 @@
 export SIM ?= iverilog
 
-SV_FILES := $(shell python3 $(PROJ_ROOT)/tools/parse_filelist.py $(FILELIST))
+SV_FILES := $(shell python3 $(PROJ_DIR)/tools/parse_filelist.py $(FILELIST))
 
 # it's important that BUILD_DIR is
 # defined before including the simulator makefile
 # so that it can be used there
-BUILD_DIR := $(PROJ_ROOT)/build/$(TARGET)/$(SIM)
+# BUILD_DIR := $(PROJ_DIR)/build/$(TARGET)/$(SIM)
 
-include $(PROJ_ROOT)/sim/scripts/$(SIM).mk
-
-VCD_FILE  ?= $(BUILD_DIR)/waveform.vcd
+include $(PROJ_DIR)/sim/scripts/$(SIM).mk
 
 # $(info --- MAKE DEBUG ---)
 # $(info TARGET      = $(TARGET))
-# $(info FILELIST    = $(PROJ_ROOT)/$(FILELIST))
+# $(info FILELIST    = $(PROJ_DIR)/$(FILELIST))
 # $(info SV_FILES    = $(SV_FILES))
 # $(info COMPILED_FILE = $(COMPILED_FILE))
 # $(info COMPILED_FILE = $(COMPILED_FILE))
@@ -26,18 +24,18 @@ all: simulate
 compile: $(COMPILED_FILE)
 
 $(COMPILED_FILE): $(SV_FILES)
-	@echo "--- [COMPILE] ---"
+	@echo "[COMPILE]"
 	@mkdir -p $(BUILD_DIR)
 	cd $(BUILD_DIR) && $(COMPILE_COMMAND)
 
 simulate: compile $(COMPILED_FILE)
-	@echo "--- [SIMULATE] ---"
+	@echo "[SIMULATE]"
 	cd $(BUILD_DIR) && $(SIM_COMMAND)
 
 waves: simulate
-	@echo "--- [WAVES] ---"
+	@echo "[WAVES]"
 	gtkwave $(VCD_FILE) &
 
 clean:
-	@echo "--- [CLEAN] Removing build files ---"
+	@echo "[CLEAN] Removing build files"
 	rm -rf $(BUILD_DIR)

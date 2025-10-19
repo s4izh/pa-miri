@@ -1,1 +1,1 @@
-$(PROJ_ROOT)/rtl/common/regfile.sv
+$(PROJ_DIR)/rtl/common/regfile.sv
