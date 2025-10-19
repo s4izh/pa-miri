@@ -8,8 +8,7 @@ module top_tb_wrapper;
     end
 
     initial begin
-        reg [128*8-1:0] vcd_filename;
-
+        string vcd_filename;
         if ($value$plusargs("VCD_FILE=%s", vcd_filename)) begin
             $display("VCD dumping enabled. Output file: %s", vcd_filename);
             $dumpfile(vcd_filename);

@@ -2,13 +2,9 @@ module tb (
     input logic clk,
     input logic reset_n
 );
-
-    string hexfile = "";
-
     parameter int XLEN = 32;
     parameter int IALEN = 12;
     parameter int DALEN = 12;
-    parameter int NREG = 32;
 
     logic[IALEN-1:0]    imem_addr_o;
     logic[XLEN-1:0]     imem_data_i;
@@ -63,14 +59,6 @@ module tb (
             $display("DMEM SIGNALS: dmem_addr_o = %h, dmem_data_o = %h, dmem_data_i = %h, dmem_we_o = %b", dmem_addr_o, dmem_data_o, dmem_data_i, dmem_we_o);
             $display("------------------------------------------------------------------");
         end
-    end
-
-    // Monitor signals
-    initial begin
-        // $monitor("Time: %0t | Reset: %b | State: %d | Data_in: 0x%02h | Data_out: 0x%02h | Valid: %b",
-        //          $time, reset_n, dut.current_state, data_in, data_out, valid_out);
-        $monitor("Time: %0t | Clock: %b | Reset: %b",
-                 $time, clk, reset_n);
     end
 
 endmodule
