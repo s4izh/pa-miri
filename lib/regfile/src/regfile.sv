@@ -1,5 +1,5 @@
-`ifndef REGFILE_M_
-`define REGFILE_M_
+`ifndef _REGFILE_M_
+`define _REGFILE_M_
 
 module regfile#(
     parameter int XLEN = 32,

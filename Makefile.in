@@ -35,7 +35,7 @@ $(VVP_FILE):
 compile: $(VVP_FILE) tags
 
 tags:
-	ctags -R -f $(TAGS_FILE) \
+	@ctags -R -f $(TAGS_FILE) \
 		--languages=SystemVerilog \
         --links=no \
 		--exclude="$(BUILD_DIR)" \
@@ -44,7 +44,7 @@ tags:
         --exclude="utils" \
         --exclude="Makefile" \
         --exclude "Makefile.in" \
-        .
+        $(PROJ_ROOT) 2>/dev/null
 
 simulate: $(VVP_FILE)
 	@mkdir -p $(dir $(VCD_FILE))

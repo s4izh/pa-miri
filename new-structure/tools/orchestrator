@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+import argparse
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+def find_proj_root():
+    """Detect or export PROJ_ROOT automatically."""
+    env_root = os.getenv("PROJ_ROOT")
+    if env_root:
+        root = Path(env_root).resolve()
+        if root.exists():
+            return root
+
+    current = Path(__file__).resolve()
+    for parent in [current] + list(current.parents):
+        if (parent / "sim").is_dir() and (parent / "rtl").is_dir():
+            os.environ["PROJ_ROOT"] = str(parent)
+            print(f"[INFO] PROJ_ROOT not set — auto-detected and exported: {parent}")
+            return parent
+    sys.exit("[ERROR] Could not determine project root. Please export PROJ_ROOT manually.")
+
+PROJ_ROOT = find_proj_root()
+SIM_COMMON = PROJ_ROOT / "sim" / "common"
+SIM_SCRIPTS = PROJ_ROOT / "sim" / "scripts"
+
+def list_tests():
+    """Find all *_test directories."""
+    return sorted([d.name.replace("_test", "") for d in SIM_COMMON.glob("*_test") if d.is_dir()])
+
+def list_simulators():
+    """Find all available simulators under sim/scripts."""
+    return sorted([f.stem for f in SIM_SCRIPTS.glob("*.mk")])
+
+def run_make(test, action, sim):
+    test_dir = SIM_COMMON / f"{test}_test"
+    env = os.environ.copy()
+    env["PROJ_ROOT"] = str(PROJ_ROOT)
+
+    cmd = ["make", "-C", str(test_dir), action]
+    if action != "clean":
+        cmd.append(f"SIM={sim}")
+
+    print(f"[RUNNING] {' '.join(cmd)}")
+
+    try:
+        result = subprocess.run(cmd, check=True, env=env, capture_output=True, text=True)
+        stdout = result.stdout
+        if "Nothing to be done" in stdout:
+            print(f"[SKIPPED] {test} ({sim}) {action} skipped — targets up to date")
+        elif action == "clean":
+            print(f"[CLEAN] {test} cleaned")
+        else:
+            print(f"[SUCCESS] {test} ({sim}) {action}")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"[FAIL] {test} ({sim}) {action} failed with exit code {e.returncode}")
+        print(f"  --> Log output:\n{e.stdout}\n{e.stderr}")
+        return False
+    except KeyboardInterrupt:
+        print(f"\n[INTERRUPTED] Stopped while running {test}")
+        sys.exit(1)
+
+def main():
+    tests = list_tests()
+    sims = list_simulators()
+
+    tests_help = "\n".join(f"  - {t}" for t in tests) or "  (none found)"
+    sims_help = "\n".join(f"  - {s}" for s in sims) or "  (none found)"
+
+    parser = argparse.ArgumentParser(
+        description=f"""PA Orchestrator
+
+Available tests:
+{tests_help}
+
+Available simulators:
+{sims_help}
+""",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    parser.add_argument("action", choices=["compile", "simulate", "waves", "clean"],
+                        help="Action to perform (compile/simulate/waves/clean).")
+    parser.add_argument("--test", help="Specific test name (omit for all).")
+    parser.add_argument("--sim", default="iverilog", help="Simulator (default: iverilog).")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Print debug info.")
+    args = parser.parse_args()
+
+    if args.verbose:
+        print(f"PROJ_ROOT = {PROJ_ROOT}")
+        print(f"Detected tests: {tests}")
+        print(f"Detected simulators: {sims}")
+
+    if args.sim not in sims:
+        sys.exit(f"[ERROR] Simulator '{args.sim}' not found. Available: {', '.join(sims)}")
+
+    failed = []
+
+    if args.test:
+        if args.test not in tests:
+            sys.exit(f"[ERROR] Test '{args.test}' not found among: {', '.join(tests)}")
+        ok = run_make(args.test, args.action, args.sim)
+        if not ok:
+            failed.append(args.test)
+    else:
+        for t in tests:
+            ok = run_make(t, args.action, args.sim)
+            if not ok:
+                failed.append(t)
+
+    if failed:
+        print("Some tests failed:")
+        for f in failed:
+            print(f"   - {f}")
+        sys.exit(1)
+    # else:
+    #     print("All tests passed successfully!")
+
+
+if __name__ == "__main__":
+    main()
