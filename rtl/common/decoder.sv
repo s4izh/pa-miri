@@ -1,3 +1,4 @@
+import compare_pkg::*;
 import datapath_pkg::*;
 
 module decoder #(
