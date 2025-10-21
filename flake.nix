@@ -10,6 +10,12 @@
   outputs = { nixpkgs, flake-utils, ... }: flake-utils.lib.eachDefaultSystem (system:
     let
       pkgs = import nixpkgs { inherit system; };
+      python-pkgs = with pkgs; [
+        (python312.withPackages (ps: [
+          ps.argcomplete
+        ]))
+      ];
+
     in rec {
       devShell = pkgs.mkShell {
         buildInputs = with pkgs; [
@@ -18,6 +24,7 @@
           surfer
           svls
           universal-ctags
+          python-pkgs
         ];
       };
     }
