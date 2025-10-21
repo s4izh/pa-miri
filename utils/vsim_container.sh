@@ -18,19 +18,19 @@ DOCKER_ARGUMENTS=$@
 XAUTHORITY=${XAUTHORITY:-$HOME/.Xauthority}
 
 podman run \
+    -ti \
     --rm \
-    --tty \
-    --interactive \
-    --user "$(id -u):$(id -g)" \
-    --volume "${HOME}:${HOME}:rw" \
-    --env DISPLAY=$DISPLAY \
-    --env XAUTHORITY=$XAUTHORITY \
-    --volume "/tmp/.X11-unix:/tmp/.X11-unix:rw" \
-    --volume "$XAUTHORITY:$XAUTHORITY:rw" \
+    --workdir ${HOME} \
+    -e DISPLAY=${DISPLAY} \
+    -v "/tmp/.X11-unix:/tmp/.X11-unix:rw" \
+    -v "${HOME}:${HOME}:rw" \
+    -e XAUTHORITY=${XAUTHORITY} \
+    -v "${XAUTHORITY}:${XAUTHORITY}:rw" \
+    -v "/etc/group:/etc/group:ro" \
+    -v "/etc/passwd:/etc/passwd:ro" \
     --entrypoint /bin/bash \
     registry.gitlab.com/tymonx/docker-modelsim \
     ${DOCKER_ARGUMENTS:+-c "$DOCKER_ARGUMENTS"}
 
-
-    # --volume "/etc/group:/etc/group:ro" \
-    # --volume "/etc/passwd:/etc/passwd:ro" \
+    # This argument messses up with permisions
+    # --user "$(id -u):$(id -g)" \
