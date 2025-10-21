@@ -1,15 +1,17 @@
 TOP_MODULE     := top_tb_wrapper
 
-VSIM := $(PROJ_DIR)/utils/vsim.sh
+CONTAINER := $(PROJ_DIR)/utils/vsim_container.sh
+# CONTAINER :=
 
-COMPILER       := $(VSIM)
-# COMPILE_FLAGS  := -g2012 -Wall $(SV_FILES) -s $(TOP_MODULE)
-COMPILE_FLAGS  := $(PROJ_DIR)/utils/vsim_compile.tcl
-COMPILED_FILE  := $(BUILD_DIR)/work
-# COMPILE_COMMAND := $(COMPILER) -o $(COMPILED_FILE) $(COMPILE_FLAGS)
-COMPILE_COMMAND := export SV_FILES="$(SV_FILES)"; $(COMPILER) $(COMPILE_FLAGS)
 
+COMPILER       := $(CONTAINER) vlog
+COMPILED_FILE  := $(BUILD_DIR)/build
+COMPILE_FLAGS  := -sv -createlib -work $(COMPILED_FILE)
+COMPILE_COMMAND := $(COMPILER) $(COMPILE_FLAGS) $(SV_FILES)
+
+TRANSCRIPT_FILE := $(BUILD_DIR)/transcript
 VCD_FILE       := $(BUILD_DIR)/waveform.vcd
-SIMULATOR      := $(VSIM)
-SIM_FLAGS      := $(PROJ_DIR)/utils/vsim_compile.tcl +VCD_FILE=$(VCD_FILE) $(PLUSARGS)
-SIM_COMMAND    := $(SIMULATOR) $(COMPILED_FILE) $(SIM_FLAGS)
+SIMULATOR      := $(CONTAINER) vsim
+# SIM_FLAGS      := $(PROJ_DIR)/utils/vsim_run.tcl #+VCD_FILE=$(VCD_FILE) $(PLUSARGS)
+SIM_FLAGS      := -c -work $(COMPILED_FILE) -l $(BUILD_DIR)/build/transcript $(PLUSARGS) -do "set NoQuitOnFinish 1" -do "run -all;"
+SIM_COMMAND    := $(SIMULATOR) $(SIM_FLAGS)
