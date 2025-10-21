@@ -55,7 +55,7 @@ module processor_a1_unicycle# (
         end else begin
             case (pc_m)
                 MUX_PC_MAS_UNO:
-                    pc <= pc + IALEN'(1);
+                    pc <= pc + 1;
                 MUX_PC_BRANCH:
                     pc <= add_op_result;
             endcase
@@ -69,7 +69,7 @@ module processor_a1_unicycle# (
             MUX_RA_RA:
                 add_op_1 = ra_data;
             MUX_RA_0:
-                add_op_1 = XLEN'(0);
+                add_op_1 = 0;
         endcase
     end
 

@@ -1,5 +1,6 @@
 import compare_pkg::*;
 import datapath_pkg::*;
+import compare_pkg::*;
 
 module decoder #(
     parameter int XLEN = 32,
