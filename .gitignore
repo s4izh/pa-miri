@@ -32,6 +32,7 @@ Thumbs.db
 build/
 obj/
 bin/
+rtl_work
 
 # other
 .direnv/
