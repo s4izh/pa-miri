@@ -34,11 +34,63 @@ module memory_controller #(
 
     logic xcpt_misaligned;
 
+    logic [MEM_DLEN_BYTES-1:0] byte_offset;
+    logic [MEM_DLEN-1:0] read_data_aligned;
+
     assign mem_we_o = we_i & valid_i & ~xcpt_misaligned;
     assign mem_addr_o = addr_i[MEM_ALEN-1+MEM_DLEN_BYTES_BITS:MEM_DLEN_BYTES_BITS]; // addresses above 2^(MEM_ALEN+MEM_DLEN_BYTES_BITS)-1 (2^14) will wrap around
     assign valid_o = valid_i;
     assign xcpt_o = xcpt_misaligned;
+    assign byte_offset = addr_i[MEM_DLEN_BYTES_BITS-1:0];
 
+    always_comb begin
+        mem_data_o = '0;
+        mem_byte_en_o = '0;
+        case (width_i)
+            MEMOP_WIDTH_8: begin
+                mem_data_o = data_i[7:0] << (byte_offset * 8);
+                mem_byte_en_o = 1'b1 << byte_offset;
+            end
+            MEMOP_WIDTH_16: begin
+                mem_data_o = data_i[15:0] << (byte_offset * 8);
+                mem_byte_en_o = 2'b11 << byte_offset;
+            end
+            MEMOP_WIDTH_32: begin
+                mem_data_o = data_i;
+                mem_byte_en_o = '1; // all ones
+            end
+            default: ;
+        endcase
+    end
+
+    // check for exceptions
+    always_comb begin
+        xcpt_misaligned = 1'b0;
+        case (width_i)
+            MEMOP_WIDTH_16: if (addr_i[0])           xcpt_misaligned = 1'b1;
+            MEMOP_WIDTH_32: if (addr_i[1:0] != 2'b0) xcpt_misaligned = 1'b1;
+            MEMOP_WIDTH_INVALID:                     xcpt_misaligned = 1'b1;
+            default: ;
+        endcase
+    end
+
+    assign read_data_aligned = mem_data_i >> (byte_offset * 8);
+
+    always_comb begin
+        data_o = '0;
+        case (width_i)
+            // grab the bottom 8 bits and zero-extend
+            MEMOP_WIDTH_8:  data_o = {{XLEN-8{1'b0}}, read_data_aligned[7:0]};
+            // grab the bottom 16 bits and zero-extend
+            MEMOP_WIDTH_16: data_o = {{XLEN-16{1'b0}}, read_data_aligned[15:0]};
+            // grab 32 bits
+            MEMOP_WIDTH_32: data_o = read_data_aligned[XLEN-1:0];
+            // TODO: cambiar por load/store access fault creo
+            MEMOP_WIDTH_INVALID: data_o = '0; // xcpt_misaligned = 1'b1;
+        endcase
+    end
+
+/*
     always_comb begin
         logic [MEM_DLEN_BYTES-1:0] alignment;
         case(width_i)
@@ -102,5 +154,6 @@ module memory_controller #(
         xcpt_misaligned = (|alignment) ? 1 : 0;
 
     end
+*/
 
 endmodule
