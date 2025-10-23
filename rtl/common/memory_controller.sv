@@ -32,13 +32,13 @@ module memory_controller #(
     localparam MEM_DLEN_BYTES = MEM_DLEN/8;
     localparam MEM_DLEN_BYTES_BITS = $clog2(MEM_DLEN_BYTES);
 
-    logic xcpt;
+    logic xcpt_misaligned;
 
-    assign mem_we_o = we_i & valid_i & ~xcpt;
-    assign mem_addr_o = addr_i[MEM_ALEN-1+MEM_DLEN_BYTES:MEM_DLEN_BYTES]; // addresses above 2^(MEM_ALEN+MEM_DLEN_BYTES)-1 (2^14) will wrap around
-
+    assign mem_we_o = we_i & valid_i & ~xcpt_misaligned;
+    assign mem_addr_o = addr_i[MEM_ALEN-1+MEM_DLEN_BYTES_BITS:MEM_DLEN_BYTES_BITS]; // addresses above 2^(MEM_ALEN+MEM_DLEN_BYTES_BITS)-1 (2^14) will wrap around
     assign valid_o = valid_i;
-    assign xcpt_o = xcpt;
+    assign xcpt_o = xcpt_misaligned;
+
     always_comb begin
         logic [MEM_DLEN_BYTES-1:0] alignment;
         case(width_i)
@@ -74,14 +74,14 @@ module memory_controller #(
             MEMOP_WIDTH_16: begin
                 logic [15:0] slice;
                 alignment = {1'b0, addr_i[0]};
-                case (addr_i[0])
+                case (addr_i[1])
                     1'b0: begin
-                        mem_data_o = {'0, data_i[15:0]};
+                        mem_data_o = {16'b0, data_i[15:0]};
                         mem_byte_en_o = 4'b0011;
                         slice = mem_data_i[15:0];
                     end
                     1'b1: begin
-                        mem_data_o = {data_i[15:0], '0};
+                        mem_data_o = {data_i[15:0], 16'b0};
                         mem_byte_en_o = 4'b1100;
                         slice = mem_data_i[31:16];
                     end
@@ -99,7 +99,7 @@ module memory_controller #(
             MEMOP_WIDTH_INVALID: alignment = 2'b11; // Trigger an exception
         endcase
 
-        xcpt = (|alignment) ? 1 : 0;
+        xcpt_misaligned = (|alignment) ? 1 : 0;
 
     end
 

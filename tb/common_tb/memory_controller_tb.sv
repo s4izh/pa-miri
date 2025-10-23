@@ -51,34 +51,80 @@ module tb (
 
     // Test sequence
     initial begin
-        valid_i = 0;
-        we_i = 0;
-        addr_i = 0;
-        data_i = 0;
-        width_i = MEMOP_WIDTH_INVALID;
-
+        noop(valid_i, we_i, addr_i, data_i, width_i);
         @(posedge reset_n);
         @(posedge clk);
 
-        // Write
-        valid_i = 1;
-        we_i = 1;
-        // addr_i = 32'h00001234;
-        addr_i = 32'h00000003;
-        data_i = 32'h000000ca;
-        width_i = MEMOP_WIDTH_8;
-
+        write(32'h00000100, MEMOP_WIDTH_32, 32'hcac0cafe,
+            valid_i, we_i, addr_i, data_i, width_i);
         @(posedge clk);
 
-        // Read
-        valid_i = 1;
-        we_i = 0;
-        addr_i = 32'h00000000;
-        width_i = MEMOP_WIDTH_32;
+        write(32'h00000105, MEMOP_WIDTH_8, 32'h000000ca,
+            valid_i, we_i, addr_i, data_i, width_i);
+        @(posedge clk);
 
+        read(32'h00000100, MEMOP_WIDTH_16,
+            valid_i, we_i, addr_i, data_i, width_i);
+        @(posedge clk);
+
+        read(32'h00000102, MEMOP_WIDTH_16,
+            valid_i, we_i, addr_i, data_i, width_i);
+        @(posedge clk);
+
+        read(32'h00000104, MEMOP_WIDTH_16,
+            valid_i, we_i, addr_i, data_i, width_i);
         @(posedge clk);
 
         $finish;
     end
+
+    task read (
+        input logic[XLEN-1:0] addr,
+        input memop_width_e width,
+
+        output logic valid_i,
+        output logic we_i,
+        output logic[XLEN-1:0] addr_i,
+        output logic[XLEN-1:0] data_i,
+        output memop_width_e width_i
+    );
+        valid_i = 1;
+        we_i    = 0;
+        addr_i  = addr;
+        data_i  = '0;
+        width_i = width;
+    endtask
+
+    task write (
+        input logic[XLEN-1:0] addr,
+        input memop_width_e width,
+        input logic[XLEN-1:0] data,
+
+        output logic valid_i,
+        output logic we_i,
+        output logic[XLEN-1:0] addr_i,
+        output logic[XLEN-1:0] data_i,
+        output memop_width_e width_i
+    );
+        valid_i = 1;
+        we_i    = 1;
+        addr_i  = addr;
+        data_i  = data;
+        width_i = width;
+    endtask
+
+    task noop (
+        output logic valid_i,
+        output logic we_i,
+        output logic[XLEN-1:0] addr_i,
+        output logic[XLEN-1:0] data_i,
+        output memop_width_e width_i
+    );
+        valid_i = 0;
+        we_i    = 0;
+        addr_i  = '0;
+        data_i  = '0;
+        width_i = MEMOP_WIDTH_INVALID;
+    endtask
 
 endmodule
