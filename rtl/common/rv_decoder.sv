@@ -15,9 +15,9 @@ module rv32i_decoder #(
     output logic             illegal_ins_o,
     
     // write enable signals
-    output logic             is_wb,
-    output logic             is_ld,
-    output logic             is_st,
+    output logic             is_wb_o,
+    output logic             is_ld_o,
+    output logic             is_st_o,
     
     // decoded instruction fields
     output logic [4:0]        rs1_addr_o,
@@ -67,14 +67,15 @@ module rv32i_decoder #(
         alu_a_sel_o   = MUX_ALU_A_RS1;
         alu_b_sel_o   = MUX_ALU_B_RS2;
         wb_sel_o      = MUX_WB_ALU;
-        is_wb         = 1'b0;
-        is_ld         = 1'b0;
-        ls_st         = 1'b0;
+        is_wb_o       = 1'b0;
+        is_ld_o       = 1'b0;
+        ls_st_o       = 1'b0;
+        illegal_ins_o = 1'b0;
 
         case (opcode)
             // x[rd] = sext(immediate[31:12] << 12)
             OPCODE_LUI: begin
-                is_wb       = 1'b1;
+                is_wb_o     = 1'b1;
                 alu_a_sel_o = MUX_ALU_A_RS1; // rs1_addr_o should be x0
                 alu_b_sel_o = MUX_ALU_B_IMM;
                 alu_op_o    = ALU_ADD; // x[rd] = 0 + imm
@@ -82,7 +83,7 @@ module rv32i_decoder #(
 
             // x[rd] = pc + sext(immediate[31:12] << 12)
             OPCODE_AUIPC: begin
-                is_wb       = 1'b1;
+                is_wb_o     = 1'b1;
                 alu_a_sel_o = MUX_ALU_A_PC;
                 alu_b_sel_o = MUX_ALU_B_IMM;
                 alu_op_o    = ALU_ADD; // x[rd] = pc + imm
@@ -90,14 +91,14 @@ module rv32i_decoder #(
 
             // x[rd] = pc+4; pc += sext(offset)
             OPCODE_JAL: begin
-                is_wb       = 1'b1;
+                is_wb_o     = 1'b1;
                 pc_sel_o    = PC_JUMP;
                 wb_sel_o    = MUX_WB_PC4; // x[rd] = pc+4, pc = pc + imm
             end
 
             // TODO: t = pc+4; pc=(x[rs1]+sext(offset))&∼1; x[rd]=t
             OPCODE_JALR: begin
-                is_wb       = 1'b1;
+                is_wb_o     = 1'b1;
                 pc_sel_o    = PC_JUMP;
                 wb_sel_o    = MUX_WB_PC4; // write PC+4 to rd
             end
@@ -117,8 +118,8 @@ module rv32i_decoder #(
             // to have a misaligned offset, maybe LW omits directly the last 4 bits
             // SHOULD check the spec
             OPCODE_LOAD: begin
-                is_wb       = 1'b1;
-                is_ld       = 1'b1;
+                is_wb_o     = 1'b1;
+                is_ld_o     = 1'b1;
                 alu_b_sel_o = MUX_ALU_B_IMM;
                 alu_op_o    = ALU_ADD; // address calculation: rs1 + imm
                 wb_sel_o    = MUX_WB_MEM; // result comes from dmem
@@ -126,13 +127,13 @@ module rv32i_decoder #(
 
             // store types (SB, SH, SW), funct3 decides which one
             OPCODE_STORE: begin
-                is_st       = 1'b1;
+                is_st_o     = 1'b1;
                 alu_b_sel_o = MUX_ALU_B_IMM;
                 alu_op_o    = ALU_ADD; // address calculation: rs1 + imm
             end
 
             OPCODE_IMM: begin // ADDI, SLTI, SLTIU, XORI, ORI, ANDI, SLLI, SRLI, SRAI
-                is_wb       = 1'b1;
+                is_wb_o     = 1'b1;
                 alu_b_sel_o = MUX_ALU_B_IMM;
                 // ALU operation depends on funct3
                 case (funct3)
@@ -149,7 +150,7 @@ module rv32i_decoder #(
             end
 
             OPCODE_OP: begin // ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND
-                is_wb       = 1'b1;
+                is_wb_o     = 1'b1;
                 // ALU operation depends on funct3 and funct7
                 case (funct3)
                     F3_ADDSUB: alu_op_o = (funct7 == F7_SUB) ? ALU_SUB : ALU_ADD;
