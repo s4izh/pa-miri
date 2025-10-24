@@ -35,6 +35,7 @@ module tb (
         .clk,
         .addr_i(dmem_addr_o),
         .we_i(dmem_we_o),
+        .byte_en_i('1),
         .data_i(dmem_data_o),
         .data_o(dmem_data_i)
     );

@@ -8,6 +8,7 @@ module sram #(
 
     // write port
     input logic we_i,
+    input logic [DATA_WIDTH/8-1:0] byte_en_i,
     input logic [DATA_WIDTH-1:0] data_i,
 
     // read port
@@ -19,7 +20,9 @@ module sram #(
 
     always_ff @(posedge clk) begin
         if (we_i) begin
-            sram_r[addr_i] <= data_i;
+            for (int i = 0; i < DATA_WIDTH/8; ++i) begin
+                if (byte_en_i[i]) sram_r[addr_i][(i*8) +: 8] <= data_i[(i*8) +: 8];
+            end
         end
     end
 
