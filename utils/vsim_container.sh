@@ -17,7 +17,15 @@
 DOCKER_ARGUMENTS=$@
 XAUTHORITY=${XAUTHORITY:-$HOME/.Xauthority}
 
-podman run \
+if [ -z "$CONTAINER_ENGINE" ]; then
+    if command -v podman >/dev/null 2>&1; then
+        CONTAINER_ENGINE=podman
+    else
+        CONTAINER_ENGINE=docker
+    fi
+fi
+
+$CONTAINER_ENGINE run \
     -ti \
     --rm \
     --workdir ${HOME} \
