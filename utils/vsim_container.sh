@@ -20,8 +20,12 @@ XAUTHORITY=${XAUTHORITY:-$HOME/.Xauthority}
 if [ -z "$CONTAINER_ENGINE" ]; then
     if command -v podman >/dev/null 2>&1; then
         CONTAINER_ENGINE=podman
-    else
+    elif command -v docker >/dev/null 2>&1; then
         CONTAINER_ENGINE=docker
+    else
+        echo "Unable to detect a container execution engine"
+        echo "Supported engines: podman docker"
+        exit 1
     fi
 fi
 
