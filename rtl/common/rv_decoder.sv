@@ -1,34 +1,34 @@
 import datapath_pkg::*;
 import memory_controller_pkg::*;
 
-module rv32i_decoder #(
+module rv_decoder #(
     parameter int XLEN = 32
 )(
-    input  logic [XLEN-1:0]   ins_i,
-    
+    input  logic [31:0]   ins_i,
+
     // outputs for datapath control
     output alu_op_e          alu_op_o,
-    output mux_alu_a_sel_e   alu_a_sel_o,
-    output mux_alu_b_sel_e   alu_b_sel_o,
+    output mux_alu_a_sel_e   alu_op1_sel_o,
+    output mux_alu_b_sel_e   alu_op2_sel_o,
     output mux_wb_sel_e      wb_sel_o,
 
     output mux_pc_sel_e      pc_sel_o,
     output logic             illegal_ins_o,
-    
+
     // write enable signals
     output logic             is_wb_o,
-    output logic             is_ld_o,
+    output logic             is_ld_o, // kept for convenience (is_ld_o = (wb_sel_o == MUX_WB_MEM) && is_wb_o)
     output logic             is_st_o,
-    
-    // decoded instruction fields
-    output logic [4:0]        rs1_addr_o,
-    output logic [4:0]        rs2_addr_o,
-    output logic [4:0]        rd_addr_o,
-    output logic [XLEN-1:0]   immed_o,
 
-    output compare_op_e       compare_op_o,
-    output memop_width_e      memop_width_o,
-    output logic              ld_unsigned_o
+    // decoded instruction fields
+    output logic [4:0]       rs1_addr_o,
+    output logic [4:0]       rs2_addr_o,
+    output logic [4:0]       rd_addr_o,
+    output logic [XLEN-1:0]  immed_o,
+
+    output compare_op_e      compare_op_o,
+    output memop_width_e     memop_width_o,
+    output logic             ld_unsigned_o
 );
     logic [6:0] opcode = ins_i[6:0];
     logic [2:0] funct3 = ins_i[14:12];
@@ -38,7 +38,7 @@ module rv32i_decoder #(
     // to select between rs1, pc or zero.
     // Since we are in riscv we can simplify this by using the
     // x0 register (which is always zero) for the zero case.
-    // effectively, turning a 3 to 1 MUX into a 2 to 1 MUX. 
+    // effectively, turning a 3 to 1 MUX into a 2 to 1 MUX.
     assign rs1_addr_o = (opcode == OPCODE_LUI) ? 5'b0 : ins_i[19:15];
     assign rs2_addr_o = ins_i[24:20];
     assign rd_addr_o  = ins_i[11:7];
@@ -68,9 +68,9 @@ module rv32i_decoder #(
 
     always_comb begin
         alu_op_o        = ALU_ADD;
-        pc_sel_o        = PC_PLUS_4;
-        alu_a_sel_o     = MUX_ALU_A_RS1;
-        alu_b_sel_o     = MUX_ALU_B_RS2;
+        pc_sel_o        = MUX_PC_NEXT;
+        alu_op1_sel_o     = MUX_ALU_OP1_RS1;
+        alu_op2_sel_o     = MUX_ALU_OP2_RS2;
         wb_sel_o        = MUX_WB_ALU;
         is_wb_o         = 1'b0;
         is_ld_o         = 1'b0;
@@ -83,34 +83,41 @@ module rv32i_decoder #(
             // x[rd] = sext(immediate[31:12] << 12)
             OPCODE_LUI: begin
                 is_wb_o     = 1'b1;
-                alu_a_sel_o = MUX_ALU_A_RS1; // rs1_addr_o should be x0
-                alu_b_sel_o = MUX_ALU_B_IMM;
+                alu_op1_sel_o = MUX_ALU_OP1_RS1; // rs1_addr_o should be x0
+                alu_op2_sel_o = MUX_ALU_OP2_IMM;
                 alu_op_o    = ALU_ADD; // x[rd] = 0 + imm
             end
 
             // x[rd] = pc + sext(immediate[31:12] << 12)
             OPCODE_AUIPC: begin
                 is_wb_o     = 1'b1;
-                alu_a_sel_o = MUX_ALU_A_PC;
-                alu_b_sel_o = MUX_ALU_B_IMM;
+                alu_op1_sel_o = MUX_ALU_OP1_PC;
+                alu_op2_sel_o = MUX_ALU_OP2_IMM;
                 alu_op_o    = ALU_ADD; // x[rd] = pc + imm
             end
 
             // x[rd] = pc+4; pc += sext(offset)
             OPCODE_JAL: begin
                 is_wb_o     = 1'b1;
-                pc_sel_o    = PC_JUMP;
-                wb_sel_o    = MUX_WB_PC4; // x[rd] = pc+4, pc = pc + imm
+                wb_sel_o    = MUX_WB_PC_NEXT;
+                pc_sel_o    = MUX_PC_JAL;
+                alu_op1_o   = MUX_ALU_OP1_PC;
+                alu_op2_o   = MUX_ALU_OP2_RS1;
             end
 
-            // TODO: t = pc+4; pc=(x[rs1]+sext(offset))&∼1; x[rd]=t
+            // t = pc+4; pc=(x[rs1]+sext(offset))&∼1; x[rd]=t
             OPCODE_JALR: begin
                 is_wb_o     = 1'b1;
-                pc_sel_o    = PC_JUMP;
-                wb_sel_o    = MUX_WB_PC4; // write PC+4 to rd
+                wb_sel_o    = MUX_WB_PC_NEXT;
+                pc_sel_o    = MUX_PC_JALR;
+                alu_op1_o   = MUX_ALU_OP1_RS1;
+                alu_op2_o   = MUX_ALU_OP2_IMM;
             end
 
             OPCODE_BRANCH: begin
+                pc_sel_o    = MUX_PC_BRANCH;
+                alu_op1_o   = MUX_ALU_OP1_PC;
+                alu_op2_o   = MUX_ALU_OP2_IMM;
                 case (funct3)
                     F3_BEQ:   compare_op_o  = COMPARE_OP_BEQ;
                     F3_BNE:   compare_op_o  = COMPARE_OP_BNE;
@@ -124,19 +131,19 @@ module rv32i_decoder #(
             OPCODE_LOAD: begin
                 is_wb_o     = 1'b1;
                 is_ld_o     = 1'b1;
-                alu_b_sel_o = MUX_ALU_B_IMM;
+                alu_op2_sel_o = MUX_ALU_OP2_IMM;
                 alu_op_o    = ALU_ADD;    // address calculation: rs1 + imm
                 wb_sel_o    = MUX_WB_MEM; // result comes from dmem
 
                 case (funct3)
-                    F3_LB:  memop_width_o = MEMOP_WIDTH_8; 
-                    F3_LH:  memop_width_o = MEMOP_WIDTH_16; 
-                    F3_LW:  memop_width_o = MEMOP_WIDTH_32; 
-                    F3_LBU: begin 
+                    F3_LB:  memop_width_o = MEMOP_WIDTH_8;
+                    F3_LH:  memop_width_o = MEMOP_WIDTH_16;
+                    F3_LW:  memop_width_o = MEMOP_WIDTH_32;
+                    F3_LBU: begin
                         memop_width_o = MEMOP_WIDTH_8;
                         ld_unsigned_o = 1;
                     end
-                    F3_LHU: begin 
+                    F3_LHU: begin
                         memop_width_o = MEMOP_WIDTH_16;
                         ld_unsigned_o = 1;
                     end
@@ -147,7 +154,7 @@ module rv32i_decoder #(
             // store types (SB, SH, SW), funct3 decides which one
             OPCODE_STORE: begin
                 is_st_o     = 1'b1;
-                alu_b_sel_o = MUX_ALU_B_IMM;
+                alu_op2_sel_o = MUX_ALU_OP2_IMM;
                 alu_op_o    = ALU_ADD; // address calculation: rs1 + imm
                 case (funct3)
                     F3_BEQ:  compare_op_o = COMPARE_OP_BEQ;
@@ -161,7 +168,7 @@ module rv32i_decoder #(
 
             OPCODE_IMM: begin // ADDI, SLTI, SLTIU, XORI, ORI, ANDI, SLLI, SRLI, SRAI
                 is_wb_o     = 1'b1;
-                alu_b_sel_o = MUX_ALU_B_IMM;
+                alu_op2_sel_o = MUX_ALU_OP2_IMM;
                 // ALU operation depends on funct3
                 case (funct3)
                     F3_ADDI:  alu_op_o = ALU_ADD;
