@@ -1,4 +1,5 @@
 import datapath_pkg::*;
+import memory_controller_pkg::*;
 
 module rv32i_decoder #(
     parameter int XLEN = 32
@@ -23,7 +24,11 @@ module rv32i_decoder #(
     output logic [4:0]        rs1_addr_o,
     output logic [4:0]        rs2_addr_o,
     output logic [4:0]        rd_addr_o,
-    output logic [XLEN-1:0]   immed_o
+    output logic [XLEN-1:0]   immed_o,
+
+    output compare_op_e       compare_op_o,
+    output memop_width_e      memop_width_o,
+    output logic              ld_unsigned_o
 );
     logic [6:0] opcode = ins_i[6:0];
     logic [2:0] funct3 = ins_i[14:12];
@@ -62,15 +67,17 @@ module rv32i_decoder #(
     end
 
     always_comb begin
-        alu_op_o      = ALU_ADD;
-        pc_sel_o      = PC_PLUS_4;
-        alu_a_sel_o   = MUX_ALU_A_RS1;
-        alu_b_sel_o   = MUX_ALU_B_RS2;
-        wb_sel_o      = MUX_WB_ALU;
-        is_wb_o       = 1'b0;
-        is_ld_o       = 1'b0;
-        ls_st_o       = 1'b0;
-        illegal_ins_o = 1'b0;
+        alu_op_o        = ALU_ADD;
+        pc_sel_o        = PC_PLUS_4;
+        alu_a_sel_o     = MUX_ALU_A_RS1;
+        alu_b_sel_o     = MUX_ALU_B_RS2;
+        wb_sel_o        = MUX_WB_ALU;
+        is_wb_o         = 1'b0;
+        is_ld_o         = 1'b0;
+        ls_st_o         = 1'b0;
+        illegal_ins_o   = 1'b0;
+        compare_op_o    = COMPARE_OP_NONE;
+        load_unsigned_o = 1'b0;
 
         case (opcode)
             // x[rd] = sext(immediate[31:12] << 12)
@@ -104,25 +111,37 @@ module rv32i_decoder #(
             end
 
             OPCODE_BRANCH: begin
-                // TODO: branch logic unit will use funct3 to decide BEQ, BNE, BLT etc.
-                // We can't use alu since alu is needed for address calculation.
-                // We need a separated subtractor unit that
-                // should substract rs1 - rs2 and set a sign flag and equal flag.
+                case (funct3)
+                    F3_BEQ:   compare_op_o  = COMPARE_OP_BEQ;
+                    F3_BNE:   compare_op_o  = COMPARE_OP_BNE;
+                    F3_BLT:   compare_op_o  = COMPARE_OP_BLT;
+                    F3_BGE:   compare_op_o  = COMPARE_OP_BGE;
+                    F3_BLTU:  compare_op_o  = COMPARE_OP_BLTU;
+                    default:  illegal_ins_o = 1'b1;
+                endcase
             end
 
-            // TODO: load types (LB, LH, LW, LBU, LHU), funct3 decides which one
-            // is it really needed? or we can handle it in the memory stage?
-            // 
-            // We could need it here to detect and invalid alignment early
-            // but I don't know if it's even possible for the instructions
-            // to have a misaligned offset, maybe LW omits directly the last 4 bits
-            // SHOULD check the spec
             OPCODE_LOAD: begin
                 is_wb_o     = 1'b1;
                 is_ld_o     = 1'b1;
                 alu_b_sel_o = MUX_ALU_B_IMM;
-                alu_op_o    = ALU_ADD; // address calculation: rs1 + imm
+                alu_op_o    = ALU_ADD;    // address calculation: rs1 + imm
                 wb_sel_o    = MUX_WB_MEM; // result comes from dmem
+
+                case (funct3)
+                    F3_LB:  memop_width_o = MEMOP_WIDTH_8; 
+                    F3_LH:  memop_width_o = MEMOP_WIDTH_16; 
+                    F3_LW:  memop_width_o = MEMOP_WIDTH_32; 
+                    F3_LBU: begin 
+                        memop_width_o = MEMOP_WIDTH_8;
+                        ld_unsigned_o = 1;
+                    end
+                    F3_LHU: begin 
+                        memop_width_o = MEMOP_WIDTH_16;
+                        ld_unsigned_o = 1;
+                    end
+                    default: illegal_ins_o = 1'b1;
+                endcase
             end
 
             // store types (SB, SH, SW), funct3 decides which one
@@ -130,6 +149,14 @@ module rv32i_decoder #(
                 is_st_o     = 1'b1;
                 alu_b_sel_o = MUX_ALU_B_IMM;
                 alu_op_o    = ALU_ADD; // address calculation: rs1 + imm
+                case (funct3)
+                    F3_BEQ:  compare_op_o = COMPARE_OP_BEQ;
+                    F3_BNE:  compare_op_o = COMPARE_OP_BNE;
+                    F3_BLT:  compare_op_o = COMPARE_OP_BLT;
+                    F3_BGE:  compare_op_o = COMPARE_OP_BGE;
+                    F3_BLTU: compare_op_o = COMPARE_OP_BLTU;
+                    default:  illegal_ins_o = 1'b1;
+                endcase
             end
 
             OPCODE_IMM: begin // ADDI, SLTI, SLTIU, XORI, ORI, ANDI, SLLI, SRLI, SRAI

@@ -8,13 +8,13 @@ typedef enum logic [0:0] {
     MUX_ALU_B_IMM
 } mux_alu_b_sel_e;
 
-typedef enum logic [0:0] {
+typedef enum logic [1:0] {
     MUX_WB_ALU,
     MUX_WB_MEM,
     MUX_WB_PC4 // for JAL/JALR
 } mux_wb_sel_e;
 
-typedef enum logic [0:0] {
+typedef enum logic [1:0] {
     PC_PLUS_4,
     PC_JUMP // for JAL/JALR and taken Branches
     // exceptions ??
@@ -51,8 +51,31 @@ localparam logic [2:0] F3_OR     = 3'b110;
 localparam logic [2:0] F3_ANDI   = 3'b111;
 localparam logic [2:0] F3_AND    = 3'b111;
 
+// funct3 for BEQ/BNE/BLT/BGE/BLTU
+localparam logic [2:0] F3_BEQ    = 3'b000;
+localparam logic [2:0] F3_BNE    = 3'b001;
+localparam logic [2:0] F3_BLT    = 3'b100;
+localparam logic [2:0] F3_BGE    = 3'b110;
+localparam logic [2:0] F3_BLTU   = 3'b111;
+
+localparam logic [2:0] F3_LB     = 3'b000;
+localparam logic [2:0] F3_LH     = 3'b001;
+localparam logic [2:0] F3_LW     = 3'b010;
+localparam logic [2:0] F3_LBU    = 3'b100;
+localparam logic [2:0] F3_LHU    = 3'b101;
+
 // funct7 for OP/IMM
 localparam logic [6:0] F7_ADD    = 7'b0000000;
 localparam logic [6:0] F7_SUB    = 7'b0100000;
 localparam logic [6:0] F7_SRA    = 7'b0100000;
 localparam logic [6:0] F7_SRL    = 7'b0000000;
+
+
+typedef enum logic [2:0] {
+    COMPARE_OP_BEQ,
+    COMPARE_OP_BNE,
+    COMPARE_OP_BLT,
+    COMPARE_OP_BGE,
+    COMPARE_OP_BLTU,
+    COMPARE_OP_NONE
+} compare_op_e;
