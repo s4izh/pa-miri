@@ -36,6 +36,7 @@ $(COMPILED_FILE): $(SV_FILES)
 
 simulate: compile $(COMPILED_FILE)
 	@echo "[SIMULATE]"
+	$(ROM_COMPILE_COMMAND)
 	cd $(BUILD_DIR) && $(SIM_COMMAND)
 
 waves: simulate
