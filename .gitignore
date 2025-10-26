@@ -39,3 +39,5 @@ rtl_work
 .tags
 TAGS
 tags
+
+*.gtkw

@@ -93,7 +93,7 @@ memory_controller #(
 
     // Mem output
     .mem_addr_o(dmem_addr_o),
-    .mem_data_o(dme_data_o),
+    .mem_data_o(dmem_data_o),
     .mem_byte_en_o(dmem_byte_en_o),
     .mem_we_o(dmem_we_o),
 

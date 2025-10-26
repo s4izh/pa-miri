@@ -6,6 +6,9 @@ _start:
     li  a1, 10      # Load immediate value 10 into register a1 (x11)
     add a2, a0, a1  # Add a0 and a1, store the result (15) in a2 (x12)
 
-# Infinite loop to halt the processor
+    li   a3, 1      
+
+    # let's count forever
 loop:
-    j   loop        # Jump to 'loop'
+    addi a3, a3, 1
+    j    loop

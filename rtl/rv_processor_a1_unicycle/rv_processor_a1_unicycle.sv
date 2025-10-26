@@ -81,8 +81,6 @@ module rv_processor_a1_unicycle# (
 
     always_comb begin
         case(alu_op2_sel)
-            MUX_ALU_OP2_RS1:
-                alu_op2 = rs1_data;
             MUX_ALU_OP2_RS2:
                 alu_op2 = rs2_data;
             MUX_ALU_OP2_IMM:

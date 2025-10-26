@@ -11,13 +11,19 @@ include $(PROJ_DIR)/sim/scripts/$(SIM).mk
 
 # $(info --- MAKE DEBUG ---)
 # $(info TARGET      = $(TARGET))
-# $(info FILELIST    = $(PROJ_DIR)/$(FILELIST))
+# $(info SIM         = $(SIM))
+# $(info FILELIST    = $(FILELIST))
 # $(info SV_FILES    = $(SV_FILES))
 # $(info COMPILED_FILE = $(COMPILED_FILE))
-# $(info COMPILED_FILE = $(COMPILED_FILE))
+# $(info COMPILE_COMMAND = $(COMPILE_COMMAND))
+# $(info COMPILE_COMMAND = $(SIM_COMMAND))
+# $(info CLEAN_COMMAND   = $(CLEAN_COMMAND))
 # $(info --- END DEBUG ---)
 
 .PHONY: all compile simulate waves clean
+
+WAVE_VIEWER ?= gtkwave
+SAVE_FILE ?= $(PROJ_DIR)/savefile.gtkw
 
 all: simulate
 
@@ -34,8 +40,9 @@ simulate: compile $(COMPILED_FILE)
 
 waves: simulate
 	@echo "[WAVES]"
-	gtkwave $(VCD_FILE) &
+	$(WAVE_VIEWER) $(VCD_FILE) $(SAVE_FILE) &
 
 clean:
 	@echo "[CLEAN] Removing build files"
-	rm -rf $(BUILD_DIR)
+	echo $(SIM) $(CLEAN_COMMAND)
+	$(CLEAN_COMMAND)

@@ -31,9 +31,13 @@ module rv_decoder #(
     output memop_width_e     memop_width_o,
     output logic             ld_unsigned_o
 );
-    logic [6:0] opcode = ins_i[6:0];
-    logic [2:0] funct3 = ins_i[14:12];
-    logic [6:0] funct7 = ins_i[31:25];
+    logic [6:0] opcode;
+    logic [2:0] funct3;
+    logic [6:0] funct7;
+
+    assign opcode = ins_i[6:0];
+    assign funct3 = ins_i[14:12];
+    assign funct7 = ins_i[31:25];
 
     // When loading an immediate we previously used a MUX
     // to select between rs1, pc or zero.
@@ -49,29 +53,28 @@ module rv_decoder #(
             OPCODE_LUI,
             OPCODE_AUIPC: // U-Type
                 immed_o = {ins_i[31:12], 12'b0};
-            OPCODE_JAL:   // J-Type
-                immed_o = { {12{ins_i[31]}}, ins_i[19:12], ins_i[20], ins_i[30:21], 1'b0 };
-            OPCODE_JALR:  // I-Type
-                immed_o = { {21{ins_i[31]}}, ins_i[30:20] };
             OPCODE_BRANCH: // B-Type
                 immed_o = { {20{ins_i[31]}}, ins_i[7], ins_i[30:25], ins_i[11:8], 1'b0 };
-            OPCODE_LOAD,
+            OPCODE_JAL:   // J-Type
+                immed_o = { {12{ins_i[31]}}, ins_i[19:12], ins_i[20], ins_i[30:21], 1'b0 };
+            OPCODE_JALR,
             OPCODE_IMM,
+            OPCODE_LOAD,
             OPCODE_FENCE,
             OPCODE_SYSTEM: // I-Type
                 immed_o = { {21{ins_i[31]}}, ins_i[30:20] };
             OPCODE_STORE:  // S-Type
                 immed_o = { {21{ins_i[31]}}, ins_i[30:25], ins_i[11:7] };
             default:
-                immed_o = 32'b0;
+                immed_o = 32'hDEADBEEF;
         endcase
     end
 
     always_comb begin
         alu_op_o        = ALU_ADD;
         pc_sel_o        = MUX_PC_NEXT;
-        alu_op1_sel_o     = MUX_ALU_OP1_RS1;
-        alu_op2_sel_o     = MUX_ALU_OP2_RS2;
+        alu_op1_sel_o   = MUX_ALU_OP1_RS1;
+        alu_op2_sel_o   = MUX_ALU_OP2_RS2;
         wb_sel_o        = MUX_WB_ALU;
         is_wb_o         = 1'b0;
         is_ld_o         = 1'b0;
@@ -91,34 +94,34 @@ module rv_decoder #(
 
             // x[rd] = pc + sext(immediate[31:12] << 12)
             OPCODE_AUIPC: begin
-                is_wb_o     = 1'b1;
+                is_wb_o       = 1'b1;
                 alu_op1_sel_o = MUX_ALU_OP1_PC;
                 alu_op2_sel_o = MUX_ALU_OP2_IMM;
-                alu_op_o    = ALU_ADD; // x[rd] = pc + imm
+                alu_op_o      = ALU_ADD; // x[rd] = pc + imm
             end
 
             // x[rd] = pc+4; pc += sext(offset)
             OPCODE_JAL: begin
-                is_wb_o     = 1'b1;
-                wb_sel_o    = MUX_WB_PC_NEXT;
-                pc_sel_o    = MUX_PC_JAL;
-                alu_op1_sel_o   = MUX_ALU_OP1_PC;
-                alu_op2_sel_o   = MUX_ALU_OP2_RS1;
+                is_wb_o       = 1'b1;
+                wb_sel_o      = MUX_WB_PC_NEXT;
+                pc_sel_o      = MUX_PC_JAL;
+                alu_op1_sel_o = MUX_ALU_OP1_PC;
+                alu_op2_sel_o = MUX_ALU_OP2_IMM;
             end
 
             // t = pc+4; pc=(x[rs1]+sext(offset))&∼1; x[rd]=t
             OPCODE_JALR: begin
-                is_wb_o     = 1'b1;
-                wb_sel_o    = MUX_WB_PC_NEXT;
-                pc_sel_o    = MUX_PC_JALR;
-                alu_op1_sel_o   = MUX_ALU_OP1_RS1;
-                alu_op2_sel_o   = MUX_ALU_OP2_IMM;
+                is_wb_o       = 1'b1;
+                wb_sel_o      = MUX_WB_PC_NEXT;
+                pc_sel_o      = MUX_PC_JALR;
+                alu_op1_sel_o = MUX_ALU_OP1_RS1;
+                alu_op2_sel_o = MUX_ALU_OP2_IMM;
             end
 
             OPCODE_BRANCH: begin
-                pc_sel_o    = MUX_PC_BRANCH;
-                alu_op1_sel_o   = MUX_ALU_OP1_PC;
-                alu_op2_sel_o   = MUX_ALU_OP2_IMM;
+                pc_sel_o      = MUX_PC_BRANCH;
+                alu_op1_sel_o = MUX_ALU_OP1_PC;
+                alu_op2_sel_o = MUX_ALU_OP2_IMM;
                 case (funct3)
                     F3_BEQ:   compare_op_o  = COMPARE_OP_BEQ;
                     F3_BNE:   compare_op_o  = COMPARE_OP_BNE;
@@ -157,13 +160,20 @@ module rv_decoder #(
                 is_st_o     = 1'b1;
                 alu_op2_sel_o = MUX_ALU_OP2_IMM;
                 alu_op_o    = ALU_ADD; // address calculation: rs1 + imm
+
                 case (funct3)
-                    F3_BEQ:  compare_op_o = COMPARE_OP_BEQ;
-                    F3_BNE:  compare_op_o = COMPARE_OP_BNE;
-                    F3_BLT:  compare_op_o = COMPARE_OP_BLT;
-                    F3_BGE:  compare_op_o = COMPARE_OP_BGE;
-                    F3_BLTU: compare_op_o = COMPARE_OP_BLTU;
-                    default:  illegal_ins_o = 1'b1;
+                    F3_LB:  memop_width_o = MEMOP_WIDTH_8;
+                    F3_LH:  memop_width_o = MEMOP_WIDTH_16;
+                    F3_LW:  memop_width_o = MEMOP_WIDTH_32;
+                    F3_LBU: begin
+                        memop_width_o = MEMOP_WIDTH_8;
+                        ld_unsigned_o = 1;
+                    end
+                    F3_LHU: begin
+                        memop_width_o = MEMOP_WIDTH_16;
+                        ld_unsigned_o = 1;
+                    end
+                    default: illegal_ins_o = 1'b1;
                 endcase
             end
 

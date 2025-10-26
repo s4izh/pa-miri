@@ -7,8 +7,7 @@ package rv_datapath_pkg;
         MUX_ALU_OP1_PC
     } mux_alu_op1_sel_e;
 
-    typedef enum logic [1:0] {
-        MUX_ALU_OP2_RS1,
+    typedef enum logic [0:0] {
         MUX_ALU_OP2_RS2,
         MUX_ALU_OP2_IMM
     } mux_alu_op2_sel_e;
