@@ -1,3 +1,6 @@
+`ifndef _RV_DATAPATH_PKG_
+`define _RV_DATAPATH_PKG_
+
 package rv_datapath_pkg;
     typedef enum logic [0:0] {
         MUX_ALU_OP1_RS1,
@@ -73,7 +76,6 @@ package rv_datapath_pkg;
     localparam logic [6:0] F7_SRA    = 7'b0100000;
     localparam logic [6:0] F7_SRL    = 7'b0000000;
 
-
     typedef enum logic [2:0] {
         COMPARE_OP_BEQ,
         COMPARE_OP_BNE,
@@ -83,3 +85,5 @@ package rv_datapath_pkg;
         COMPARE_OP_NONE
     } compare_op_e;
 endpackage
+
+`endif

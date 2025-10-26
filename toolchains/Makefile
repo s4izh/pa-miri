@@ -1,0 +1,57 @@
+TARGET ?= minimal
+ARCH   := -march=rv32i -mabi=ilp32
+
+TOOL_PREFIX := riscv32-unknown-elf-
+IMAGE_NAME  := $(DOCKER_TOOLCHAIN_IMAGE)
+
+DOCKER_USER_FLAGS := --rm --user "$$(id -u):$$(id -g)" -v "$$(pwd):/work" --workdir /work
+
+DOCKER_IMAGE_CHECK = $(shell docker images -q $(IMAGE_NAME) 2> /dev/null)
+
+CC      := docker run $(DOCKER_USER_FLAGS) $(IMAGE_NAME) $(TOOL_PREFIX)gcc
+OBJCOPY := docker run $(DOCKER_USER_FLAGS) $(IMAGE_NAME) $(TOOL_PREFIX)objcopy
+OBJDUMP := docker run $(DOCKER_USER_FLAGS) $(IMAGE_NAME) $(TOOL_PREFIX)objdump
+
+XXD  := xxd
+CUT  := cut
+
+.PHONY: all hex asm clean
+
+all: hex
+
+hex: $(TARGET).hex
+
+asm: $(TARGET).asm
+
+$(TARGET).hex: $(TARGET).elf | docker-image-build
+	@echo "Converting ELF to intermediate HEX..."
+	$(OBJCOPY) -O verilog --verilog-data-width 4 $< $(TARGET).tmp.hex
+	@echo "Formatting final HEX file (fixing spacing and line endings)..."
+	cat $(TARGET).tmp.hex | tr ' ' '\n' | tr -d '\r' > $@
+	rm -f $(TARGET).tmp.hex
+
+$(TARGET).bin: $(TARGET).elf | docker-image-build
+	@echo "Converting ELF to raw binary..."
+	$(OBJCOPY) -O binary --gap-fill 0 $< $@
+
+$(TARGET).asm: $(TARGET).elf | docker-image-build
+	@echo "Disassembling ELF to ASM..."
+	$(OBJDUMP) -d $< > $@
+
+$(TARGET).elf: $(TARGET).o | docker-image-build
+	@echo "Linking object file..."
+	$(CC) $(ARCH) -o $@ $< -T link.ld -nostdlib -Wl,-Map,$(TARGET).map
+
+$(TARGET).o: $(TARGET).s | docker-image-build
+	@echo "Compiling assembly..."
+	$(CC) $(ARCH) -c -o $@ $<
+
+docker-image-build:
+	@if [ -z "$(DOCKER_IMAGE_CHECK)" ]; then \
+		echo "Docker image '$(IMAGE_NAME)' not found, building..."; \
+		docker build -t $(IMAGE_NAME) $(TOOLCHAIN_DIR); \
+	fi
+
+clean:
+	@echo "Cleaning up..."
+	rm -f *.o *.elf *.bin *.hex *.asm *.map
