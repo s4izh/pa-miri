@@ -3,9 +3,7 @@ import memory_controller_pkg::*;
 import alu_pkg::*;
 
 module rv_processor_a1_unicycle# (
-    parameter int XLEN = 32,
-    parameter int IALEN = 12,
-    parameter int DALEN = 12
+    parameter int XLEN = 32
 )(
     input  logic clk,
     input  logic reset_n,
@@ -13,6 +11,8 @@ module rv_processor_a1_unicycle# (
     output logic[XLEN-1:0]  imem_addr_o,
     input  logic[XLEN-1:0]  imem_data_i,
 
+    output memop_width_e    dmem_width_o, // TODO
+    output logic            dmem_memop_valid_o, // TODO
     output logic[XLEN-1:0]  dmem_addr_o,
     output logic[XLEN-1:0]  dmem_data_o,
     output logic            dmem_we_o,
@@ -45,6 +45,8 @@ module rv_processor_a1_unicycle# (
     assign dmem_addr_o = alu_result;
     assign dmem_data_o = rs2_data;
     assign dmem_we_o = is_st;
+    assign dmem_width_o = memop_width;
+    assign dmem_memop_valid_o = is_ld || is_st;
 
     // PC
     always @(posedge clk) begin
