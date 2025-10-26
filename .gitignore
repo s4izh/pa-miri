@@ -41,3 +41,9 @@ TAGS
 tags
 
 *.gtkw
+
+*.o
+*.elf
+*.bin
+*.hex
+*.map
