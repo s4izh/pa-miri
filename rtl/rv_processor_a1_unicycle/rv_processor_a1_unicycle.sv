@@ -1,5 +1,6 @@
 import rv_datapath_pkg::*;
-import rv_compare_pkg::*;
+import memory_controller_pkg::*;
+import alu_pkg::*;
 
 module rv_processor_a1_unicycle# (
     parameter int XLEN = 32,
@@ -18,7 +19,7 @@ module rv_processor_a1_unicycle# (
     input  logic[XLEN-1:0]  dmem_data_i
 );
 
-    localparam int RALEN = $clog2(NREG);
+    localparam int RALEN = $clog2(32);
 
     logic [XLEN-1:0] rs1_data, rs2_data, rd_data;
     logic [RALEN-1:0] rs1_addr, rs2_addr, rd_addr;
@@ -42,7 +43,7 @@ module rv_processor_a1_unicycle# (
     // external interface
     assign imem_addr_o = pc;
     assign dmem_addr_o = alu_result;
-    assign dmem_data_o = rb_data;
+    assign dmem_data_o = rs2_data;
     assign dmem_we_o = is_st;
 
     // PC
@@ -100,7 +101,7 @@ module rv_processor_a1_unicycle# (
 
 
     rv_regfile #(
-        .XLEN(XLEN),
+        .XLEN(XLEN)
     ) regs_inst (
         .clk,
         .reset_n,
@@ -117,7 +118,7 @@ module rv_processor_a1_unicycle# (
     );
 
     rv_decoder #(
-        .XLEN(XLEN),
+        .XLEN(XLEN)
     ) dec_inst (
         .ins_i(imem_data_i),
 

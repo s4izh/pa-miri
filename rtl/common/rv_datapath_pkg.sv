@@ -13,7 +13,7 @@ package rv_datapath_pkg;
     typedef enum logic [1:0] {
         MUX_WB_ALU,
         MUX_WB_MEM,
-        MUX_WB_PC4 // for JAL/JALR
+        MUX_WB_PC_NEXT // for JAL/JALR
     } mux_wb_sel_e;
 
     typedef enum logic [1:0] {

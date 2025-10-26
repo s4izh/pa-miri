@@ -1,8 +1,10 @@
 `ifndef _ALU_M_
 `define _ALU_M_
 
+import alu_pkg::*;
+
 module alu#(
-    parameter int XLEN = 32,
+    parameter int XLEN = 32
 )(
     input logic [XLEN-1:0] op1_i,
     input logic [XLEN-1:0] op2_i,

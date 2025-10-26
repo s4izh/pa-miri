@@ -1,5 +1,6 @@
-import datapath_pkg::*;
+import rv_datapath_pkg::*;
 import memory_controller_pkg::*;
+import alu_pkg::*;
 
 module rv_decoder #(
     parameter int XLEN = 32
@@ -8,8 +9,8 @@ module rv_decoder #(
 
     // outputs for datapath control
     output alu_op_e          alu_op_o,
-    output mux_alu_a_sel_e   alu_op1_sel_o,
-    output mux_alu_b_sel_e   alu_op2_sel_o,
+    output mux_alu_op1_sel_e   alu_op1_sel_o,
+    output mux_alu_op2_sel_e   alu_op2_sel_o,
     output mux_wb_sel_e      wb_sel_o,
 
     output mux_pc_sel_e      pc_sel_o,
@@ -74,10 +75,10 @@ module rv_decoder #(
         wb_sel_o        = MUX_WB_ALU;
         is_wb_o         = 1'b0;
         is_ld_o         = 1'b0;
-        ls_st_o         = 1'b0;
+        is_st_o         = 1'b0;
         illegal_ins_o   = 1'b0;
         compare_op_o    = COMPARE_OP_NONE;
-        load_unsigned_o = 1'b0;
+        ld_unsigned_o = 1'b0;
 
         case (opcode)
             // x[rd] = sext(immediate[31:12] << 12)
@@ -101,8 +102,8 @@ module rv_decoder #(
                 is_wb_o     = 1'b1;
                 wb_sel_o    = MUX_WB_PC_NEXT;
                 pc_sel_o    = MUX_PC_JAL;
-                alu_op1_o   = MUX_ALU_OP1_PC;
-                alu_op2_o   = MUX_ALU_OP2_RS1;
+                alu_op1_sel_o   = MUX_ALU_OP1_PC;
+                alu_op2_sel_o   = MUX_ALU_OP2_RS1;
             end
 
             // t = pc+4; pc=(x[rs1]+sext(offset))&∼1; x[rd]=t
@@ -110,14 +111,14 @@ module rv_decoder #(
                 is_wb_o     = 1'b1;
                 wb_sel_o    = MUX_WB_PC_NEXT;
                 pc_sel_o    = MUX_PC_JALR;
-                alu_op1_o   = MUX_ALU_OP1_RS1;
-                alu_op2_o   = MUX_ALU_OP2_IMM;
+                alu_op1_sel_o   = MUX_ALU_OP1_RS1;
+                alu_op2_sel_o   = MUX_ALU_OP2_IMM;
             end
 
             OPCODE_BRANCH: begin
                 pc_sel_o    = MUX_PC_BRANCH;
-                alu_op1_o   = MUX_ALU_OP1_PC;
-                alu_op2_o   = MUX_ALU_OP2_IMM;
+                alu_op1_sel_o   = MUX_ALU_OP1_PC;
+                alu_op2_sel_o   = MUX_ALU_OP2_IMM;
                 case (funct3)
                     F3_BEQ:   compare_op_o  = COMPARE_OP_BEQ;
                     F3_BNE:   compare_op_o  = COMPARE_OP_BNE;
