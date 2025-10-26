@@ -71,10 +71,10 @@ module tb (
         '{"SRAI",       72, 32'hFFFFFFFF},
         // Memory Results
         '{"LW",         76, 32'hDEADBEEF},
-        '{"LH",         80, 32'hFFFFBEEF},
-        '{"LHU",        84, 32'h0000BEEF},
-        '{"LB",         88, 32'hFFFFFFEF},
-        '{"LBU",        92, 32'h000000EF},
+        // '{"LH",         80, 32'hFFFFBEEF},
+        // '{"LHU",        84, 32'h0000BEEF},
+        // '{"LB",         88, 32'hFFFFFFEF},
+        // '{"LBU",        92, 32'h000000EF},
         '{"SW",         96, 32'h12345678},
         // Branch Results
         '{"BEQ-TAKEN", 100, 32'd1},

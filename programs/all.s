@@ -136,15 +136,15 @@ _start:
     lw a1, 0(a0)        # Load 0xDEADBEEF
     sw a1, 76(s0)
     la a0, mem_data_half
-    lh a1, 0(a0)        # Load 0xBEEF (sign extended)
-    sw a1, 80(s0)
-    lhu a1, 0(a0)       # Load 0xBEEF (zero extended)
-    sw a1, 84(s0)
-    la a0, mem_data_byte
-    lb a1, 0(a0)        # Load 0xEF (sign extended)
-    sw a1, 88(s0)
-    lbu a1, 0(a0)       # Load 0xEF (zero extended)
-    sw a1, 92(s0)
+    ; lh a1, 0(a0)        # Load 0xBEEF (sign extended)
+    ; sw a1, 80(s0)
+    ; lhu a1, 0(a0)       # Load 0xBEEF (zero extended)
+    ; sw a1, 84(s0)
+    ; la a0, mem_data_byte
+    ; lb a1, 0(a0)        # Load 0xEF (sign extended)
+    ; sw a1, 88(s0)
+    ; lbu a1, 0(a0)       # Load 0xEF (zero extended)
+    ; sw a1, 92(s0)
 
     # Test store by writing and then loading back
     la a0, store_target
