@@ -9,3 +9,4 @@ VCD_FILE       := $(BUILD_DIR)/waveform.vcd
 SIMULATOR      := vvp
 SIM_FLAGS      := +VCD_FILE=$(VCD_FILE) $(PLUSARGS)
 SIM_COMMAND    := $(SIMULATOR) $(COMPILED_FILE) $(SIM_FLAGS)
+CLEAN_COMMAND  := rm -rf $(BUILD_DIR)

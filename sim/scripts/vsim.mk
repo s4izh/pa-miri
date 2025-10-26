@@ -14,3 +14,4 @@ VCD_FILE       := $(BUILD_DIR)/waveform.vcd
 SIMULATOR      := $(CONTAINER) vsim
 SIM_FLAGS      := -c -work $(WORK_DIR) -l $(BUILD_DIR)/transcript +VCD_FILE=$(VCD_FILE) $(PLUSARGS) $(TOP_MODULE) -do \"run -all\" -do \"exit\"
 SIM_COMMAND    := $(SIMULATOR) $(SIM_FLAGS)
+CLEAN_COMMAND  := sudo rm -rf $(BUILD_DIR)

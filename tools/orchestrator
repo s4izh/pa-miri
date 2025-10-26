@@ -64,8 +64,8 @@ def run_make(test, action, sim, rom_file):
     env["BUILD_DIR"] = str(build_dir)
 
     cmd = ["make", "-C", str(test_dir), action]
-    if action != "clean":
-        cmd.append(f"SIM={sim}")
+    cmd.append(f"SIM={sim}")
+
     if rom_file != "":
         cmd.append(f"ROM_FILE={relative_to_absolute(rom_file)}")
 
