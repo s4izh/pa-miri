@@ -21,7 +21,6 @@ RUN set -e; \
     && echo "Extracting toolchain..." \
     && tar -xJf /tmp/riscv-toolchain.tar.xz -C /opt \
     \
-    # 4. Clean up to reduce the final image size.
     && echo "Cleaning up..." \
     && rm /tmp/riscv-toolchain.tar.xz \
     && apt-get purge -y --auto-remove wget xz-utils ca-certificates \
@@ -32,6 +31,4 @@ ENV PATH="/opt/riscv/bin:${PATH}"
 
 WORKDIR /work
 
-# we don't need to create a user in the Dockerfile if we always use
-# the --user flag in the wrapper script.
 CMD ["/bin/bash"]
