@@ -1,3 +1,4 @@
+import rv_isa_pkg::*;
 import rv_datapath_pkg::*;
 import memory_controller_pkg::*;
 import alu_pkg::*;
@@ -9,8 +10,8 @@ module rv_decoder #(
 
     // outputs for datapath control
     output alu_op_e          alu_op_o,
-    output mux_alu_op1_sel_e   alu_op1_sel_o,
-    output mux_alu_op2_sel_e   alu_op2_sel_o,
+    output mux_alu_op1_sel_e alu_op1_sel_o,
+    output mux_alu_op2_sel_e alu_op2_sel_o,
     output mux_wb_sel_e      wb_sel_o,
 
     output mux_pc_sel_e      pc_sel_o,
