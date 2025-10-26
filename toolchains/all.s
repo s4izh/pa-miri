@@ -131,6 +131,7 @@ _start:
 # =============================================================================
 # Memory Instruction Tests (Load/Store)
 # =============================================================================
+
     la a0, mem_data_word
     lw a1, 0(a0)        # Load 0xDEADBEEF
     sw a1, 76(s0)
@@ -256,6 +257,30 @@ jalr_target:
 # On a simple core, it might just halt.
 # =============================================================================
     # ecall
+
+# =============================================================================
+# Test Finalization: Communicate with Testbench
+#
+# This section writes key information to fixed memory locations so the
+# testbench can verify the results without needing objdump.
+# =============================================================================
+finalization:
+    # Define the fixed addresses for communication (the "ABI")
+    .equ HALT_ADDR,             0x10001FFC  # Address for the halt signature
+    .equ RESULTS_BASE_PTR_ADDR, 0x10001FF8  # Address to store the results' base pointer
+
+    # Load the base address of the results section into a register
+    la   t0, result_add
+    # Load the address where we will store this pointer
+    li   t1, RESULTS_BASE_PTR_ADDR
+    # Store the results' base address (from t0) into the fixed location
+    sw   t0, 0(t1)
+
+    # Signal to the testbench that the test is complete by writing
+    # a magic number to the fixed HALT_ADDR.
+    li   t0, 0xBAADF00D      # Magic "test finished" signature
+    li   t1, HALT_ADDR
+    sw   t0, 0(t1)
 
 # =============================================================================
 # End of Test - Infinite Loop

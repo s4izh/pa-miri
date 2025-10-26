@@ -54,7 +54,7 @@ module tb (
 
     initial begin
         @(posedge reset_n)
-        repeat(50) @(posedge clk);
+        repeat(500) @(posedge clk);
         $finish;
     end
 

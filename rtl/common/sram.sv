@@ -16,15 +16,15 @@ module sram #(
 );
     localparam int NREG = 2 ** ADDR_WIDTH;
 
-    reg [DATA_WIDTH-1:0] sram_r[NREG-1:0];
+    reg [DATA_WIDTH-1:0] mem[NREG-1:0];
 
     always_ff @(posedge clk) begin
         if (we_i) begin
             for (int i = 0; i < DATA_WIDTH/8; ++i) begin
-                if (byte_en_i[i]) sram_r[addr_i][(i*8) +: 8] <= data_i[(i*8) +: 8];
+                if (byte_en_i[i]) mem[addr_i][(i*8) +: 8] <= data_i[(i*8) +: 8];
             end
         end
     end
 
-    assign data_o = sram_r[addr_i];
+    assign data_o = mem[addr_i];
 endmodule
