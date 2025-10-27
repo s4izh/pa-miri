@@ -48,6 +48,11 @@ package rv_isa_pkg;
     localparam logic [2:0] F3_LBU    = 3'b100;
     localparam logic [2:0] F3_LHU    = 3'b101;
 
+    // funct3 for SB/SH/SW
+    localparam logic [2:0] F3_SB     = 3'b000;
+    localparam logic [2:0] F3_SH     = 3'b001;
+    localparam logic [2:0] F3_SW     = 3'b010;
+
     // funct7 for OP/IMM
     localparam logic [6:0] F7_ADD    = 7'b0000000;
     localparam logic [6:0] F7_SUB    = 7'b0100000;

@@ -164,17 +164,9 @@ module rv_decoder #(
                 alu_op_o    = ALU_ADD; // address calculation: rs1 + imm
 
                 case (funct3)
-                    F3_LB:  memop_width_o = MEMOP_WIDTH_8;
-                    F3_LH:  memop_width_o = MEMOP_WIDTH_16;
-                    F3_LW:  memop_width_o = MEMOP_WIDTH_32;
-                    F3_LBU: begin
-                        memop_width_o = MEMOP_WIDTH_8;
-                        ld_unsigned_o = 1;
-                    end
-                    F3_LHU: begin
-                        memop_width_o = MEMOP_WIDTH_16;
-                        ld_unsigned_o = 1;
-                    end
+                    F3_SB:  memop_width_o = MEMOP_WIDTH_8;
+                    F3_SH:  memop_width_o = MEMOP_WIDTH_16;
+                    F3_SW:  memop_width_o = MEMOP_WIDTH_32;
                     default: illegal_ins_o = 1'b1;
                 endcase
             end
