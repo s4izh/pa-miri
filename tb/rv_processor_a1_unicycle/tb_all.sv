@@ -30,9 +30,11 @@ module tb (
     //================================================================
     // ABI: Fixed addresses for communication with the test program
     //================================================================
-    localparam logic [31:0] HALT_ADDR             = 32'h10001FFC;
+    // localparam logic [31:0] HALT_ADDR             = 32'h10001FFC;
+    localparam logic [31:0] HALT_ADDR             = 32'h00000FFC;
     localparam logic [31:0] HALT_SIGNATURE        = 32'hBAADF00D;
-    localparam logic [31:0] RESULTS_BASE_PTR_ADDR = 32'h10001FF8;
+    // localparam logic [31:0] RESULTS_BASE_PTR_ADDR = 32'h10001FF8;
+    localparam logic [31:0] RESULTS_BASE_PTR_ADDR = 32'h00000FF8;
 
     //================================================================
     // Test Vectors: Expected values for each test
@@ -139,6 +141,18 @@ module tb (
         end
     end
 
+    // --- Program Data Loading ---
+    initial begin
+        string sram_file;
+        if ($value$plusargs("SRAM_FILE=%s", sram_file)) begin
+            $readmemh(sram_file, dmem.mem);
+            $display("TB: Loaded data memory from '%s'", sram_file);
+        end else begin
+            $warning("TB: No SRAM_FILE specified. Empty data memory.");
+        end
+    end
+
+
     // --- Simulation Control and Verification ---
     logic test_finished = 1'b0;
 
@@ -186,7 +200,8 @@ module tb (
     always @(posedge clk) begin
         if (reset_n && !test_finished) begin
             // Check if the magic number has been written to the halt address
-            if (dmem.mem[HALT_ADDR >> 2] == HALT_SIGNATURE) begin
+            if (dmem.mem[HALT_ADDR>>2] == HALT_SIGNATURE) begin
+            // if (dmem_addr_o == (1<<DALEN)-1) begin
                 #1;
                 test_finished = 1'b1;
             end
@@ -199,8 +214,9 @@ module tb (
     end
 
     initial begin
-        repeat(10000) @(posedge clk);
-        $error("SIMULATION TIMEOUT! The program did not write the halt signature in 10000 cycles.");
+        int timeout_cycles = 10000;
+        repeat(timeout_cycles) @(posedge clk);
+        $error("SIMULATION TIMEOUT! The program did not write the halt signature in %d cycles.", timeout_cycles);
         $finish;
     end
 

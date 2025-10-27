@@ -53,6 +53,16 @@ module tb (
     end
 
     initial begin
+        string sram_file;
+        if ($value$plusargs("SRAM_FILE=%s", sram_file)) begin
+            $readmemh(sram_file, dmem.mem);
+            $display("Loaded data memory from '%s'", sram_file);
+        end else begin
+            $warning("No SRAM_FILE specified. Empty data memory.");
+        end
+    end
+
+    initial begin
         @(posedge reset_n)
         repeat(500) @(posedge clk);
         $finish;

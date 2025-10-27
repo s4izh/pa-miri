@@ -19,14 +19,21 @@ CUT  := cut
 
 all: hex
 
-hex: $(TARGET).hex
+hex: $(TARGET).rom.hex $(TARGET).sram.hex
 
 asm: $(TARGET).asm
 
-$(TARGET).hex: $(TARGET).elf | docker-image-build
+$(TARGET).rom.hex: $(TARGET).elf | docker-image-build
 	@echo "Converting ELF to intermediate HEX..."
-	$(OBJCOPY) -O verilog --verilog-data-width 4 $< $(TARGET).tmp.hex
-	@echo "Formatting final HEX file (fixing spacing and line endings)..."
+	$(OBJCOPY) -O verilog --verilog-data-width 4 --only-section=.text* $< $(TARGET).tmp.hex
+	@echo "Formatting final ROM.HEX file (fixing spacing and line endings)..."
+	cat $(TARGET).tmp.hex | tr ' ' '\n' | tr -d '\r' > $@
+	rm -f $(TARGET).tmp.hex
+
+$(TARGET).sram.hex: $(TARGET).elf | docker-image-build
+	@echo "Converting ELF to intermediate HEX..."
+	$(OBJCOPY) -O verilog --verilog-data-width 4 --only-section=.data* --only-section=.sdata* --only-section=.bss* --only-section=.sbss* $< $(TARGET).tmp.hex
+	@echo "Formatting final SRAM.HEX file (fixing spacing and line endings)..."
 	cat $(TARGET).tmp.hex | tr ' ' '\n' | tr -d '\r' > $@
 	rm -f $(TARGET).tmp.hex
 

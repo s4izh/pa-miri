@@ -6,8 +6,7 @@ SECTIONS
   . = 0x00000000;
 
   /* place the code section (.text) at the current address */
-  .text :
-  {
-    *(.text)
-  }
+  .text  : { *(.text) }
+  .data  : { *(.data) *(.sdata) }
+  .bss   : { *(.bss) *(.sbss) }
 }

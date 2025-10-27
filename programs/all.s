@@ -233,18 +233,23 @@ jal_return:
     j done # Should not be reached
 jalr_return:
 
+
 jal_target:
     sw ra, 128(s0)      # Store the return address
+    la ra, finalization
     jalr zero, ra, 0    # Return from JAL (jumps to jal_return)
 
 jalr_target:
     la t1, jalr_target
     sw t1, 132(s0)      # Store the target address to prove we got here
-    jalr zero, ra, 0    # Return from JALR (jumps to jalr_return)
+    la ra, jalr_return
+    jalr ra, ra, 0    # Return from JALR (jumps to jalr_return)
+    j finalization
 
 # =============================================================================
 # U-Type Instruction Tests (LUI, AUIPC)
 # =============================================================================
+# fin:
     lui a0, 0xABCDE     # Load 0xABCDE into upper 20 bits, a0 = 0xABCDE000
     sw  a0, 136(s0)
 
@@ -266,8 +271,8 @@ jalr_target:
 # =============================================================================
 finalization:
     # Define the fixed addresses for communication (the "ABI")
-    .equ HALT_ADDR,             0x10001FFC  # Address for the halt signature
-    .equ RESULTS_BASE_PTR_ADDR, 0x10001FF8  # Address to store the results' base pointer
+    .equ HALT_ADDR,             0xFFC  # Address for the halt signature
+    .equ RESULTS_BASE_PTR_ADDR, 0xFF8  # Address to store the results' base pointer
 
     # Load the base address of the results section into a register
     la   t0, result_add

@@ -41,6 +41,9 @@ module soc #(
         .dmem_data_i(hart_dmem_data_ld)
     );
 
+    memop_width_e hart_memop_width;
+    assign hart_memop_width = MEMOP_WIDTH_32;
+
 memory_controller #(
     .XLEN(XLEN),
     .MEM_ALEN(IALEN),
@@ -53,7 +56,7 @@ memory_controller #(
     .valid_i(1),
     .data_i('0),
     .addr_i(hart_imem_addr),
-    .width_i(MEMOP_WIDTH_32),
+    .width_i(hart_memop_width),
     .we_i(0),
 
     // Core output
