@@ -68,7 +68,7 @@ module tb (
     logic               tohost_written;
     logic [XLEN-1:0]    tohost_value;
     assign tohost_written = &{dmem_addr_o, dmem_we_o}; // and reduction
-    assign tohost_value = dmem_data_i;
+    assign tohost_value = dmem_data_o;
 
     int cycle_count = 0;
     always @(posedge clk) begin
