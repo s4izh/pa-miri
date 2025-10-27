@@ -2,6 +2,9 @@ module tb (
     input logic clk,
     input logic reset_n
 );
+
+    parameter int TIMEOUT_CYCLES = 1000;
+
     parameter int XLEN = 32;
     parameter int IALEN = 12;
     parameter int DALEN = 12;
@@ -44,16 +47,16 @@ module tb (
     );
 
     initial begin
-        string rom_file;
+        string rom_file, sram_file;
+
+        // Load rom
         if ($value$plusargs("ROM_FILE=%s", rom_file)) begin
             $readmemh(rom_file, imem.mem);
         end else begin
             $error("No ROM_FILE specified. Empty instruction memory");
         end
-    end
 
-    initial begin
-        string sram_file;
+        // Load sram
         if ($value$plusargs("SRAM_FILE=%s", sram_file)) begin
             $readmemh(sram_file, dmem.mem);
             $display("Loaded data memory from '%s'", sram_file);
@@ -62,10 +65,23 @@ module tb (
         end
     end
 
-    initial begin
-        @(posedge reset_n)
-        repeat(500) @(posedge clk);
-        $finish;
+    logic               tohost_written;
+    logic [XLEN-1:0]    tohost_value;
+    assign tohost_written = &{dmem_addr_o, dmem_we_o}; // and reduction
+    assign tohost_value = dmem_data_i;
+
+    int cycle_count = 0;
+    always @(posedge clk) begin
+        if (reset_n) begin
+            ++cycle_count;
+            if (tohost_written) begin
+                $display("Test end! tohost was written with value: %0x", tohost_value);
+                $finish;
+            end else if (cycle_count >= TIMEOUT_CYCLES) begin
+                $display("Test end! Timeout reached (%0d cycles)", TIMEOUT_CYCLES);
+                $finish;
+            end
+        end
     end
 
     always @(posedge clk) begin

@@ -45,7 +45,11 @@ _start:
     # Fall through to the pass_loop.
 
 pass_loop:
+    li t0, 0
+    sw t0, -4(zero)
     j pass_loop             # Success! Spin here forever.
 
 fail_loop:
+    li t0, 1
+    sw t0, -4(zero)
     j fail_loop             # Failure! Spin here forever.

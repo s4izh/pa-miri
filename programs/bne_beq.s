@@ -52,7 +52,11 @@ bne_was_taken:
     # If the final check passes, fall through to the success loop.
 
 pass_loop:
-    j pass_loop          # Success! Spin here forever.
+    li t0, 0
+    sw t0, -4(zero)
+    j pass_loop             # Success! Spin here forever.
 
 fail_loop:
-    j fail_loop          # Failure! Spin here forever.
+    li t0, 1
+    sw t0, -4(zero)
+    j fail_loop             # Failure! Spin here forever.
