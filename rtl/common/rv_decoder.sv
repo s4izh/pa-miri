@@ -82,7 +82,8 @@ module rv_decoder #(
         is_st_o         = 1'b0;
         illegal_ins_o   = 1'b0;
         compare_op_o    = COMPARE_OP_NONE;
-        ld_unsigned_o = 1'b0;
+        ld_unsigned_o   = 1'b0;
+        memop_width_o   = MEMOP_WIDTH_32;
 
         case (opcode)
             // x[rd] = sext(immediate[31:12] << 12)
