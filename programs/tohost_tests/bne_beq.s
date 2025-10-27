@@ -22,11 +22,10 @@ bne_was_taken:
     bne  a0, t0, fail_loop
 
 pass_loop:
-    li   t0, 0
-    write_tohost t0
+    write_tohost_success
     j    pass_loop
 
 fail_loop:
     li   t0, 1
-    write_tohost t0
+    write_tohost_failure
     j    fail_loop
