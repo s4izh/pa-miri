@@ -51,7 +51,7 @@ module rv_processor_a1_unicycle# (
     // PC
     always @(posedge clk) begin
         if (!reset_n) begin
-            pc <= 0;
+            pc <= 0'h1000;
         end else begin
             // TODO: exceptions and interrupts
             case (pc_sel)

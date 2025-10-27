@@ -79,7 +79,7 @@ module tb (
                 check_sram();
                 $finish;
             end else if (cycle_count >= TIMEOUT_CYCLES) begin
-                $fatal("Test end! Timeout reached (%0d cycles)", TIMEOUT_CYCLES);
+                $fatal(1, "Test end! Timeout reached (%0d cycles)", TIMEOUT_CYCLES);
             end
         end
     end
@@ -87,10 +87,10 @@ module tb (
     task check_sram();
         // The test must have written the initial 3 words in sram with
         // 0xAB
-        logic[DALEN-1:0] data_base = (1<<DALEN)/2;
+        static logic[DALEN-1:0] data_base = (1<<DALEN)/2;
         for (logic[DALEN-1:0] i = data_base; i < data_base+3; ++i) begin
             if (dmem.mem[i] != 0'hABABABAB)
-                $fatal("Test failed at byte", i-data_base);
+                $fatal(1, "Test failed at byte", i-data_base);
         end
     endtask
 
