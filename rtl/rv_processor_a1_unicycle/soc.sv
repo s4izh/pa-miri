@@ -57,64 +57,64 @@ module soc #(
     memop_width_e hart_memop_width;
     assign hart_memop_width = MEMOP_WIDTH_32;
 
-memory_controller #(
-    .XLEN(XLEN),
-    .MEM_ALEN(IALEN),
-    .MEM_DLEN(XLEN)
-) imem_controller_inst (
-    .clk,
-    .reset_n,
+    memory_controller #(
+        .XLEN(XLEN),
+        .MEM_ALEN(IALEN),
+        .MEM_DLEN(XLEN)
+    ) imem_controller_inst (
+        .clk,
+        .reset_n,
 
-    // Core input
-    .valid_i(1),
-    .data_i('0),
-    .addr_i(hart_imem_addr),
-    .width_i(hart_memop_width),
-    .we_i(0),
+        // Input from core
+        .valid_i(1),
+        .data_i('0),
+        .addr_i(hart_imem_addr),
+        .width_i(hart_memop_width),
+        .we_i(0),
 
-    // Core output
-    // .valid_o(),
-    .data_o(hart_imem_data_ld),
-    .xcpt_o(imem_xcpt),
+        // Output to core
+        .valid_o(),
+        .data_o(hart_imem_data_ld),
+        .xcpt_o(imem_xcpt),
 
-    // Mem output
-    .mem_addr_o(imem_addr_o),
-    // .mem_data_o(),
-    // .mem_byte_en_o(),
-    // .mem_we_o(),
+        // Output to mem
+        .mem_addr_o(imem_addr_o),
+        .mem_data_o(),
+        .mem_byte_en_o(),
+        .mem_we_o(),
 
-    // Mem input
-    .mem_data_i(imem_data_i)
-);
+        // Input from mem
+        .mem_data_i(imem_data_i)
+    );
 
-memory_controller #(
-    .XLEN(XLEN),
-    .MEM_ALEN(DALEN),
-    .MEM_DLEN(XLEN)
-) dmem_controller_inst (
-    .clk,
-    .reset_n,
+    memory_controller #(
+        .XLEN(XLEN),
+        .MEM_ALEN(DALEN),
+        .MEM_DLEN(XLEN)
+    ) dmem_controller_inst (
+        .clk,
+        .reset_n,
 
-    // Core input
-    .valid_i(hart_dmem_memop_valid),
-    .data_i(hart_dmem_data_st),
-    .addr_i(hart_dmem_addr),
-    .width_i(hart_dmem_width),
-    .we_i(hart_dmem_we),
+        // Input from core
+        .valid_i(hart_dmem_memop_valid),
+        .data_i(hart_dmem_data_st),
+        .addr_i(hart_dmem_addr),
+        .width_i(hart_dmem_width),
+        .we_i(hart_dmem_we),
 
-    // Core output
-    // .valid_o(),
-    .data_o(hart_dmem_data_ld),
-    .xcpt_o(dmem_xcpt),
+        // Output to core
+        .valid_o(),
+        .data_o(hart_dmem_data_ld),
+        .xcpt_o(dmem_xcpt),
 
-    // Mem output
-    .mem_addr_o(dmem_addr_o),
-    .mem_data_o(dmem_data_o),
-    .mem_byte_en_o(dmem_byte_en_o),
-    .mem_we_o(dmem_we_o),
+        // Output to memory
+        .mem_addr_o(dmem_addr_o),
+        .mem_data_o(dmem_data_o),
+        .mem_byte_en_o(dmem_byte_en_o),
+        .mem_we_o(dmem_we_o),
 
-    // Mem input
-    .mem_data_i(dmem_data_i)
-);
+        // Input from memory
+        .mem_data_i(dmem_data_i)
+    );
 
 endmodule

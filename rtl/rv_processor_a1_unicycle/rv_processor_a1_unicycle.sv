@@ -46,7 +46,7 @@ module rv_processor_a1_unicycle# (
 
 
     // local assigns
-    assign trap_valid = imem_trap_i.valid | dmem_trap_i.valid;
+    assign trap_valid = imem_trap_i.valid | dmem_trap_i.valid | illegal_ins;
 
     // external interface
     assign imem_addr_o = pc;
@@ -106,6 +106,8 @@ module rv_processor_a1_unicycle# (
             MUX_WB_MEM:
                 rd_data = dmem_data_i;
             MUX_WB_PC_NEXT:
+                rd_data = pc + 4;
+            default:
                 rd_data = pc + 4;
         endcase
     end
