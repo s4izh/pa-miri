@@ -3,7 +3,7 @@ module tb (
     input logic reset_n
 );
 
-    parameter int TIMEOUT_CYCLES = 1000;
+    parameter int DEFAULT_TIMEOUT_CYCLES = 1000;
 
     parameter int XLEN = 32;
     parameter int IALEN = 12;
@@ -46,6 +46,7 @@ module tb (
         .data_o(dmem_data_i)
     );
 
+    int TIMEOUT_CYCLES;
     initial begin
         string rom_file, sram_file;
 
@@ -62,6 +63,14 @@ module tb (
             $display("Loaded data memory from '%s'", sram_file);
         end else begin
             $warning("No SRAM_FILE specified. Empty data memory.");
+        end
+
+        // Override default timeout cycles
+        if ($value$plusargs("TIMEOUT_CYCLES=%d", TIMEOUT_CYCLES)) begin
+            $display("Timeout set at %d cycles", TIMEOUT_CYCLES);
+        end else begin
+            TIMEOUT_CYCLES = DEFAULT_TIMEOUT_CYCLES;
+            $warning("Timeout not set. Using default %d cycles", TIMEOUT_CYCLES);
         end
     end
 

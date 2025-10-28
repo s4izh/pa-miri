@@ -55,7 +55,7 @@ def relative_to_absolute(path) -> str:
 def list_simulators():
     return sorted([f.stem for f in SIM_SCRIPTS.glob("*.mk")])
 
-def run_make(test, action, sim, rom_file, sram_file):
+def run_make(test, action, sim, rom_file, sram_file, timeout):
     test_dir = test_name_to_folder(test)
     build_dir = test_name_to_build_dir(test, sim)
 
@@ -71,6 +71,8 @@ def run_make(test, action, sim, rom_file, sram_file):
 
     if sram_file != "":
         cmd.append(f"SRAM_FILE={relative_to_absolute(sram_file)}")
+
+    cmd.append(f"TIMEOUT={timeout}")
 
     print(f"[RUNNING] {' '.join(cmd)}")
 
@@ -118,6 +120,7 @@ Available simulators (select with --sim):
     parser.add_argument("--sim", choices=sims, default="iverilog", help="Simulator (default: iverilog).")
     parser.add_argument("--rom_file", default="", help="Path to file with hex contents of the ROM (default: Empty).")
     parser.add_argument("--sram_file", default="", help="Path to file with hex contents of the SRAM (default: Empty).")
+    parser.add_argument("--timeout", default=1000, help="Number of cycles after which a timeout is triggered (default: 1000).")
     parser.add_argument("--verbose", "-v", action="store_true", help="Print debug info.")
 
     argcomplete.autocomplete(parser)
@@ -137,12 +140,12 @@ Available simulators (select with --sim):
     if args.test:
         if args.test not in tests:
             sys.exit(f"[ERROR] Test '{args.test}' not found among: {', '.join(tests)}")
-        ok = run_make(args.test, args.action, args.sim, args.rom_file, args.sram_file)
+        ok = run_make(args.test, args.action, args.sim, args.rom_file, args.sram_file, args.timeout)
         if not ok:
             failed.append(args.test)
     else:
         for t in tests:
-            ok = run_make(t, args.action, args.sim, args.rom_file, args.sram_file)
+            ok = run_make(t, args.action, args.sim, args.rom_file, args.sram_file, args.timeout)
             if not ok:
                 failed.append(t)
 
