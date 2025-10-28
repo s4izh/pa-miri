@@ -13,6 +13,13 @@ MAP_FILE      := $(BUILD_DIR)/$(TARGET).map
 ASM_FILE      := $(BUILD_DIR)/$(TARGET).asm
 BIN_FILE      := $(BUILD_DIR)/$(TARGET).bin
 
+CRT_FILE =
+CRT_O_FILE =
+ifneq ($(wildcard $(TARGET).c),)
+	CRT_FILE += $(PROJ_DIR)/programs/crt.s
+	CRT_FILE += $(PROJ_DIR)/programs/crt.o
+endif
+
 TOOL_PREFIX := riscv32-unknown-elf-
 IMAGE_NAME  := $(DOCKER_TOOLCHAIN_IMAGE)
 
@@ -57,13 +64,18 @@ $(ASM_FILE): $(ELF_FILE) | docker-image-build
 	@mkdir -p $(dir $@)
 	$(OBJDUMP) -d $< > $@
 
-$(ELF_FILE): $(O_FILE) | docker-image-build
+$(ELF_FILE): $(CRT_O_FILE) $(O_FILE) | docker-image-build
 	@echo "Linking object file..."
 	@mkdir -p $(dir $@)
-	$(CC) $(ARCH) -o $@ $< -T link.ld -nostdlib -Wl,-Map,$(MAP_FILE)
+	$(CC) $(ARCH) -o $@ $^ -T link.ld -nostdlib -Wl,-Map,$(MAP_FILE)
 
-$(O_FILE): $(TARGET).s | docker-image-build
-	@echo "Compiling assembly..."
+$(O_FILE): $(wildcard $(TARGET).s) $(wildcard $(TARGET).c) | docker-image-build
+	@echo "Compiling $<..."
+	@mkdir -p $(dir $@)
+	$(CC) $(ARCH) -c -o $@ $<
+
+$(PROJ_DIR)/programs/crt.o: $(PROJ_DIR)/programs/crt.s
+	@echo "Compiling $<..."
 	@mkdir -p $(dir $@)
 	$(CC) $(ARCH) -c -o $@ $<
 
