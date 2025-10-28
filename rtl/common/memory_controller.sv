@@ -40,7 +40,7 @@ module memory_controller #(
     assign mem_we_o = we_i & valid_i & ~xcpt_misaligned;
     assign mem_addr_o = addr_i[MEM_ALEN-1+MEM_DLEN_BYTES_BITS:MEM_DLEN_BYTES_BITS]; // addresses above 2^(MEM_ALEN+MEM_DLEN_BYTES_BITS)-1 (2^14) will wrap around
     assign valid_o = valid_i;
-    assign xcpt_o = xcpt_misaligned;
+    assign xcpt_o = valid_i & xcpt_misaligned;
     assign byte_offset = addr_i[MEM_DLEN_BYTES_BITS-1:0];
 
     always_comb begin
