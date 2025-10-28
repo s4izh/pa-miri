@@ -63,16 +63,16 @@ package rv_isa_pkg;
     localparam logic [31:0] MCAUSE_INTERRUPT_BIT     = 32'h8000_0000;
 
     // EXCEPTIONS
-    localparam logic [31:0] EXC_CAUSE_INSTR_ADDR_MISALIGNED     = 32'd0;
-    localparam logic [31:0] EXC_CAUSE_INSTR_ACCESS_FAULT        = 32'd1;
-    localparam logic [31:0] EXC_CAUSE_ILLEGAL_INSTR             = 32'd2;
-    localparam logic [31:0] EXC_CAUSE_BREAKPOINT                = 32'd3;
-    localparam logic [31:0] EXC_CAUSE_LOAD_ADDR_MISALIGNED      = 32'd4;
-    localparam logic [31:0] EXC_CAUSE_LOAD_ACCESS_FAULT         = 32'd5;
-    localparam logic [31:0] EXC_CAUSE_STORE_AMO_ADDR_MISALIGNED = 32'd6;
-    localparam logic [31:0] EXC_CAUSE_STORE_AMO_ACCESS_FAULT    = 32'd7;
-    localparam logic [31:0] EXC_CAUSE_ECALL_U_MODE              = 32'd8;
-    localparam logic [31:0] EXC_CAUSE_ECALL_S_MODE              = 32'd9;
+    localparam logic [5:0] EXC_CAUSE_INSTR_ADDR_MISALIGNED     = 32'd0;
+    localparam logic [5:0] EXC_CAUSE_INSTR_ACCESS_FAULT        = 32'd1;
+    localparam logic [5:0] EXC_CAUSE_ILLEGAL_INSTR             = 32'd2;
+    localparam logic [5:0] EXC_CAUSE_BREAKPOINT                = 32'd3;
+    localparam logic [5:0] EXC_CAUSE_LOAD_ADDR_MISALIGNED      = 32'd4;
+    localparam logic [5:0] EXC_CAUSE_LOAD_ACCESS_FAULT         = 32'd5;
+    localparam logic [5:0] EXC_CAUSE_STORE_AMO_ADDR_MISALIGNED = 32'd6;
+    localparam logic [5:0] EXC_CAUSE_STORE_AMO_ACCESS_FAULT    = 32'd7;
+    localparam logic [5:0] EXC_CAUSE_ECALL_U_MODE              = 32'd8;
+    localparam logic [5:0] EXC_CAUSE_ECALL_S_MODE              = 32'd9;
     // localparam logic [31:0] EXC_CAUSE_ECALL_M_MODE              = 32'd11;
     localparam logic [31:0] EXC_CAUSE_INSTR_PAGE_FAULT          = 32'd12;
     localparam logic [31:0] EXC_CAUSE_LOAD_PAGE_FAULT           = 32'd13;
@@ -83,6 +83,17 @@ package rv_isa_pkg;
     localparam logic [31:0] INT_CAUSE_S_TIMER_INT          = MCAUSE_INTERRUPT_BIT + 32'd5;
     localparam logic [31:0] INT_CAUSE_S_EXTERNAL_INT       = MCAUSE_INTERRUPT_BIT + 32'd9;
     localparam logic [31:0] INT_CAUSE_COUNTER_OVERFLOW_INT = MCAUSE_INTERRUPT_BIT + 32'd13;
+
+    typedef enum logic {
+        TRAP_TYPE_EXCEPTION = 0,
+        TRAP_TYPE_INTERRUPT = 1
+    } trap_type_e;
+
+    typedef struct packed {
+        logic valid;
+        trap_type_e trap_type;
+        logic [5:0] cause;
+    } trap_t;
 
 endpackage
 

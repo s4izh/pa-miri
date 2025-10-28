@@ -1,4 +1,5 @@
 import memory_controller_pkg::*;
+import rv_isa_pkg::*;
 
 module soc #(
     parameter int XLEN = 32,
@@ -24,6 +25,16 @@ module soc #(
     logic [XLEN-1:0] hart_dmem_addr, hart_dmem_data_st, hart_dmem_data_ld;
     logic hart_dmem_we, hart_dmem_memop_valid;
     memop_width_e hart_dmem_width;
+    trap_t hart_imem_trap, hart_dmem_trap;
+    logic imem_xcpt, dmem_xcpt;
+
+    assign hart_imem_trap.valid     = imem_xcpt;
+    assign hart_imem_trap.trap_type = TRAP_TYPE_EXCEPTION;
+    assign hart_imem_trap.cause     = EXC_CAUSE_INSTR_ADDR_MISALIGNED;
+
+    assign hart_dmem_trap.valid     = dmem_xcpt;
+    assign hart_dmem_trap.trap_type = TRAP_TYPE_EXCEPTION;
+    assign hart_dmem_trap.cause     = EXC_CAUSE_INSTR_ADDR_MISALIGNED;
 
     rv_processor_a1_unicycle #(
         .XLEN(XLEN)
@@ -32,13 +43,15 @@ module soc #(
         .reset_n,
         .imem_addr_o(hart_imem_addr),
         .imem_data_i(hart_imem_data_ld),
+        .imem_trap_i(hart_imem_trap),
 
-        .dmem_width_o(hart_dmem_width), // TODO
-        .dmem_memop_valid_o(hart_dmem_memop_valid), // TODO
+        .dmem_width_o(hart_dmem_width),
+        .dmem_memop_valid_o(hart_dmem_memop_valid),
         .dmem_addr_o(hart_dmem_addr),
         .dmem_data_o(hart_dmem_data_st),
         .dmem_we_o(hart_dmem_we),
-        .dmem_data_i(hart_dmem_data_ld)
+        .dmem_data_i(hart_dmem_data_ld),
+        .dmem_trap_i(hart_dmem_trap)
     );
 
     memop_width_e hart_memop_width;
@@ -62,7 +75,7 @@ memory_controller #(
     // Core output
     // .valid_o(),
     .data_o(hart_imem_data_ld),
-    // .xcpt_o(),
+    .xcpt_o(imem_xcpt),
 
     // Mem output
     .mem_addr_o(imem_addr_o),
@@ -92,7 +105,7 @@ memory_controller #(
     // Core output
     // .valid_o(),
     .data_o(hart_dmem_data_ld),
-    // .xcpt_o(),
+    .xcpt_o(dmem_xcpt),
 
     // Mem output
     .mem_addr_o(dmem_addr_o),

@@ -1,6 +1,7 @@
 import rv_datapath_pkg::*;
 import memory_controller_pkg::*;
 import alu_pkg::*;
+import rv_isa_pkg::*;
 
 module rv_processor_a1_unicycle# (
     parameter int XLEN = 32
@@ -10,13 +11,15 @@ module rv_processor_a1_unicycle# (
 
     output logic[XLEN-1:0]  imem_addr_o,
     input  logic[XLEN-1:0]  imem_data_i,
+    input  trap_t           imem_trap_i,
 
-    output memop_width_e    dmem_width_o, // TODO
-    output logic            dmem_memop_valid_o, // TODO
+    output memop_width_e    dmem_width_o,
+    output logic            dmem_memop_valid_o,
     output logic[XLEN-1:0]  dmem_addr_o,
     output logic[XLEN-1:0]  dmem_data_o,
     output logic            dmem_we_o,
-    input  logic[XLEN-1:0]  dmem_data_i
+    input  logic[XLEN-1:0]  dmem_data_i,
+    input  trap_t           dmem_trap_i
 );
 
     localparam int RALEN = $clog2(32);
@@ -39,6 +42,11 @@ module rv_processor_a1_unicycle# (
     memop_width_e memop_width;
 
     logic [XLEN-1:0] alu_op1, alu_op2, alu_result;
+    logic trap_valid;
+
+
+    // local assigns
+    assign trap_valid = imem_trap_i.valid | dmem_trap_i.valid;
 
     // external interface
     assign imem_addr_o = pc;
@@ -53,20 +61,23 @@ module rv_processor_a1_unicycle# (
         if (!reset_n) begin
             pc <= 0'h1000;
         end else begin
-            // TODO: exceptions and interrupts
-            case (pc_sel)
-                MUX_PC_NEXT:
-                    pc <= pc + 4;
-                MUX_PC_BRANCH:
-                    if (taken_branch)
-                        pc <= alu_result;
-                    else
+            if (trap_valid) begin
+                pc <= 0'h2000;
+            end else begin
+                case (pc_sel)
+                    MUX_PC_NEXT:
                         pc <= pc + 4;
-                MUX_PC_JAL:
-                    pc <= alu_result;
-                MUX_PC_JALR:
-                    pc <= {alu_result[31:1], 1'b0};
-            endcase
+                    MUX_PC_BRANCH:
+                        if (taken_branch)
+                            pc <= alu_result;
+                        else
+                            pc <= pc + 4;
+                    MUX_PC_JAL:
+                        pc <= alu_result;
+                    MUX_PC_JALR:
+                        pc <= {alu_result[31:1], 1'b0};
+                endcase
+            end
         end
     end
 
