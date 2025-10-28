@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+
+import argparse
+import subprocess
+import sys
+import os
+import shutil
+from pathlib import Path
+from multiprocessing import Pool, cpu_count
+
+try:
+    PROJ_DIR = Path(os.environ["PROJ_DIR"]).resolve()
+except KeyError:
+    print("[ERROR] PROJ_DIR environment variable is not set. Please source set_env.sh first.")
+    sys.exit(1)
+
+PROGRAMS_DIR = PROJ_DIR / "programs"
+PROGRAMS_BUILD_DIR = PROJ_DIR / "build" / "programs"
+TOHOST_TESTS_DIR = PROGRAMS_DIR / "tohost_tests"
+ORCHESTRATOR_TEST = "rv_processor_a1_unicycle.anyrom"
+SIMULATOR = "vsim"
+
+class TColors:
+    HEADER = '\033[95m'
+    OKGREEN = '\033[92m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+
+def find_tests():
+    """Finds all .s files recursively and returns their target names."""
+    if not TOHOST_TESTS_DIR.is_dir():
+        print(f"{TColors.FAIL}[ERROR] Test directory not found: {TOHOST_TESTS_DIR}{TColors.ENDC}")
+        sys.exit(1)
+    
+    test_files = sorted(list(TOHOST_TESTS_DIR.rglob("*.s")))
+    return [str(f.relative_to(PROGRAMS_DIR)).replace(".s", "") for f in test_files]
+
+def compile_all_tests():
+    """Generates the ninja file and runs ninja to compile all tests."""
+    print(f"{TColors.HEADER}{'='*60}\nCOMPILATION PHASE\n{'='*60}{TColors.ENDC}")
+    
+    try:
+        print(">> Regenerating build.ninja...")
+        subprocess.run(["lua", "build.lua"], cwd=PROJ_DIR, check=True, capture_output=True)
+
+        print(">> Running ninja...")
+        subprocess.run(["ninja", "-C", str(PROJ_DIR)], check=True)
+        
+        print(f"\n{TColors.OKGREEN}{'='*60}\nAll tests compiled successfully.\n{'='*60}{TColors.ENDC}")
+
+    except subprocess.CalledProcessError as e:
+        print(f"{TColors.FAIL}>> [FAIL] Compilation failed with exit code {e.returncode}{TColors.ENDC}")
+        print(e.stdout.decode())
+        print(e.stderr.decode())
+        print(f"\n{TColors.FAIL}{'='*60}\nCompilation failed. Aborting.\n{'='*60}{TColors.ENDC}")
+        sys.exit(1)
+
+def run_single_test(test_target):
+    """Runs a single simulation and returns a result dictionary."""
+    rom_file = PROGRAMS_BUILD_DIR / f"{test_target}.rom.hex"
+    sram_file = PROGRAMS_BUILD_DIR / f"{test_target}.sram.hex"
+    
+    print(f">> [STARTING] Test: {test_target}")
+
+    if not rom_file.exists():
+        return {
+            "name": test_target,
+            "status": "FAIL",
+            "reason": f"Hex file not found: {rom_file}. Did you compile?"
+        }
+
+    cmd = [
+        "./tools/orchestrator", "simulate",
+        "--test", ORCHESTRATOR_TEST,
+        "--sim", SIMULATOR,
+        "--rom_file", str(rom_file),
+        "--sram_file", str(sram_file)
+    ]
+
+    print(f"    Running command: {' '.join(cmd)}")
+    
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    combined_output = result.stdout + result.stderr
+
+    if "** SIMULATION PASSED **" in combined_output:
+        print(f">> {TColors.OKGREEN}[PASS]{TColors.ENDC} Test: {test_target}")
+        return {"name": test_target, "status": "PASS", "reason": "Success signature found."}
+    else:
+        reason = "Simulation timed out or failed without a specific error message."
+        for line in combined_output.splitlines():
+            if "Fatal:" in line or "Error:" in line:
+                reason = line.strip().replace("** ", "")
+                break
+        print(f">> {TColors.FAIL}[FAIL]{TColors.ENDC} Test: {test_target}")
+        return {"name": test_target, "status": "FAIL", "reason": reason}
+
+def run_all_tests_parallel(test_list, jobs):
+    """Runs all simulations in parallel using a process pool."""
+    print(f"{TColors.HEADER}{'='*60}\nSIMULATION PHASE (running up to {jobs} parallel jobs)\n{'='*60}{TColors.ENDC}")
+
+    with Pool(processes=jobs) as pool:
+        results = pool.map(run_single_test, test_list)
+    
+    print(f"\n{TColors.HEADER}{'-'*60}\n>> All simulations finished. Processing results...\n{'-'*60}{TColors.ENDC}")
+    return results
+
+def print_reports(results):
+    """Prints the detailed failure and summary reports."""
+    failures = [r for r in results if r["status"] == "FAIL"]
+
+    if failures:
+        print(f"\n{TColors.FAIL}{'='*60}\nDetailed Failure Report\n{'='*60}{TColors.ENDC}")
+        for result in failures:
+            test_name = result["name"]
+            wave_cmd = f'./tools/orchestrator waves --test "{ORCHESTRATOR_TEST}" --sim "{SIMULATOR}" --rom_file "{PROGRAMS_BUILD_DIR / test_name}.rom.hex" --sram_file "{PROGRAMS_BUILD_DIR / test_name}.sram.hex"'
+            
+            print(f"Test: {TColors.BOLD}{test_name}{TColors.ENDC} {TColors.FAIL}[FAIL]{TColors.ENDC}")
+            print(f"  - Reason: {result['reason']}")
+            print(f"  - To view waves, run:")
+            print(f"      {wave_cmd}")
+            print(f"{'-'*60}")
+
+    print(f"\n{TColors.HEADER}{'='*60}\nRegression Summary\n{'='*60}{TColors.ENDC}")
+    
+    max_len = max(len(r['name']) for r in results) if results else 0
+    
+    for result in results:
+        status_color = TColors.OKGREEN if result["status"] == "PASS" else TColors.FAIL
+        padding = " " * (max_len - len(result['name']))
+        name = result['name'].removeprefix("tohost_tests/")
+        print(f"Test: {name} {padding} {status_color}[{result['status']}]{TColors.ENDC}")
+
+    if failures:
+        print(f"\n{TColors.FAIL}{'='*60}\nSome tests failed. Please refer to the detailed report above.\n{'='*60}{TColors.ENDC}")
+        sys.exit(1)
+    else:
+        print(f"\n{TColors.OKGREEN}{'='*60}\nAll tests passed successfully!\n{'='*60}{TColors.ENDC}")
+
+def clean():
+    """Cleans the main project build directory."""
+    build_dir = PROJ_DIR / "build" / "programs"
+    print(f"Cleaning up build directory: {build_dir}")
+    if build_dir.exists():
+        shutil.rmtree(build_dir)
+
+def main():
+    parser = argparse.ArgumentParser(description="RISC-V Processor Regression Suite", formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument("action", nargs='?', default="all", 
+                        choices=["compile", "run", "clean", "all"],
+                        help="Action to perform:\n"
+                             "  compile: Generate ninja file and compile all tests.\n"
+                             "  run:     Run simulations for all compiled tests.\n"
+                             "  clean:   Remove the entire 'build' directory.\n"
+                             "  all:     Compile and then run all tests (default).")
+    parser.add_argument("-j", "--jobs", type=int, default=cpu_count(),
+                        help=f"Number of parallel simulation jobs to run (default: {cpu_count()})")
+
+    args = parser.parse_args()
+
+    if args.action == "clean":
+        clean()
+        sys.exit(0)
+
+    test_list = find_tests()
+    if not test_list:
+        print("No tests found. Exiting.")
+        sys.exit(0)
+
+    if args.action in ["compile", "all"]:
+        compile_all_tests()
+
+    if args.action in ["run", "all"]:
+        results = run_all_tests_parallel(test_list, args.jobs)
+        print_reports(results)
+
+if __name__ == "__main__":
+    main()

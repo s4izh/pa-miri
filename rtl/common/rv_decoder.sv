@@ -130,6 +130,7 @@ module rv_decoder #(
                     F3_BLT:   compare_op_o  = COMPARE_OP_BLT;
                     F3_BGE:   compare_op_o  = COMPARE_OP_BGE;
                     F3_BLTU:  compare_op_o  = COMPARE_OP_BLTU;
+                    F3_BGEU:  compare_op_o  = COMPARE_OP_BGEU;
                     default:  illegal_ins_o = 1'b1;
                 endcase
             end

@@ -84,11 +84,14 @@ module tb (
         if (reset_n) begin
             ++cycle_count;
             if (tohost_written) begin
-                $display("Test end! tohost was written with value: %0x", tohost_value);
-                $finish;
+                if (tohost_value == 0) begin
+                    $display("** SIMULATION PASSED **: 'tohost' was written with 0.");
+                    $finish;
+                end else begin
+                    $fatal(1, "Test FAILED! Incorrect 'tohost' value. Expected 0, got %0d.", tohost_value);
+                end
             end else if (cycle_count >= TIMEOUT_CYCLES) begin
-                $display("Test end! Timeout reached (%0d cycles)", TIMEOUT_CYCLES);
-                $finish;
+                $fatal(1, "Test FAILED! Timeout reached (%0d cycles) without writing to 'tohost'.", TIMEOUT_CYCLES);
             end
         end
     end

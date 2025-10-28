@@ -25,6 +25,9 @@
           svls
           universal-ctags
           python-pkgs
+          sv-lang
+          ninja
+          lua
         ];
       };
     }

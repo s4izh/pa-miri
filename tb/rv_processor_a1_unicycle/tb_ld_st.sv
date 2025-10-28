@@ -89,7 +89,7 @@ module tb (
         // 0xAB
         static logic[DALEN-1:0] data_base = (1<<DALEN)/2;
         for (logic[DALEN-1:0] i = data_base; i < data_base+3; ++i) begin
-            if (dmem.mem[i] != 0'hABABABAB)
+            if (dmem.mem[i] != 32'hABABABAB)
                 $fatal(1, "Test failed at byte", i-data_base);
         end
     endtask

@@ -47,3 +47,5 @@ tags
 *.bin
 *.hex
 *.map
+
+build.ninja

@@ -16,7 +16,7 @@ module sram #(
 );
     localparam int NREG = 2 ** ADDR_WIDTH;
 
-    reg [DATA_WIDTH-1:0] mem[NREG-1:0];
+    logic [DATA_WIDTH-1:0] mem[NREG-1:0];
 
     always_ff @(posedge clk) begin
         if (we_i) begin
