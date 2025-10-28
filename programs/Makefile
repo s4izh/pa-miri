@@ -62,4 +62,4 @@ docker-image-build:
 clean:
 	@echo "Cleaning up..."
 	rm -f *.o *.elf *.bin *.hex *.asm *.map
-	rm -f tohost_test/*.o tohost_test/*.elf tohost_test/*.bin tohost_test/*.hex tohost_test/*.asm tohost_test/*.map
+	rm -f tohost_tests/*.o tohost_tests/*.elf tohost_tests/*.bin tohost_tests/*.hex tohost_tests/*.asm tohost_tests/*.map
