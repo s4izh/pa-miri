@@ -2,15 +2,11 @@
 .global _start
 .section .text
 _start:
-    # Test Load Upper Immediate (lui)
-    # Loads the 20-bit immediate into the upper 20 bits of the register.
-    lui a0, 0xABCDE      # Expected: a0 = 0xABCDE000
-
-    li  t0, 0xABCDE000
+    li  a1, 0b1100
+    ori a0, a1, 0b1010 # 12 | 10 = 14
+    li  t0, 14
     bne a0, t0, fail_loop
-
     j pass_loop
-
 pass_loop:
     write_tohost_success
     j pass_loop
