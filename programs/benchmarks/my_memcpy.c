@@ -15,16 +15,15 @@ void* memcpy(void *dst, const void *src, long len) {
         ((char*)dst)[i] = ((char*)src)[i];
 }
 
-// int diff_cnt(const void *dst, const void *src, long len) {
-//     int count = 0;
-//     for (long i = 0; i < len; ++i)
-//         count += ((char*)dst)[i] != ((char*)src)[i];
-//     return count;
-// }
+int diff_cnt(const void *dst, const void *src, long len) {
+    int count = 0;
+    for (long i = 0; i < len; ++i)
+        count += ((char*)dst)[i] != ((char*)src)[i];
+    return count;
+}
 
 int main() {
     init_array(source, N);
     memcpy(destination, source, N);
-    // return diff_cnt(destination, source, N);
-    return 0;
+    return diff_cnt(destination, source, N);
 }
