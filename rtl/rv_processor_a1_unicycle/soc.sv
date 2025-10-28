@@ -57,64 +57,71 @@ module soc #(
     memop_width_e hart_memop_width;
     assign hart_memop_width = MEMOP_WIDTH_32;
 
-memory_controller #(
-    .XLEN(XLEN),
-    .MEM_ALEN(IALEN),
-    .MEM_DLEN(XLEN)
-) imem_controller_inst (
-    .clk,
-    .reset_n,
+    logic unused_dmem_valid;
 
-    // Core input
-    .valid_i(1),
-    .data_i('0),
-    .addr_i(hart_imem_addr),
-    .width_i(hart_memop_width),
-    .we_i(0),
+    logic unused_imem_valid;
+    logic [MEM_DLEN-1:0] unused_imem_data_to_mem;
+    logic [MEM_DLEN/8-1:0] unused_imem_byte_en;
+    logic unused_imem_we;
 
-    // Core output
-    // .valid_o(),
-    .data_o(hart_imem_data_ld),
-    .xcpt_o(imem_xcpt),
+    memory_controller #(
+        .XLEN(XLEN),
+        .MEM_ALEN(IALEN),
+        .MEM_DLEN(XLEN)
+    ) imem_controller_inst (
+        .clk,
+        .reset_n,
 
-    // Mem output
-    .mem_addr_o(imem_addr_o),
-    // .mem_data_o(),
-    // .mem_byte_en_o(),
-    // .mem_we_o(),
+        // Core input
+        .valid_i(1),
+        .data_i('0),
+        .addr_i(hart_imem_addr),
+        .width_i(hart_memop_width),
+        .we_i(0),
 
-    // Mem input
-    .mem_data_i(imem_data_i)
-);
+        // Core output
+        .valid_o(unused_imem_valid),
+        .data_o(hart_imem_data_ld),
+        .xcpt_o(imem_xcpt),
 
-memory_controller #(
-    .XLEN(XLEN),
-    .MEM_ALEN(DALEN),
-    .MEM_DLEN(XLEN)
-) dmem_controller_inst (
-    .clk,
-    .reset_n,
+        // Mem output
+        .mem_addr_o(imem_addr_o),
+        .mem_data_o(unused_imem_data_to_mem),
+        .mem_byte_en_o(unused_imem_byte_en),
+        .mem_we_o(unused_imem_we),
 
-    // Core input
-    .valid_i(hart_dmem_memop_valid),
-    .data_i(hart_dmem_data_st),
-    .addr_i(hart_dmem_addr),
-    .width_i(hart_dmem_width),
-    .we_i(hart_dmem_we),
+        // Mem input
+        .mem_data_i(imem_data_i)
+    );
 
-    // Core output
-    // .valid_o(),
-    .data_o(hart_dmem_data_ld),
-    .xcpt_o(dmem_xcpt),
+    memory_controller #(
+        .XLEN(XLEN),
+        .MEM_ALEN(DALEN),
+        .MEM_DLEN(XLEN)
+    ) dmem_controller_inst (
+        .clk,
+        .reset_n,
 
-    // Mem output
-    .mem_addr_o(dmem_addr_o),
-    .mem_data_o(dmem_data_o),
-    .mem_byte_en_o(dmem_byte_en_o),
-    .mem_we_o(dmem_we_o),
+        // Core input
+        .valid_i(hart_dmem_memop_valid),
+        .data_i(hart_dmem_data_st),
+        .addr_i(hart_dmem_addr),
+        .width_i(hart_dmem_width),
+        .we_i(hart_dmem_we),
 
-    // Mem input
-    .mem_data_i(dmem_data_i)
-);
+        // Core output
+        .valid_o(unused_dmem_valid),
+        .data_o(hart_dmem_data_ld),
+        .xcpt_o(dmem_xcpt),
+
+        // Mem output
+        .mem_addr_o(dmem_addr_o),
+        .mem_data_o(dmem_data_o),
+        .mem_byte_en_o(dmem_byte_en_o),
+        .mem_we_o(dmem_we_o),
+
+        // Mem input
+        .mem_data_i(dmem_data_i)
+    );
 
 endmodule

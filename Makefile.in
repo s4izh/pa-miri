@@ -47,3 +47,8 @@ clean:
 	@echo "[CLEAN] Removing build files"
 	echo $(SIM) $(CLEAN_COMMAND)
 	$(CLEAN_COMMAND)
+
+lint:
+	@echo "[LINT] Running Slang linter on target: $(TARGET)"
+	@slang --version
+	@slang -Werror $(SV_FILES)
