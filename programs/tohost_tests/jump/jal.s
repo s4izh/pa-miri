@@ -10,10 +10,9 @@ _start:
     j fail_loop 
 
 target_function:
-    # If we successfully jumped here, the JAL instruction worked.
-    # The value of 'ra' should be the address of the 'j fail_loop' line.
-    # Now, we use jalr to return to the correct place to pass the test.
-    addi ra, ra, 4 # Adjust return address to point to 'pass_marker'
+    addi ra, ra, 12 # add 12 to ra so we jump 3 instructions ahead
+                    # ra is pointing at j fail_loop instruction
+                    # so we need to skip the next 3 instructions to reach pass_marker
     jalr zero, ra, 0
 
 pass_marker:

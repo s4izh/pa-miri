@@ -23,6 +23,9 @@ module rv_branch_compare #(
             COMPARE_OP_BGE:
                 if ($signed(op1_i) >= $signed(op2_i))
                     taken_branch_o = 1;
+            COMPARE_OP_BGEU:
+                if (op1_i >= op2_i)
+                    taken_branch_o = 1;
             COMPARE_OP_BLTU:
                 if (op1_i < op2_i)
                     taken_branch_o = 1;
