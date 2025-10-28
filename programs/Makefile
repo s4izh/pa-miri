@@ -13,12 +13,14 @@ MAP_FILE      := $(BUILD_DIR)/$(TARGET).map
 ASM_FILE      := $(BUILD_DIR)/$(TARGET).asm
 BIN_FILE      := $(BUILD_DIR)/$(TARGET).bin
 
-CRT_FILE =
-CRT_O_FILE =
+PROGRAMS_DIR := $(shell realpath --relative-to=. $(PROJ_DIR)/programs)
+CRT_TARGET :=
+CRT_O_FILE :=
 ifneq ($(wildcard $(TARGET).c),)
-	CRT_FILE += $(PROJ_DIR)/programs/crt.s
-	CRT_FILE += $(PROJ_DIR)/programs/crt.o
+	CRT_TARGET := $(PROGRAMS_DIR)/crt
+	CRT_O_FILE := $(BUILD_DIR)/$(CRT_TARGET).o
 endif
+
 
 TOOL_PREFIX := riscv32-unknown-elf-
 IMAGE_NAME  := $(DOCKER_TOOLCHAIN_IMAGE)
@@ -74,7 +76,7 @@ $(O_FILE): $(wildcard $(TARGET).s) $(wildcard $(TARGET).c) | docker-image-build
 	@mkdir -p $(dir $@)
 	$(CC) $(ARCH) -c -o $@ $<
 
-$(PROJ_DIR)/programs/crt.o: $(PROJ_DIR)/programs/crt.s
+$(CRT_O_FILE): $(CRT_TARGET).s
 	@echo "Compiling $<..."
 	@mkdir -p $(dir $@)
 	$(CC) $(ARCH) -c -o $@ $<
