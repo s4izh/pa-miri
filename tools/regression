@@ -128,7 +128,8 @@ def print_reports(results):
     for result in results:
         status_color = TColors.OKGREEN if result["status"] == "PASS" else TColors.FAIL
         padding = " " * (max_len - len(result['name']))
-        print(f"Test: {result['name']} {padding} {status_color}[{result['status']}]{TColors.ENDC}")
+        name = result['name'].removeprefix("tohost_tests/")
+        print(f"Test: {name} {padding} {status_color}[{result['status']}]{TColors.ENDC}")
 
     if failures:
         print(f"\n{TColors.FAIL}{'='*60}\nSome tests failed. Please refer to the detailed report above.\n{'='*60}{TColors.ENDC}")
@@ -138,11 +139,10 @@ def print_reports(results):
 
 def clean():
     """Cleans the main project build directory."""
-    build_dir = PROJ_DIR / "build"
+    build_dir = PROJ_DIR / "build" / "programs"
     print(f"Cleaning up build directory: {build_dir}")
     if build_dir.exists():
         shutil.rmtree(build_dir)
-    print("Cleanup complete.")
 
 def main():
     parser = argparse.ArgumentParser(description="RISC-V Processor Regression Suite", formatter_class=argparse.RawTextHelpFormatter)
