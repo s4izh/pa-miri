@@ -1,14 +1,12 @@
--- A Lua script to generate a build.ninja file
 local config = {
     build_dir = "build",
     programs_dir = "programs",
     tohost_tests_dir = "programs/tohost_tests",
     link_script = "programs/link.ld",
 
-    -- toolchain Configuration
+    -- toolchain configuration
     docker_image = "riscv-toolchain",
     tool_prefix = "riscv32-unknown-elf-",
-    -- Includes the fix for finding macros.inc
     arch_flags = "-march=rv32i -mabi=ilp32 -Iprograms",
 
     -- orchestrator/simulation configuration
@@ -75,13 +73,10 @@ end
 
 local all_hex_files = {}
 for _, src_path in ipairs(test_files) do
-    -- --- THE CRITICAL FIX ---
-    -- 1. Get the base path by removing only the file extension.
-    --    This preserves the full directory structure (e.g., "programs/tohost_tests/itype/xori")
+    -- get the base path by removing only the file extension.
     local base_path = src_path:gsub("%.s$", "")
 
-    -- 2. Prepend the build directory variable to the full path.
-    --    Result: "$builddir/programs/tohost_tests/itype/xori"
+    -- prepend build dir to base path
     local build_prefix = string.format("$builddir/%s", base_path)
 
     local obj_file = build_prefix .. ".o"
@@ -94,7 +89,7 @@ for _, src_path in ipairs(test_files) do
     build(rom_file, "create_rom", elf_file)
     build(sram_file, "create_sram", elf_file)
 
-    -- Create a unique phony target for each test using its full path.
+    -- create a unique phony target for each test using its full path.
     build(base_path, "phony", {rom_file, sram_file})
     write("")
 
@@ -111,7 +106,6 @@ local ninja_out = io.open("build.ninja", "w")
 if ninja_out then
     ninja_out:write(table.concat(ninja_file, "\n"))
     ninja_out:close()
-    -- print("Generated build.ninja successfully.")
 else
     error("Failed to open build.ninja for writing.")
 end
