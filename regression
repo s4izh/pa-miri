@@ -1,0 +1,258 @@
+#!/bin/bash
+
+set -e
+
+if [ -z "$PROJ_DIR" ]; then
+    echo "[ERROR] PROJ_DIR environment variable is not set. Please set it to the project root directory."
+    exit 1
+fi
+
+export PROJ_DIR
+export PROGRAMS_DIR="$PROJ_DIR/programs"
+export PROGRAMS_BUILD_DIR="$PROJ_DIR/build/programs"
+export TOHOST_TESTS_DIR="tohost_tests"
+export ORCHESTRATOR_TEST="rv_processor_a1_unicycle.anyrom"
+export SIMULATOR="vsim"
+
+MAX_JOBS=$(nproc --all)
+TEST_LIST=()
+declare -A test_results
+declare -A test_failure_reasons
+declare -A test_wave_commands
+
+find_tests() {
+    local test_dir_path="${PROGRAMS_DIR}/${TOHOST_TESTS_DIR}"
+    if [ ! -d "${test_dir_path}" ]; then
+        echo "[ERROR] Test directory not found: ${test_dir_path}"
+        exit 1
+    fi
+
+    for test_file in $(find "${test_dir_path}" -type f -name "*.s"); do
+        local target_name
+        target_name=$(echo "${test_file}" | sed -e "s|^${PROGRAMS_DIR}/||" -e 's|\.s$||')
+        TEST_LIST+=("${target_name}")
+    done
+
+    if [ ${#TEST_LIST[@]} -eq 0 ]; then
+        echo "[WARNING] No tests found in ${test_dir_path}. Exiting."
+        exit 0
+    fi
+}
+
+compile_all_tests() {
+    echo "========================================================"
+    echo "COMPILATION PHASE"
+    echo "========================================================"
+    echo "Placing artifacts in: ${PROGRAMS_BUILD_DIR}"
+    
+    make -C "${PROGRAMS_DIR}" clean BUILD_DIR="${PROGRAMS_BUILD_DIR}"
+
+    local any_failures=0
+    for test_target in "${TEST_LIST[@]}"; do
+        echo ">> Compiling: ${test_target}"
+        if ! make -C "${PROGRAMS_DIR}" TARGET="${test_target}" BUILD_DIR="${PROGRAMS_BUILD_DIR}"; then
+            echo ">> [FAIL] Assembly compilation failed for ${test_target}"
+            any_failures=1
+        fi
+    done
+
+    if [ ${any_failures} -ne 0 ]; then
+        echo "========================================================"
+        echo "One or more compilations failed. Aborting."
+        exit 1
+    else
+        echo "========================================================"
+        echo "All tests compiled successfully."
+    fi
+}
+
+run_single_test() {
+    local test_target=$1
+    local result_file=$2
+    local test_name="${test_target}"
+
+    echo ">> [STARTING] Test: ${test_name}"
+
+    local ROM_FILE="${PROGRAMS_BUILD_DIR}/${test_target}.rom.hex"
+    local SRAM_FILE="${PROGRAMS_BUILD_DIR}/${test_target}.sram.hex"
+
+    if [ ! -f "${ROM_FILE}" ]; then
+        echo ">> [FAIL] Hex file not found: ${ROM_FILE}. Did you compile?"
+        echo "FAIL;Hex file was not found;N/A" > "${result_file}"
+        return
+    fi
+
+    local output
+    output=$(./tools/orchestrator simulate \
+        --test "${ORCHESTRATOR_TEST}" --sim "${SIMULATOR}" \
+        --rom_file "${ROM_FILE}" --sram_file "${SRAM_FILE}" 2>&1 || true)
+
+    local result_line
+    result_line=$(echo "${output}" | grep "tohost was written with value:")
+    local wave_command_base="./tools/orchestrator waves --test \"${ORCHESTRATOR_TEST}\" --sim \"${SIMULATOR}\""
+    
+    if [[ -z "$result_line" ]]; then
+        echo ">> [FAIL] Test: ${test_name} (TIMEOUT/CRASH)"
+        echo "FAIL;Simulation timed out or crashed.;${wave_command_base}" > "${result_file}"
+    else
+        local result_value
+        result_value=$(echo "${result_line}" | awk '{print $NF}')
+        if [[ "$result_value" == "0" ]]; then
+            echo ">> [PASS] Test: ${test_name}"
+            echo "PASS;Success;N/A" > "${result_file}"
+        else
+            echo ">> [FAIL] Test: ${test_name} (WRONG VALUE)"
+            echo "FAIL;Incorrect 'tohost' value. Expected 0, got ${result_value}.;${wave_command_base}" > "${result_file}"
+        fi
+    fi
+}
+export -f run_single_test
+
+run_all_tests() {
+    echo "========================================================"
+    echo "SIMULATION PHASE (running ${MAX_JOBS} parallel jobs)"
+    echo "========================================================"
+
+    local RESULTS_DIR
+    RESULTS_DIR=$(mktemp -d)
+    trap 'rm -rf -- "$RESULTS_DIR"' EXIT
+
+    for test_target in "${TEST_LIST[@]}"; do
+        local result_filename
+        result_filename=$(echo "${test_target}" | tr '/' '_')
+        local result_file="${RESULTS_DIR}/${result_filename}"
+
+        run_single_test "${test_target}" "${result_file}" &
+
+        if (( $(jobs -p | wc -l) >= MAX_JOBS )); then
+            wait -n
+        fi
+    done
+
+    wait
+
+    echo "--------------------------------------------------------"
+    echo ">> All simulations finished. Processing results..."
+    
+    for test_target in "${TEST_LIST[@]}"; do
+        local result_filename
+        result_filename=$(echo "${test_target}" | tr '/' '_')
+        local result_file="${RESULTS_DIR}/${result_filename}"
+
+        if [ ! -f "${result_file}" ]; then
+            test_results["${test_target}"]=$'[FAIL]'
+            test_failure_reasons["${test_target}"]="Result file was not created."
+            test_wave_commands["${test_target}"]="N/A"
+            continue
+        fi
+
+        IFS=';' read -r status reason wave_cmd < "${result_file}"
+        
+        test_results["${test_target}"]=$"[$status]"
+        test_failure_reasons["${test_target}"]=$reason
+        test_wave_commands["${test_target}"]=$wave_cmd
+    done
+
+    print_reports
+}
+
+print_reports() {
+    local any_failures=0
+    for result in "${test_results[@]}"; do
+        if [[ "$result" != "[PASS]" ]]; then any_failures=1; break; fi
+    done
+
+    if [ ${any_failures} -ne 0 ]; then
+        echo
+        echo "========================================================"
+        echo "Detailed Failure Report"
+        echo "========================================================"
+        for test_target in "${TEST_LIST[@]}"; do
+            local result=${test_results[${test_target}]}
+            if [[ "$result" == "[FAIL]" ]]; then
+                printf "Test: %-35s %s\n" "${test_target}" "${result}"
+                printf "  - Reason: %s\n" "${test_failure_reasons[${test_target}]}"
+                
+                local wave_cmd_base=${test_wave_commands[${test_target}]}
+                if [[ "${wave_cmd_base}" != "N/A" ]]; then
+                    local ROM_FILE="${PROGRAMS_BUILD_DIR}/${test_target}.rom.hex"
+                    local SRAM_FILE="${PROGRAMS_BUILD_DIR}/${test_target}.sram.hex"
+                    local full_wave_cmd="${wave_cmd_base} --rom_file \"${ROM_FILE}\" --sram_file \"${SRAM_FILE}\""
+                    echo "  - To view waves, run:"
+                    echo "      ${full_wave_cmd}"
+                fi
+                echo "--------------------------------------------------------"
+            fi
+        done
+    fi
+
+    echo
+    echo "========================================================"
+    echo "Regression Summary"
+    echo "========================================================"
+    local summary_output=()
+    for test_target in "${TEST_LIST[@]}"; do
+        local result=${test_results[${test_target}]}
+        summary_output+=("Test: ${test_target} ${result}")
+    done
+    printf "%s\n" "${summary_output[@]}" | column -t
+
+    if [ ${any_failures} -ne 0 ]; then
+        echo "========================================================"
+        echo "Some tests failed. Please refer to the detailed report above."
+        exit 1
+    else
+        echo "========================================================"
+        echo "All tests passed successfully!"
+    fi
+}
+
+while getopts ":j:" opt; do
+    case ${opt} in
+        j)
+            if [[ "${OPTARG}" =~ ^[0-9]+$ ]] && [ "${OPTARG}" -gt 0 ]; then
+                MAX_JOBS=${OPTARG}
+            else
+                echo "Error: Invalid number of jobs specified for -j. Must be a positive integer." >&2
+                exit 1
+            fi
+            ;;
+        \?)
+            echo "Error: Invalid option: -${OPTARG}" >&2; exit 1;;
+        :)
+            echo "Error: Option -${OPTARG} requires an argument." >&2; exit 1;;
+    esac
+done
+shift $((OPTIND -1))
+
+ACTION=${1:---help}
+
+case "$ACTION" in
+    compile)
+        find_tests
+        compile_all_tests
+        ;;
+    run)
+        find_tests
+        run_all_tests
+        ;;
+    clean)
+        echo "Cleaning up build directory: ${PROGRAMS_BUILD_DIR}"
+        rm -rf "${PROGRAMS_BUILD_DIR}"
+        echo "Cleanup complete."
+        ;;
+    all)
+        find_tests
+        compile_all_tests
+        run_all_tests
+        ;;
+    --help|-h|help)
+        echo "Usage: $0 [-j NUM_JOBS] [compile|run|clean|all|help]"
+        exit 0
+        ;;
+    *)
+        echo "Error: Invalid action '$ACTION'"
+        echo "Usage: $0 [-j NUM_JOBS] [compile|run|clean|all|help]"
+        exit 1
+        ;;
+esac

@@ -29,20 +29,36 @@ if [ -z "$CONTAINER_ENGINE" ]; then
     fi
 fi
 
+# $CONTAINER_ENGINE run \
+#     -ti \
+#     --rm \
+#     --workdir ${HOME} \
+#     -e DISPLAY=${DISPLAY} \
+#     -v "/tmp/.X11-unix:/tmp/.X11-unix:rw" \
+#     -v "${HOME}:${HOME}:rw" \
+#     -e XAUTHORITY=${XAUTHORITY} \
+#     -v "${XAUTHORITY}:${XAUTHORITY}:rw" \
+#     -v "/etc/group:/etc/group:ro" \
+#     -v "/etc/passwd:/etc/passwd:ro" \
+#     --entrypoint /bin/bash \
+#     registry.gitlab.com/tymonx/docker-modelsim \
+#     ${DOCKER_ARGUMENTS:+-c "$DOCKER_ARGUMENTS"}
+
+#     # This argument messses up with permisions
+#     # --user "$(id -u):$(id -g)" \
+
+# run container without interactive terminal
+# necessary for the regression tests to work
 $CONTAINER_ENGINE run \
-    -ti \
     --rm \
-    --workdir ${HOME} \
-    -e DISPLAY=${DISPLAY} \
+    --workdir "${HOME}" \
+    -e DISPLAY="${DISPLAY}" \
     -v "/tmp/.X11-unix:/tmp/.X11-unix:rw" \
     -v "${HOME}:${HOME}:rw" \
-    -e XAUTHORITY=${XAUTHORITY} \
+    -e XAUTHORITY="${XAUTHORITY}" \
     -v "${XAUTHORITY}:${XAUTHORITY}:rw" \
     -v "/etc/group:/etc/group:ro" \
     -v "/etc/passwd:/etc/passwd:ro" \
     --entrypoint /bin/bash \
     registry.gitlab.com/tymonx/docker-modelsim \
     ${DOCKER_ARGUMENTS:+-c "$DOCKER_ARGUMENTS"}
-
-    # This argument messses up with permisions
-    # --user "$(id -u):$(id -g)" \
