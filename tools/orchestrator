@@ -86,7 +86,13 @@ def run_make(test, action, sim, rom_file, sram_file, timeout, verbose=False):
             target_relative_path = Path(rom_path_obj.stem)
 
     log_file = output_dir / target_relative_path.with_suffix('.log')
-    wave_file = output_dir / target_relative_path.with_suffix('.vcd')
+
+    if sim == "vsim" and action in ["simulate", "waves"]:
+        wave_file = output_dir / target_relative_path.with_suffix('.vcd')
+    elif sim == "verilator":
+        wave_file = output_dir / target_relative_path.with_suffix('.fst')
+    elif sim == "iverilog":
+        wave_file = output_dir / target_relative_path.with_suffix('.vcd')
 
     # only create the directories if we are actually simulating or viewing waves
     if action in ["simulate", "waves"]:

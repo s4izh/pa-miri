@@ -1,16 +1,21 @@
 #!/usr/bin/env bash
 
-wave_file=$(find build/ -type f -name "*.vcd" | fzf)
+wave_file=$(find build/ -type f -name "*.fst" | fzf)
 
 if [ -z "$wave_file" ]; then
     echo "No wave file selected."
     exit 1
 fi
 
-ln -sf "$wave_file" wave.vcd
+# VCD_SAVE_FILE="savefile.vcd"
+# FST_SAVE_FILE="savefile.fst"
 
-if [ -z "$1" ]; then
-    surfer "$wave_file"
+echo "Selected wave file: $wave_file"
+
+if [[ "$wave_file" == *.fst ]]; then
+    ln -sf "$wave_file" wave.fst
+    # surfer wave.fst -s "$FST_SAVE_FILE"
 else
-    surfer "$wave_file" -s "$1"
+    ln -sf "$wave_file" wave.vcd
+    # surfer wave.vcd -s "$VCD_SAVE_FILE"
 fi
