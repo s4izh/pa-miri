@@ -1,29 +1,34 @@
-export SIM ?= iverilog
+REQUIRED_VARS := PROJ_DIR TARGET FILELIST BUILD_DIR SIM WAVE_FILE LOG_FILE
+
+$(foreach var,$(REQUIRED_VARS),\
+  $(if $(value $(var)),,$(error Missing required variable: $(var))))
 
 SV_FILES := $(shell python3 $(PROJ_DIR)/tools/parse_filelist.py $(FILELIST))
 
-# it's important that BUILD_DIR is
-# defined before including the simulator makefile
-# so that it can be used there
-# BUILD_DIR := $(PROJ_DIR)/build/$(TARGET)/$(SIM)
+BUILD_DIR ?= $(PROJ_DIR)/build/$(TARGET)/$(SIM)
 
 include $(PROJ_DIR)/sim/scripts/$(SIM).mk
 
-# $(info --- MAKE DEBUG ---)
-# $(info TARGET      = $(TARGET))
-# $(info SIM         = $(SIM))
-# $(info FILELIST    = $(FILELIST))
-# $(info SV_FILES    = $(SV_FILES))
-# $(info COMPILED_FILE = $(COMPILED_FILE))
-# $(info COMPILE_COMMAND = $(COMPILE_COMMAND))
-# $(info COMPILE_COMMAND = $(SIM_COMMAND))
-# $(info CLEAN_COMMAND   = $(CLEAN_COMMAND))
-# $(info --- END DEBUG ---)
+REQUIRED_VARS_POST := COMPILE_COMMAND SIM_COMMAND CLEAN_COMMAND COMPILED_FILE
 
-.PHONY: all compile simulate waves clean
+$(foreach var,$(REQUIRED_VARS_POST),\
+  $(if $(value $(var)),,$(error Missing required variable after include: $(var))))
+
+$(info --- MAKE DEBUG ---)
+$(info TARGET            = $(TARGET))
+$(info SIM               = $(SIM))
+$(info FILELIST          = $(FILELIST))
+# $(info SV_FILES          = $(SV_FILES))
+$(info COMPILED_FILE     = $(COMPILED_FILE))
+$(info COMPILE_COMMAND   = $(COMPILE_COMMAND))
+$(info SIM_COMMAND       = $(SIM_COMMAND))
+$(info CLEAN_COMMAND     = $(CLEAN_COMMAND))
+$(info --- END DEBUG ---)
+
+.PHONY: all compile simulate waves clean lint
 
 WAVE_VIEWER ?= gtkwave
-SAVE_FILE ?= $(PROJ_DIR)/savefile.gtkw
+SAVE_FILE   ?= $(PROJ_DIR)/savefile.gtkw
 
 all: simulate
 
@@ -41,14 +46,15 @@ simulate: compile $(COMPILED_FILE)
 
 waves: simulate
 	@echo "[WAVES]"
-	$(WAVE_VIEWER) $(VCD_FILE) $(SAVE_FILE) &
+	$(WAVE_VIEWER) $(WAVE_FILE)
 
 clean:
 	@echo "[CLEAN] Removing build files"
-	echo $(SIM) $(CLEAN_COMMAND)
+	@echo $(SIM) $(CLEAN_COMMAND)
 	$(CLEAN_COMMAND)
 
 lint:
 	@echo "[LINT] Running Slang linter on target: $(TARGET)"
 	@slang --version
 	@slang -Werror $(SV_FILES)
+

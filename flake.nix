@@ -24,8 +24,8 @@
           zlib
           iverilog
           verilator
-          gtkwave
-          surfer
+          # gtkwave -- let engineers use their own version
+          # surfer --- let engineers use their own version
           svls
           universal-ctags
           python-pkgs

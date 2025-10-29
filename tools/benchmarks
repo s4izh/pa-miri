@@ -29,63 +29,67 @@ def list_simulators():
 
 def build_benchmarks():
     """Runs the Ninja build system to compile all C benchmarks."""
-    print("--- Step 1: Building benchmarks ---")
+    print("Step 1: Building benchmarks")
     try:
-        # ensure the build.ninja file is up-to-date
         subprocess.run(["lua", "build.lua"], cwd=PROJ_DIR, check=True, capture_output=True, text=True)
-        
-        # run Ninja to build the 'benchmarks' target
-        print(f"[RUNNING] ninja benchmarks")
+        print("[RUNNING] ninja benchmarks")
         subprocess.run(["ninja", "benchmarks"], cwd=PROJ_DIR, check=True, text=True)
-        
-        print("--- Build complete ---")
+        print("Build complete")
         return True
-    except subprocess.CalledProcessError as e:
-        print("\n[FAIL] Benchmark build failed.", file=sys.stderr)
-        return False
-    except FileNotFoundError as e:
-        print(f"\n[FAIL] A required command was not found: '{e.filename}'. Is Lua or Ninja installed and in your PATH?", file=sys.stderr)
+    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+        print(f"[FAIL] Benchmark build failed: {e}", file=sys.stderr)
         return False
 
-def run_simulation(sim, rom_path, sram_path, timeout):
-    """Executes a single benchmark simulation using make."""
-    test_dir = PROJ_DIR / "sim" / "rv_processor_a1_unicycle" / "anyrom"
-    
-    # define a unique build directory for the simulation artifacts
-    build_dir = PROJ_DIR / "build" / "rv_processor_a1_unicycle" / "anyrom" / sim
-
-    # ensure absolute paths
-    abs_rom_path = rom_path.resolve()
-    abs_sram_path = sram_path.resolve()
-
-    env = os.environ.copy()
-    env["PROJ_DIR"] = str(PROJ_DIR)
-    env["BUILD_DIR"] = str(build_dir)
-
-    # Construct the make command
-    cmd = [
-        "make", "-C", str(test_dir), "simulate",
-        f"SIM={sim}",
-        f"ROM_FILE={abs_rom_path}",
-        f"SRAM_FILE={abs_sram_path}",
-        f"TIMEOUT={timeout}"
-    ]
-    
+def run_simulation_with_orchestrator(sim, rom_path, sram_path, timeout, verbose):
+    """
+    Executes a single benchmark simulation by calling the main orchestrator script
+    and verifies the outcome by checking the generated log file.
+    """
     program_name = rom_path.relative_to(PROJ_DIR / "build")
-    print(f"--- Simulating: {program_name} ---")
-    print(f"[RUNNING] {' '.join(cmd)}")
+    print(f"Simulating: {program_name}")
+
+    test_harness = "rv_processor_a1_unicycle.anyrom"
+
+    cmd = [
+        "./tools/orchestrator", "simulate",
+        "--test", test_harness,
+        "--sim", sim,
+        "--rom_file", str(rom_path),
+        "--sram_file", str(sram_path),
+        f"--timeout={timeout}"
+    ]
+
+    # Add the verbose flag to the command if requested
+    # if verbose:
+    #     cmd.append("--verbose")
+    
+    capture = 1
+    result = subprocess.run(cmd, capture_output=capture, text=True)
+
+    build_dir = PROJ_DIR / "build" / test_harness.replace('.', '/') / sim
+    rel_path = rom_path.relative_to(PROJ_DIR / "build")
+    target_rel_path = Path(str(rel_path).replace('.rom.hex', ''))
+    log_file = build_dir / "outputs" / target_rel_path.with_suffix('.log')
+
+    if result.returncode != 0:
+        print(f"[FAIL] Orchestrator failed for {program_name} with exit code {result.returncode}", file=sys.stderr)
+        if capture:
+            print(result.stdout)
+            print(result.stderr)
+        return False
 
     try:
-        # Run the simulation, streaming output in real-time
-        subprocess.run(cmd, check=True, text=True, env=env)
-        print(f"[SUCCESS] {program_name}")
-        return True
-    except subprocess.CalledProcessError as e:
-        print(f"[FAIL] Simulation failed for {program_name} with exit code {e.returncode}", file=sys.stderr)
+        log_content = log_file.read_text()
+        if "** SIMULATION PASSED **" in log_content:
+            print(result.stdout)
+            print(f"[FINISHED] {program_name}")
+            return True
+        else:
+            print(f"[FAIL] Pass message not found in log for {program_name}", file=sys.stderr)
+            return False
+    except FileNotFoundError:
+        print(f"[FAIL] Log file not found at {log_file} for {program_name}", file=sys.stderr)
         return False
-    except KeyboardInterrupt:
-        print(f"\n[INTERRUPTED] Stopped while running {program_name}")
-        sys.exit(1)
 
 def main():
     sims = list_simulators()
@@ -93,37 +97,38 @@ def main():
         description="A script to build and run all C benchmarks for the RISC-V project.",
         formatter_class=argparse.RawTextHelpFormatter
     )
-    parser.add_argument("--sim", choices=sims, default="vsim", help="Simulator to use (default: iverilog).")
+    parser.add_argument("--sim", choices=sims, default="vsim", help="Simulator to use (default: vsim).")
     parser.add_argument("--timeout", default=5000, type=int, help="Number of simulation cycles before timeout (default: 5000).")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Print detailed simulator output.")
 
     args = parser.parse_args()
 
-    # build all benchmark programs
     if not build_benchmarks():
         sys.exit(1)
 
-    # discover compiled benchmarks
     benchmarks_dir = PROJ_DIR / "build" / "programs" / "benchmarks"
     benchmark_roms = sorted(benchmarks_dir.rglob("*.rom.hex"))
 
     if not benchmark_roms:
         sys.exit("[ERROR] No compiled benchmarks found in 'build/programs/benchmarks/'.")
 
-    print(f"--- Step 2: Found {len(benchmark_roms)} benchmarks to simulate ---")
+    print(f"Step 2: Found {len(benchmark_roms)} benchmarks to simulate")
 
-    # simulation for each benchmark
     failed_benchmarks = []
     for rom_path in benchmark_roms:
-        sram_path = rom_path.with_suffix("").with_suffix(".sram.hex")
-        if not sram_path.exists():
-            print(f"[WARNING] SRAM file not found for {rom_path.name}, continuing without it.")
-        
-        ok = run_simulation(args.sim, rom_path, sram_path, args.timeout)
-        if not ok:
-            failed_benchmarks.append(rom_path.relative_to(benchmarks_dir))
         print("-" * 60)
+        sram_path = rom_path.with_name(rom_path.name.replace(".rom.hex", ".sram.hex"))
+        
+        ok = run_simulation_with_orchestrator(
+            args.sim, 
+            rom_path, 
+            sram_path if sram_path.exists() else "", 
+            args.timeout,
+            args.verbose
+        )
+        if not ok:
+            failed_benchmarks.append(rom_path.relative_to(PROJ_DIR / "build"))
 
-    # TODO: algo para medir el rendimiento
     print("================== BENCHMARK SUMMARY ==================")
     if not failed_benchmarks:
         print("All benchmarks PASSED!")

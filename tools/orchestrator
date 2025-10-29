@@ -55,16 +55,16 @@ def relative_to_absolute(path) -> str:
 def list_simulators():
     return sorted([f.stem for f in SIM_SCRIPTS.glob("*.mk")])
 
-def run_make(test, action, sim, rom_file, sram_file, timeout):
+def run_make(test, action, sim, rom_file, sram_file, timeout, verbose=False):
     test_dir = test_name_to_folder(test)
     build_dir = test_name_to_build_dir(test, sim)
 
     env = os.environ
     env["PROJ_DIR"] = str(PROJ_DIR)
-    env["BUILD_DIR"] = str(build_dir)
 
     cmd = ["make", "-C", str(test_dir), action]
     cmd.append(f"SIM={sim}")
+    cmd.append(f"BUILD_DIR={build_dir}")
 
     if rom_file != "":
         cmd.append(f"ROM_FILE={relative_to_absolute(rom_file)}")
@@ -74,6 +74,28 @@ def run_make(test, action, sim, rom_file, sram_file, timeout):
 
     cmd.append(f"TIMEOUT={timeout}")
 
+    output_dir = build_dir / "outputs"
+    target_relative_path = Path(test.split('.')[-1])
+
+    if rom_file:
+        rom_path_obj = Path(rom_file)
+        try:
+            rel_path = rom_path_obj.relative_to(PROJ_DIR / "build")
+            target_relative_path = Path(str(rel_path).replace('.rom.hex', ''))
+        except ValueError:
+            target_relative_path = Path(rom_path_obj.stem)
+
+    log_file = output_dir / target_relative_path.with_suffix('.log')
+    wave_file = output_dir / target_relative_path.with_suffix('.vcd')
+
+    # only create the directories if we are actually simulating or viewing waves
+    if action in ["simulate", "waves"]:
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+
+    # pass the variables to `make` for ALL actions.
+    cmd.append(f"LOG_FILE={log_file.resolve()}")
+    cmd.append(f"WAVE_FILE={wave_file.resolve()}")
+
     print(f"[RUNNING] {' '.join(cmd)}")
 
     try:
@@ -82,15 +104,24 @@ def run_make(test, action, sim, rom_file, sram_file, timeout):
         if "Nothing to be done" in stdout:
             print(f"[SKIPPED] {test} ({sim}) {action} skipped — targets up to date")
         elif action == "clean":
-            print(f"[CLEAN] {test} cleaned")
+            print(f"[SUCCESS] {test} ({sim}) cleaned")
         else:
-            print(f"{stdout}", end="")
+            if verbose:
+                print(f"{stdout}", end="")
             print(f"[SUCCESS] {test} ({sim}) {action}")
-            # print(f"[SUCCESS] {action} --test {test} --sim {sim}")
+            if action in ["simulate", "waves"]:
+                print(f"  - Log file:   {log_file.resolve()}")
+                print(f"  - Wave file:  {wave_file.resolve()}")
         return True
     except subprocess.CalledProcessError as e:
+        if action == "clean" and "No such file or directory" in e.stderr:
+             print(f"[INFO] {test} ({sim}) build directory already clean.")
+             return True
         print(f"[FAIL] {test} ({sim}) {action} failed with exit code {e.returncode}")
         print(f"{e.stdout}\n{e.stderr}")
+        if action in ["simulate", "waves"]:
+            print(f"  - Log file:   {log_file.resolve()}")
+            print(f"  - Wave file:  {wave_file.resolve()}")
         return False
     except KeyboardInterrupt:
         print(f"\n[INTERRUPTED] Stopped while running {test}")
@@ -117,7 +148,7 @@ Available simulators (select with --sim):
     parser.add_argument("action", choices=["compile", "simulate", "waves", "clean", "lint"],
                         help="Action to perform (compile/simulate/waves/clean/lint).")
     parser.add_argument("--test", choices=tests, help="Specific test name (omit for all).")
-    parser.add_argument("--sim", choices=sims, default="iverilog", help="Simulator (default: iverilog).")
+    parser.add_argument("--sim", choices=sims, default="vsim", help="Simulator (default: vsim).")
     parser.add_argument("--rom_file", default="", help="Path to file with hex contents of the ROM (default: Empty).")
     parser.add_argument("--sram_file", default="", help="Path to file with hex contents of the SRAM (default: Empty).")
     parser.add_argument("--timeout", default=1000, help="Number of cycles after which a timeout is triggered (default: 1000).")
@@ -140,12 +171,12 @@ Available simulators (select with --sim):
     if args.test:
         if args.test not in tests:
             sys.exit(f"[ERROR] Test '{args.test}' not found among: {', '.join(tests)}")
-        ok = run_make(args.test, args.action, args.sim, args.rom_file, args.sram_file, args.timeout)
+        ok = run_make(args.test, args.action, args.sim, args.rom_file, args.sram_file, args.timeout, args.verbose)
         if not ok:
             failed.append(args.test)
     else:
         for t in tests:
-            ok = run_make(t, args.action, args.sim, args.rom_file, args.sram_file, args.timeout)
+            ok = run_make(t, args.action, args.sim, args.rom_file, args.sram_file, args.timeout, args.verbose)
             if not ok:
                 failed.append(t)
 

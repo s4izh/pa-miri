@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+wave_file=$(find build/ -type f -name "*.vcd" | fzf)
+
+if [ -z "$wave_file" ]; then
+    echo "No wave file selected."
+    exit 1
+fi
+
+ln -sf "$wave_file" wave.vcd
+
+if [ -z "$1" ]; then
+    surfer "$wave_file"
+else
+    surfer "$wave_file" -s "$1"
+fi

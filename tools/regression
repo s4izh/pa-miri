@@ -18,7 +18,10 @@ PROGRAMS_DIR = PROJ_DIR / "programs"
 PROGRAMS_BUILD_DIR = PROJ_DIR / "build" / "programs"
 TOHOST_TESTS_DIR = PROGRAMS_DIR / "tohost_tests"
 ORCHESTRATOR_TEST = "rv_processor_a1_unicycle.anyrom"
-SIMULATOR = "vsim"
+
+SIM_ROOT = PROJ_DIR / "sim"
+SIM_COMMON = SIM_ROOT / "common"
+SIM_SCRIPTS = SIM_ROOT / "scripts"
 
 class TColors:
     HEADER = '\033[95m'
@@ -26,6 +29,11 @@ class TColors:
     FAIL = '\033[91m'
     ENDC = '\033[0m'
     BOLD = '\033[1m'
+
+class TestRequest:
+    def __init__(self, name, simulator):
+        self.name = name
+        self.simulator = simulator
 
 def find_tests():
     """Finds all .s files recursively and returns their target names."""
@@ -56,8 +64,11 @@ def compile_all_tests():
         print(f"\n{TColors.FAIL}{'='*60}\nCompilation failed. Aborting.\n{'='*60}{TColors.ENDC}")
         sys.exit(1)
 
-def run_single_test(test_target):
+def run_single_test(test_request):
     """Runs a single simulation and returns a result dictionary."""
+    test_target = test_request.name
+    simulator = test_request.simulator
+
     rom_file = PROGRAMS_BUILD_DIR / f"{test_target}.rom.hex"
     sram_file = PROGRAMS_BUILD_DIR / f"{test_target}.sram.hex"
     
@@ -73,9 +84,10 @@ def run_single_test(test_target):
     cmd = [
         "./tools/orchestrator", "simulate",
         "--test", ORCHESTRATOR_TEST,
-        "--sim", SIMULATOR,
+        "--sim", simulator,
         "--rom_file", str(rom_file),
-        "--sram_file", str(sram_file)
+        "--sram_file", str(sram_file),
+        "--verbose"
     ]
 
     print(f"    Running command: {' '.join(cmd)}")
@@ -95,17 +107,19 @@ def run_single_test(test_target):
         print(f">> {TColors.FAIL}[FAIL]{TColors.ENDC} Test: {test_target}")
         return {"name": test_target, "status": "FAIL", "reason": reason}
 
-def run_all_tests_parallel(test_list, jobs):
+def run_all_tests_parallel(test_list, jobs, simulator):
     """Runs all simulations in parallel using a process pool."""
     print(f"{TColors.HEADER}{'='*60}\nSIMULATION PHASE (running up to {jobs} parallel jobs)\n{'='*60}{TColors.ENDC}")
 
+    test_requests = [TestRequest(name, simulator) for name in test_list]
+
     with Pool(processes=jobs) as pool:
-        results = pool.map(run_single_test, test_list)
+        results = pool.map(run_single_test, test_requests)
     
     print(f"\n{TColors.HEADER}{'-'*60}\n>> All simulations finished. Processing results...\n{'-'*60}{TColors.ENDC}")
     return results
 
-def print_reports(results):
+def print_reports(results, simulator):
     """Prints the detailed failure and summary reports."""
     failures = [r for r in results if r["status"] == "FAIL"]
 
@@ -113,7 +127,7 @@ def print_reports(results):
         print(f"\n{TColors.FAIL}{'='*60}\nDetailed Failure Report\n{'='*60}{TColors.ENDC}")
         for result in failures:
             test_name = result["name"]
-            wave_cmd = f'./tools/orchestrator waves --test "{ORCHESTRATOR_TEST}" --sim "{SIMULATOR}" --rom_file "{PROGRAMS_BUILD_DIR / test_name}.rom.hex" --sram_file "{PROGRAMS_BUILD_DIR / test_name}.sram.hex"'
+            wave_cmd = f'./tools/orchestrator waves --test "{ORCHESTRATOR_TEST}" --sim "{simulator}" --rom_file "{PROGRAMS_BUILD_DIR / test_name}.rom.hex" --sram_file "{PROGRAMS_BUILD_DIR / test_name}.sram.hex"'
             
             print(f"Test: {TColors.BOLD}{test_name}{TColors.ENDC} {TColors.FAIL}[FAIL]{TColors.ENDC}")
             print(f"  - Reason: {result['reason']}")
@@ -144,6 +158,9 @@ def clean():
     if build_dir.exists():
         shutil.rmtree(build_dir)
 
+def list_simulators():
+    return sorted([f.stem for f in SIM_SCRIPTS.glob("*.mk")])
+
 def main():
     parser = argparse.ArgumentParser(description="RISC-V Processor Regression Suite", formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("action", nargs='?', default="all", 
@@ -155,6 +172,9 @@ def main():
                              "  all:     Compile and then run all tests (default).")
     parser.add_argument("-j", "--jobs", type=int, default=cpu_count(),
                         help=f"Number of parallel simulation jobs to run (default: {cpu_count()})")
+
+    sims = list_simulators()
+    parser.add_argument("--sim", choices=sims, default="vsim", help="Simulator (default: vsim).")
 
     args = parser.parse_args()
 
@@ -171,8 +191,8 @@ def main():
         compile_all_tests()
 
     if args.action in ["run", "all"]:
-        results = run_all_tests_parallel(test_list, args.jobs)
-        print_reports(results)
+        results = run_all_tests_parallel(test_list, args.jobs, args.sim)
+        print_reports(results, args.sim)
 
 if __name__ == "__main__":
     main()
