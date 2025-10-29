@@ -79,6 +79,9 @@ module tb (
     assign tohost_written = &{dmem_addr_o, dmem_we_o}; // and reduction
     assign tohost_value = dmem_data_o;
 
+    logic [XLEN-1:0] ins;
+    assign ins = dut.hart0_inst.imem_data_i;
+
     int cycle_count = 0;
     always @(posedge clk) begin
         if (reset_n) begin

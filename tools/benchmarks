@@ -1,0 +1,138 @@
+#!/usr/bin/env python3
+import argparse
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+def find_proj_root():
+    """Detect or export PROJ_DIR automatically."""
+    env_root = os.getenv("PROJ_DIR")
+    if env_root:
+        root = Path(env_root).resolve()
+        if root.exists():
+            return root
+
+    current = Path(__file__).resolve()
+    for parent in [current] + list(current.parents):
+        if (parent / "sim").is_dir() and (parent / "rtl").is_dir():
+            os.environ["PROJ_DIR"] = str(parent)
+            return parent
+    sys.exit("[ERROR] Could not determine project root. Please export PROJ_DIR manually.")
+
+PROJ_DIR = find_proj_root()
+SIM_SCRIPTS = PROJ_DIR / "sim" / "scripts"
+
+def list_simulators():
+    """Finds available simulators from the sim/scripts directory."""
+    return sorted([f.stem for f in SIM_SCRIPTS.glob("*.mk")])
+
+def build_benchmarks():
+    """Runs the Ninja build system to compile all C benchmarks."""
+    print("--- Step 1: Building benchmarks ---")
+    try:
+        # ensure the build.ninja file is up-to-date
+        subprocess.run(["lua", "build.lua"], cwd=PROJ_DIR, check=True, capture_output=True, text=True)
+        
+        # run Ninja to build the 'benchmarks' target
+        print(f"[RUNNING] ninja benchmarks")
+        subprocess.run(["ninja", "benchmarks"], cwd=PROJ_DIR, check=True, text=True)
+        
+        print("--- Build complete ---")
+        return True
+    except subprocess.CalledProcessError as e:
+        print("\n[FAIL] Benchmark build failed.", file=sys.stderr)
+        return False
+    except FileNotFoundError as e:
+        print(f"\n[FAIL] A required command was not found: '{e.filename}'. Is Lua or Ninja installed and in your PATH?", file=sys.stderr)
+        return False
+
+def run_simulation(sim, rom_path, sram_path, timeout):
+    """Executes a single benchmark simulation using make."""
+    test_dir = PROJ_DIR / "sim" / "rv_processor_a1_unicycle" / "anyrom"
+    
+    # define a unique build directory for the simulation artifacts
+    build_dir = PROJ_DIR / "build" / "rv_processor_a1_unicycle" / "anyrom" / sim
+
+    # ensure absolute paths
+    abs_rom_path = rom_path.resolve()
+    abs_sram_path = sram_path.resolve()
+
+    env = os.environ.copy()
+    env["PROJ_DIR"] = str(PROJ_DIR)
+    env["BUILD_DIR"] = str(build_dir)
+
+    # Construct the make command
+    cmd = [
+        "make", "-C", str(test_dir), "simulate",
+        f"SIM={sim}",
+        f"ROM_FILE={abs_rom_path}",
+        f"SRAM_FILE={abs_sram_path}",
+        f"TIMEOUT={timeout}"
+    ]
+    
+    program_name = rom_path.relative_to(PROJ_DIR / "build")
+    print(f"--- Simulating: {program_name} ---")
+    print(f"[RUNNING] {' '.join(cmd)}")
+
+    try:
+        # Run the simulation, streaming output in real-time
+        subprocess.run(cmd, check=True, text=True, env=env)
+        print(f"[SUCCESS] {program_name}")
+        return True
+    except subprocess.CalledProcessError as e:
+        print(f"[FAIL] Simulation failed for {program_name} with exit code {e.returncode}", file=sys.stderr)
+        return False
+    except KeyboardInterrupt:
+        print(f"\n[INTERRUPTED] Stopped while running {program_name}")
+        sys.exit(1)
+
+def main():
+    sims = list_simulators()
+    parser = argparse.ArgumentParser(
+        description="A script to build and run all C benchmarks for the RISC-V project.",
+        formatter_class=argparse.RawTextHelpFormatter
+    )
+    parser.add_argument("--sim", choices=sims, default="vsim", help="Simulator to use (default: iverilog).")
+    parser.add_argument("--timeout", default=5000, type=int, help="Number of simulation cycles before timeout (default: 5000).")
+
+    args = parser.parse_args()
+
+    # build all benchmark programs
+    if not build_benchmarks():
+        sys.exit(1)
+
+    # discover compiled benchmarks
+    benchmarks_dir = PROJ_DIR / "build" / "programs" / "benchmarks"
+    benchmark_roms = sorted(benchmarks_dir.rglob("*.rom.hex"))
+
+    if not benchmark_roms:
+        sys.exit("[ERROR] No compiled benchmarks found in 'build/programs/benchmarks/'.")
+
+    print(f"--- Step 2: Found {len(benchmark_roms)} benchmarks to simulate ---")
+
+    # simulation for each benchmark
+    failed_benchmarks = []
+    for rom_path in benchmark_roms:
+        sram_path = rom_path.with_suffix("").with_suffix(".sram.hex")
+        if not sram_path.exists():
+            print(f"[WARNING] SRAM file not found for {rom_path.name}, continuing without it.")
+        
+        ok = run_simulation(args.sim, rom_path, sram_path, args.timeout)
+        if not ok:
+            failed_benchmarks.append(rom_path.relative_to(benchmarks_dir))
+        print("-" * 60)
+
+    # TODO: algo para medir el rendimiento
+    print("================== BENCHMARK SUMMARY ==================")
+    if not failed_benchmarks:
+        print("All benchmarks PASSED!")
+        sys.exit(0)
+    else:
+        print(f"{len(failed_benchmarks)} benchmark(s) FAILED: ")
+        for f in failed_benchmarks:
+            print(f"  - {f}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

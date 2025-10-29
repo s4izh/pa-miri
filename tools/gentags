@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+ctags  -f "$PROJ_DIR"/tags \
+    --languages=systemverilog \
+    --exclude=.git \
+    --exclude=.direnv \
+    --exclude=build \
+    --exclude=docs \
+    --exclude=scripts \
+    --exclude=testbench \
+    --exclude=simulations \
+    -R "$PROJ_DIR" \

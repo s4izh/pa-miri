@@ -1,14 +1,14 @@
--- A Lua script to generate a build.ninja file
 local config = {
     build_dir = "build",
     programs_dir = "programs",
+    benchmarks_dir = "programs/benchmarks",
     tohost_tests_dir = "programs/tohost_tests",
+    crt_file = "programs/crt.s",
     link_script = "programs/link.ld",
 
-    -- toolchain Configuration
+    -- toolchain configuration
     docker_image = "riscv-toolchain",
     tool_prefix = "riscv32-unknown-elf-",
-    -- Includes the fix for finding macros.inc
     arch_flags = "-march=rv32i -mabi=ilp32 -Iprograms",
 
     -- orchestrator/simulation configuration
@@ -55,6 +55,7 @@ write("")
 
 rule("configure", "lua build.lua", "Regenerating build.ninja")
 rule("compile_asm", "$cc $arch_flags -c -o $out $in", "Compiling ASM $in")
+rule("compile_c", "$cc $arch_flags -c -o $out $in", "Compiling C $in")
 rule("link_elf", "$cc $arch_flags -o $out $in -T $link_script -nostdlib -Wl,-Map,$out.map", "Linking ELF $out")
 rule("create_rom", "$objcopy -O verilog --verilog-data-width 4 --only-section=.text* $in $out.tmp && cat $out.tmp | tr ' ' '\\n' | tr -d '\\r' > $out && rm -f $out.tmp", "Creating ROM $out")
 rule("create_sram", "$objcopy -O verilog --verilog-data-width 4 --only-section=.data* --only-section=.sdata* --only-section=.bss* --only-section=.sbss* $in $out.tmp && cat $out.tmp | tr ' ' '\\n' | tr -d '\\r' > $out && rm -f $out.tmp", "Creating SRAM $out")
@@ -62,6 +63,11 @@ rule("do_clean", "rm -rf $builddir", "DELETING build directory ($builddir)")
 write("")
 
 build("build.ninja", "configure", "build.lua")
+
+-- compile crt.s, needed for C programs
+local crt_obj = string.format("$builddir/%s.o", config.crt_file:gsub("%.s$", ""))
+build(crt_obj, "compile_asm", config.crt_file)
+write("")
 
 local test_files = {}
 local find_cmd = string.format("find %s -type f -name '*.s'", config.tohost_tests_dir)
@@ -74,14 +80,12 @@ if find_pipe then
 end
 
 local all_hex_files = {}
+local all_tohost_hex_files = {}
 for _, src_path in ipairs(test_files) do
-    -- --- THE CRITICAL FIX ---
-    -- 1. Get the base path by removing only the file extension.
-    --    This preserves the full directory structure (e.g., "programs/tohost_tests/itype/xori")
+    -- get the base path by removing only the file extension.
     local base_path = src_path:gsub("%.s$", "")
 
-    -- 2. Prepend the build directory variable to the full path.
-    --    Result: "$builddir/programs/tohost_tests/itype/xori"
+    -- prepend build dir to base path
     local build_prefix = string.format("$builddir/%s", base_path)
 
     local obj_file = build_prefix .. ".o"
@@ -94,15 +98,57 @@ for _, src_path in ipairs(test_files) do
     build(rom_file, "create_rom", elf_file)
     build(sram_file, "create_sram", elf_file)
 
-    -- Create a unique phony target for each test using its full path.
+    -- create a unique phony target for each test using its full path.
     build(base_path, "phony", {rom_file, sram_file})
     write("")
 
     table.insert(all_hex_files, rom_file)
     table.insert(all_hex_files, sram_file)
+    table.insert(all_tohost_hex_files, rom_file)
+    table.insert(all_tohost_hex_files, sram_file)
+end
+
+local benchmark_files = {}
+local find_c_cmd = string.format("find %s -type f -name '*.c'", config.benchmarks_dir)
+local find_c_pipe = io.popen(find_c_cmd)
+if find_c_pipe then
+    for filename in find_c_pipe:lines() do
+        table.insert(benchmark_files, filename)
+    end
+    find_c_pipe:close()
+end
+
+local all_benchmark_hex_files = {}
+for _, src_path in ipairs(benchmark_files) do
+    -- get the base path by removing only the file extension.
+    local base_path = src_path:gsub("%.c$", "")
+
+    -- prepend build dir to base path
+    local build_prefix = string.format("$builddir/%s", base_path)
+
+    local obj_file = build_prefix .. ".o"
+    local elf_file = build_prefix .. ".elf"
+    local rom_file = build_prefix .. ".rom.hex"
+    local sram_file = build_prefix .. ".sram.hex"
+
+    build(obj_file, "compile_c", src_path)
+    build(elf_file, "link_elf", {obj_file, crt_obj})
+    build(rom_file, "create_rom", elf_file)
+    build(sram_file, "create_sram", elf_file)
+
+    -- create a unique phony target for each test using its full path.
+    build(base_path, "phony", {rom_file, sram_file})
+    write("")
+
+    table.insert(all_benchmark_hex_files, rom_file)
+    table.insert(all_benchmark_hex_files, sram_file)
+    table.insert(all_hex_files, rom_file)
+    table.insert(all_hex_files, sram_file)
 end
 
 write("# Top-level aliases")
+build("benchmarks", "phony", all_benchmark_hex_files)
+build("tohost_tests", "phony", all_tohost_hex_files)
 build("all", "phony", all_hex_files)
 build("clean", "do_clean", "")
 write("default all\n")
@@ -111,7 +157,6 @@ local ninja_out = io.open("build.ninja", "w")
 if ninja_out then
     ninja_out:write(table.concat(ninja_file, "\n"))
     ninja_out:close()
-    -- print("Generated build.ninja successfully.")
 else
     error("Failed to open build.ninja for writing.")
 end
