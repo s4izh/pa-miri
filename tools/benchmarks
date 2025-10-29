@@ -59,6 +59,8 @@ def run_simulation_with_orchestrator(sim, rom_path, sram_path, timeout, verbose)
         f"--timeout={timeout}"
     ]
 
+    print(f"[RUNNING] {' '.join(cmd)}")
+
     # Add the verbose flag to the command if requested
     # if verbose:
     #     cmd.append("--verbose")
