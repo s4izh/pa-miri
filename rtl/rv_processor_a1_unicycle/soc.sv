@@ -57,13 +57,6 @@ module soc #(
     memop_width_e hart_memop_width;
     assign hart_memop_width = MEMOP_WIDTH_32;
 
-    logic unused_dmem_valid;
-
-    logic unused_imem_valid;
-    logic [MEM_DLEN-1:0] unused_imem_data_to_mem;
-    logic [MEM_DLEN/8-1:0] unused_imem_byte_en;
-    logic unused_imem_we;
-
     memory_controller #(
         .XLEN(XLEN),
         .MEM_ALEN(IALEN),
@@ -72,25 +65,25 @@ module soc #(
         .clk,
         .reset_n,
 
-        // Core input
+        // Input from core
         .valid_i(1),
         .data_i('0),
         .addr_i(hart_imem_addr),
         .width_i(hart_memop_width),
         .we_i(0),
 
-        // Core output
-        .valid_o(unused_imem_valid),
+        // Output to core
+        .valid_o(),
         .data_o(hart_imem_data_ld),
         .xcpt_o(imem_xcpt),
 
-        // Mem output
+        // Output to mem
         .mem_addr_o(imem_addr_o),
-        .mem_data_o(unused_imem_data_to_mem),
-        .mem_byte_en_o(unused_imem_byte_en),
-        .mem_we_o(unused_imem_we),
+        .mem_data_o(),
+        .mem_byte_en_o(),
+        .mem_we_o(),
 
-        // Mem input
+        // Input from mem
         .mem_data_i(imem_data_i)
     );
 
@@ -102,25 +95,25 @@ module soc #(
         .clk,
         .reset_n,
 
-        // Core input
+        // Input from core
         .valid_i(hart_dmem_memop_valid),
         .data_i(hart_dmem_data_st),
         .addr_i(hart_dmem_addr),
         .width_i(hart_dmem_width),
         .we_i(hart_dmem_we),
 
-        // Core output
-        .valid_o(unused_dmem_valid),
+        // Output to core
+        .valid_o(),
         .data_o(hart_dmem_data_ld),
         .xcpt_o(dmem_xcpt),
 
-        // Mem output
+        // Output to memory
         .mem_addr_o(dmem_addr_o),
         .mem_data_o(dmem_data_o),
         .mem_byte_en_o(dmem_byte_en_o),
         .mem_we_o(dmem_we_o),
 
-        // Mem input
+        // Input from memory
         .mem_data_i(dmem_data_i)
     );
 

@@ -31,6 +31,8 @@ module rv_branch_compare #(
                     taken_branch_o = 1;
             COMPARE_OP_NONE:
                 taken_branch_o = 0;
+            default:
+                taken_branch_o = 0;
         endcase
     end
 endmodule

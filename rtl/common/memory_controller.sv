@@ -34,7 +34,7 @@ module memory_controller #(
 
     logic xcpt_misaligned;
 
-    logic [MEM_DLEN_BYTES-1:0] byte_offset;
+    logic [MEM_DLEN_BYTES_BITS-1:0] byte_offset;
     logic [MEM_DLEN-1:0] read_data_aligned;
 
     assign mem_we_o = we_i & valid_i & ~xcpt_misaligned;
@@ -48,12 +48,12 @@ module memory_controller #(
         mem_byte_en_o = '0;
         case (width_i)
             MEMOP_WIDTH_8: begin
-                mem_data_o = data_i[7:0] << (byte_offset * 8);
-                mem_byte_en_o = 1'b1 << byte_offset;
+                mem_data_o = data_i << (byte_offset * 8);
+                mem_byte_en_o = 4'b0001 << byte_offset;
             end
             MEMOP_WIDTH_16: begin
-                mem_data_o = data_i[15:0] << (byte_offset * 8);
-                mem_byte_en_o = 2'b11 << byte_offset;
+                mem_data_o = data_i << (byte_offset * 8);
+                mem_byte_en_o = 4'b0011 << byte_offset;
             end
             MEMOP_WIDTH_32: begin
                 mem_data_o = data_i;

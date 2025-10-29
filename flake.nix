@@ -19,7 +19,11 @@
     in rec {
       devShell = pkgs.mkShell {
         buildInputs = with pkgs; [
+          gnumake
+          libgcc
+          zlib
           iverilog
+          verilator
           gtkwave
           surfer
           svls
