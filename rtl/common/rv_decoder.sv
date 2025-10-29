@@ -36,6 +36,9 @@ module rv_decoder #(
     logic [2:0] funct3;
     logic [6:0] funct7;
 
+    logic [XLEN-1:0] immed_u, immed_b, immed_j, immed_i, immed_s;
+
+
     assign opcode = ins_i[6:0];
     assign funct3 = ins_i[14:12];
     assign funct7 = ins_i[31:25];
@@ -49,23 +52,29 @@ module rv_decoder #(
     assign rs2_addr_o = ins_i[24:20];
     assign rd_addr_o  = ins_i[11:7];
 
+    assign immed_u = { ins_i[31:12], 12'b0 };
+    assign immed_b = { {20{ins_i[31]}}, ins_i[7], ins_i[30:25], ins_i[11:8], 1'b0 };
+    assign immed_j = { {12{ins_i[31]}}, ins_i[19:12], ins_i[20], ins_i[30:21], 1'b0 };
+    assign immed_i = { {21{ins_i[31]}}, ins_i[30:20] };
+    assign immed_s = { {21{ins_i[31]}}, ins_i[30:25], ins_i[11:7] };
+
     always_comb begin
         case (opcode)
             OPCODE_LUI,
-            OPCODE_AUIPC: // U-Type
-                immed_o = {ins_i[31:12], 12'b0};
-            OPCODE_BRANCH: // B-Type
-                immed_o = { {20{ins_i[31]}}, ins_i[7], ins_i[30:25], ins_i[11:8], 1'b0 };
-            OPCODE_JAL:   // J-Type
-                immed_o = { {12{ins_i[31]}}, ins_i[19:12], ins_i[20], ins_i[30:21], 1'b0 };
+            OPCODE_AUIPC:
+                immed_o = immed_u;
+            OPCODE_BRANCH:
+                immed_o = immed_b;
+            OPCODE_JAL:
+                immed_o = immed_j;
             OPCODE_JALR,
             OPCODE_IMM,
             OPCODE_LOAD,
             OPCODE_FENCE,
-            OPCODE_SYSTEM: // I-Type
-                immed_o = { {21{ins_i[31]}}, ins_i[30:20] };
-            OPCODE_STORE:  // S-Type
-                immed_o = { {21{ins_i[31]}}, ins_i[30:25], ins_i[11:7] };
+            OPCODE_SYSTEM:
+                immed_o = immed_i;
+            OPCODE_STORE:
+                immed_o = immed_s;
             default:
                 immed_o = 32'hDEADBEEF;
         endcase
@@ -184,7 +193,12 @@ module rv_decoder #(
                     F3_ORI:   alu_op_o = ALU_OR;
                     F3_ANDI:  alu_op_o = ALU_AND;
                     F3_SLLI:  alu_op_o = ALU_SLL;
-                    F3_SRI:   alu_op_o = (funct7 == F7_SRA) ? ALU_SRA : ALU_SRL;
+                    F3_SRI: begin
+                        if (funct7 == F7_SRA)
+                            alu_op_o = ALU_SRA;
+                        else
+                            alu_op_o = ALU_SRL;
+                    end
                     default:  illegal_ins_o = 1'b1;
                 endcase
             end
@@ -193,12 +207,22 @@ module rv_decoder #(
                 is_wb_o     = 1'b1;
                 // ALU operation depends on funct3 and funct7
                 case (funct3)
-                    F3_ADDSUB: alu_op_o = (funct7 == F7_SUB) ? ALU_SUB : ALU_ADD;
+                    F3_ADDSUB: begin
+                        if (funct7 == F7_SUB)
+                            alu_op_o = ALU_SUB;
+                        else
+                            alu_op_o = ALU_ADD;
+                    end
                     F3_SLL:    alu_op_o = ALU_SLL;
                     F3_SLT:    alu_op_o = ALU_SLT;
                     F3_SLTU:   alu_op_o = ALU_SLTU;
                     F3_XOR:    alu_op_o = ALU_XOR;
-                    F3_SR:     alu_op_o = (funct7 == F7_SRA) ? ALU_SRA : ALU_SRL;
+                    F3_SR: begin
+                        if (funct7 == F7_SRA)
+                            alu_op_o = ALU_SRA;
+                        else
+                            alu_op_o = ALU_SRL;
+                    end
                     F3_OR:     alu_op_o = ALU_OR;
                     F3_AND:    alu_op_o = ALU_AND;
                     default:   illegal_ins_o = 1'b1;

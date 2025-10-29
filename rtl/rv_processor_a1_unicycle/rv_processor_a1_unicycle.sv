@@ -59,10 +59,10 @@ module rv_processor_a1_unicycle# (
     // PC
     always @(posedge clk) begin
         if (!reset_n) begin
-            pc <= 0'h1000;
+            pc <= 'h1000;
         end else begin
             if (trap_valid) begin
-                pc <= 0'h2000;
+                pc <= 'h2000;
             end else begin
                 case (pc_sel)
                     MUX_PC_NEXT:
