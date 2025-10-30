@@ -25,7 +25,6 @@ tar \
   --exclude='./.git' \
   --exclude='./.direnv' \
   --exclude="${ARCHIVE_NAME}" \
-  --exclude='./tools/pack_for_submission' \
   --exclude='./build' \
   --exclude='./build.ninja' \
   --exclude='./programs/build' \
