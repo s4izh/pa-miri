@@ -44,6 +44,7 @@ module rv_processor_a1_unicycle# (
     logic [XLEN-1:0] alu_op1, alu_op2, alu_result;
     logic trap_valid;
 
+    logic [XLEN-1:0] dmem_data_sign_extended;
 
     // local assigns
     assign trap_valid = imem_trap_i.valid | dmem_trap_i.valid | illegal_ins;
@@ -104,7 +105,10 @@ module rv_processor_a1_unicycle# (
             MUX_WB_ALU:
                 rd_data = alu_result;
             MUX_WB_MEM:
-                rd_data = dmem_data_i;
+                if (ld_unsigned == 1)
+                    rd_data = dmem_data_i;
+                else
+                    rd_data = dmem_data_sign_extended;
             MUX_WB_PC_NEXT:
                 rd_data = pc + 4;
             default:
@@ -112,6 +116,13 @@ module rv_processor_a1_unicycle# (
         endcase
     end
 
+    sign_extender #(
+        .XLEN(XLEN)
+    ) sign_extender_inst (
+        .data_i   (dmem_data_i),
+        .width_i  (memop_width),
+        .signed_o (dmem_data_sign_extended)
+    );
 
     rv_regfile #(
         .XLEN(XLEN)

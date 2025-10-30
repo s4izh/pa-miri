@@ -1,3 +1,5 @@
+`ifndef _MEMORY_CONTROLLER_PKG_
+`define _MEMORY_CONTROLLER_PKG_
 
 package memory_controller_pkg;
 
@@ -9,3 +11,5 @@ package memory_controller_pkg;
     } memop_width_e;
 
 endpackage
+
+`endif
