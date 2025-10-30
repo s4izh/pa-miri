@@ -119,9 +119,9 @@ module rv_processor_a1_unicycle# (
     sign_extender #(
         .XLEN(XLEN)
     ) sign_extender_inst (
-        .data_i   (dmem_data_i),
-        .width_i  (memop_width),
-        .signed_o (dmem_data_sign_extended)
+        .data_i        (dmem_data_i),
+        .width_i       (memop_width),
+        .data_signed_o (dmem_data_sign_extended)
     );
 
     rv_regfile #(

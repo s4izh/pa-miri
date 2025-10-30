@@ -45,23 +45,23 @@ def find_tests():
     return [str(f.relative_to(PROGRAMS_DIR)).replace(".s", "") for f in test_files]
 
 def compile_all_tests():
-    """Generates the ninja file and runs ninja to compile all tests."""
-    print(f"{TColors.HEADER}{'='*60}\nCOMPILATION PHASE\n{'='*60}{TColors.ENDC}")
+    """Generates the ninja file and runs ninja to compile all assembly tests."""
+    print(f"{TColors.HEADER}{'='*60}\nSOFTWARE COMPILATION PHASE\n{'='*60}{TColors.ENDC}")
     
     try:
         print(">> Regenerating build.ninja...")
         subprocess.run(["lua", "build.lua"], cwd=PROJ_DIR, check=True, capture_output=True)
 
-        print(">> Running ninja...")
+        print(">> Running ninja to compile assembly tests...")
         subprocess.run(["ninja", "-C", str(PROJ_DIR)], check=True)
         
-        print(f"\n{TColors.OKGREEN}{'='*60}\nAll tests compiled successfully.\n{'='*60}{TColors.ENDC}")
+        print(f"\n{TColors.OKGREEN}>> All assembly tests compiled successfully.{TColors.ENDC}")
 
     except subprocess.CalledProcessError as e:
-        print(f"{TColors.FAIL}>> [FAIL] Compilation failed with exit code {e.returncode}{TColors.ENDC}")
+        print(f"{TColors.FAIL}>> [FAIL] Assembly compilation failed with exit code {e.returncode}{TColors.ENDC}")
         print(e.stdout.decode())
         print(e.stderr.decode())
-        print(f"\n{TColors.FAIL}{'='*60}\nCompilation failed. Aborting.\n{'='*60}{TColors.ENDC}")
+        print(f"\n{TColors.FAIL}{'='*60}\nAssembly compilation failed. Aborting.\n{'='*60}{TColors.ENDC}")
         sys.exit(1)
 
 def run_single_test(test_request):
@@ -72,13 +72,13 @@ def run_single_test(test_request):
     rom_file = PROGRAMS_BUILD_DIR / f"{test_target}.rom.hex"
     sram_file = PROGRAMS_BUILD_DIR / f"{test_target}.sram.hex"
     
-    print(f">> [STARTING] Test: {test_target}")
+    print(f">> [RUNNING] Test: {test_target}")
 
     if not rom_file.exists():
         return {
             "name": test_target,
             "status": "FAIL",
-            "reason": f"Hex file not found: {rom_file}. Did you compile?"
+            "reason": f"Hex file not found: {rom_file}. Did you compile the software?"
         }
 
     cmd = [
@@ -89,8 +89,6 @@ def run_single_test(test_request):
         "--sram_file", str(sram_file),
         "--verbose"
     ]
-
-    print(f"    Running command: {' '.join(cmd)}")
     
     result = subprocess.run(cmd, capture_output=True, text=True)
     combined_output = result.stdout + result.stderr
@@ -101,7 +99,7 @@ def run_single_test(test_request):
     else:
         reason = "Simulation timed out or failed without a specific error message."
         for line in combined_output.splitlines():
-            if "Fatal:" in line or "Error:" in line:
+            if "Fatal:" in line or "Error:" in line or "Test FAILED!" in line:
                 reason = line.strip().replace("** ", "")
                 break
         print(f">> {TColors.FAIL}[FAIL]{TColors.ENDC} Test: {test_target}")
@@ -109,7 +107,7 @@ def run_single_test(test_request):
 
 def run_all_tests_parallel(test_list, jobs, simulator):
     """Runs all simulations in parallel using a process pool."""
-    print(f"{TColors.HEADER}{'='*60}\nSIMULATION PHASE (running up to {jobs} parallel jobs)\n{'='*60}{TColors.ENDC}")
+    print(f"\n{TColors.HEADER}{'='*60}\nSIMULATION PHASE (running up to {jobs} parallel jobs)\n{'='*60}{TColors.ENDC}")
 
     test_requests = [TestRequest(name, simulator) for name in test_list]
 
@@ -166,7 +164,7 @@ def main():
     parser.add_argument("action", nargs='?', default="all", 
                         choices=["compile", "run", "clean", "all"],
                         help="Action to perform:\n"
-                             "  compile: Generate ninja file and compile all tests.\n"
+                             "  compile: Compile all software and the HDL design.\n"
                              "  run:     Run simulations for all compiled tests.\n"
                              "  clean:   Remove the entire 'build' directory.\n"
                              "  all:     Compile and then run all tests (default).")
@@ -189,6 +187,24 @@ def main():
 
     if args.action in ["compile", "all"]:
         compile_all_tests()
+        
+        print(f"\n{TColors.HEADER}{'='*60}\nHARDWARE COMPILATION PHASE\n{'='*60}{TColors.ENDC}")
+        try:
+            print(f">> Compiling HDL design for '{ORCHESTRATOR_TEST}' with simulator '{args.sim}'...")
+            hdl_compile_cmd = [
+                "./tools/orchestrator", "compile",
+                "--test", ORCHESTRATOR_TEST,
+                "--sim", args.sim
+            ]
+            subprocess.run(hdl_compile_cmd, check=True)
+            print(f"\n{TColors.OKGREEN}>> HDL design compiled successfully.{TColors.ENDC}")
+
+        except subprocess.CalledProcessError as e:
+            print(f"{TColors.FAIL}>> [FAIL] HDL compilation failed with exit code {e.returncode}{TColors.ENDC}")
+            if e.stdout: print(e.stdout.decode())
+            if e.stderr: print(e.stderr.decode())
+            print(f"\n{TColors.FAIL}{'='*60}\nHDL compilation failed. Aborting.\n{'='*60}{TColors.ENDC}")
+            sys.exit(1)
 
     if args.action in ["run", "all"]:
         results = run_all_tests_parallel(test_list, args.jobs, args.sim)
