@@ -1,0 +1,64 @@
+#!/bin/bash
+
+PROJECT_NAME="pa"
+CURRENT_DATE=$(date +"%Y-%m-%d")
+TOP_LEVEL_DIR="${PROJECT_NAME}_submission_${CURRENT_DATE}"
+ARCHIVE_NAME="${TOP_LEVEL_DIR}.tar.gz"
+
+if [ ! -d "./rtl" ] || [ ! -d "./tools" ]; then
+  echo "Error: This script must be run from the root of the project directory."
+  exit 1
+fi
+
+echo "Preparing to create submission archive: ${ARCHIVE_NAME}"
+echo "All files will be placed inside the folder: ${TOP_LEVEL_DIR}"
+
+echo "Archiving project files..."
+
+if [ -z "$PROJ_DIR" ]; then
+    echo "Error: PROJ_DIR environment variable is not set."
+    exit 1
+fi
+
+tar \
+  --exclude='./build' \
+  --exclude='./.git' \
+  --exclude='./.direnv' \
+  --exclude="${ARCHIVE_NAME}" \
+  --exclude='./tools/pack_for_submission' \
+  --exclude='./build' \
+  --exclude='./programs/build' \
+  --transform="s,^\./,${TOP_LEVEL_DIR}/," \
+  -czvf "${ARCHIVE_NAME}" \
+  ./*
+
+if [ $? -eq 0 ]; then
+  echo ""
+  echo "--------------------------------------------------------"
+  echo "  Project successfully packaged!"
+  echo "  Submission file: ${ARCHIVE_NAME}"
+  echo "  To test, run: tar -tzvf ${ARCHIVE_NAME} | less"
+  echo "--------------------------------------------------------"
+else
+  echo ""
+  echo "--------------------------------------------------------"
+  echo "  An error occurred during packaging."
+  echo "  Please check the output above for details."
+  echo "--------------------------------------------------------"
+fi
+
+if [[ $1 == "test" ]]; then
+  set -x
+  echo "Extracting the archive to /tmp/ for testing..."
+  tar -xzvf "${ARCHIVE_NAME}" -C /tmp/
+  cd "/tmp/$TOP_LEVEL_DIR"
+
+  source set_env.sh
+  ./tools/regression --sim vsim
+  ./tools/regression --sim verilator
+  ./tools/regression --sim iverilog
+else
+  echo ""
+  echo "No test flag provided. Skipping test extraction and regression tests."
+  exit 0
+fi
