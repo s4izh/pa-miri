@@ -36,7 +36,7 @@ module soc #(
     assign hart_dmem_trap.trap_type = TRAP_TYPE_EXCEPTION;
     assign hart_dmem_trap.cause     = EXC_CAUSE_INSTR_ADDR_MISALIGNED;
 
-    rv_processor_a1_unicycle #(
+    rv_pa1 #(
         .XLEN(XLEN)
     ) hart0_inst (
         .clk,

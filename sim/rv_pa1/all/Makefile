@@ -2,7 +2,7 @@ ROM_FILE ?=
 SRAM_FILE ?=
 
 TARGET := all
-FILELIST := $(PROJ_DIR)/sim/rv_processor_a1_unicycle/$(TARGET)/filelist.f
+FILELIST := $(PROJ_DIR)/sim/rv_pa1/$(TARGET)/filelist.f
 PLUSARGS := +ROM_FILE=$(PROGRAMS_DIR)/all.rom.hex +SRAM_FILE=$(PROGRAMS_DIR)/all.sram.hex
 ROM_COMPILE_COMMAND := make -C $(PROGRAMS_DIR) TARGET=all
 include $(PROJ_DIR)/Makefile.in

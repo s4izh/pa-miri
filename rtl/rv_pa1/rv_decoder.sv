@@ -1,5 +1,6 @@
 import rv_isa_pkg::*;
 import rv_datapath_pkg::*;
+import rv_branch_compare_pkg::*;
 import memory_controller_pkg::*;
 import alu_pkg::*;
 

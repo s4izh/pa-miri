@@ -2,8 +2,8 @@
 -f $(PROJ_DIR)/rtl/common/rv_regfile.f
 -f $(PROJ_DIR)/rtl/common/rv_branch_compare.f
 -f $(PROJ_DIR)/rtl/common/alu.f
--f $(PROJ_DIR)/rtl/common/rv_decoder.f
 -f $(PROJ_DIR)/rtl/common/sign_extender.f
-$(PROJ_DIR)/rtl/rv_processor_a1_unicycle/rv_processor_a1_unicycle.sv
-$(PROJ_DIR)/rtl/rv_processor_a1_unicycle/soc.sv
+-f $(PROJ_DIR)/rtl/rv_pa1/rv_decoder.f
+$(PROJ_DIR)/rtl/rv_pa1/rv_pa1.sv
+$(PROJ_DIR)/rtl/rv_pa1/soc.sv
 

@@ -1,4 +1,4 @@
-import rv_datapath_pkg::*;
+import rv_branch_compare_pkg::*;
 
 module rv_branch_compare #(
     parameter int XLEN = 32

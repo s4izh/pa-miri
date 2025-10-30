@@ -25,15 +25,6 @@ package rv_datapath_pkg;
         MUX_PC_JALR       // PC = rs1 + immediate (unconditional jump - JALR)
     } mux_pc_sel_e;
 
-    typedef enum logic [2:0] {
-        COMPARE_OP_BEQ,
-        COMPARE_OP_BNE,
-        COMPARE_OP_BLT,
-        COMPARE_OP_BGE,
-        COMPARE_OP_BGEU,
-        COMPARE_OP_BLTU,
-        COMPARE_OP_NONE
-    } compare_op_e;
 endpackage
 
 `endif

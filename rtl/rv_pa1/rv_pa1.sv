@@ -1,9 +1,10 @@
 import rv_datapath_pkg::*;
+import rv_branch_compare_pkg::*;
 import memory_controller_pkg::*;
 import alu_pkg::*;
 import rv_isa_pkg::*;
 
-module rv_processor_a1_unicycle# (
+module rv_pa1# (
     parameter int XLEN = 32
 )(
     input  logic clk,

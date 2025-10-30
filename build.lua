@@ -13,7 +13,7 @@ local config = {
     arch_flags = "-march=rv32i -mabi=ilp32 -Iprograms",
 
     -- orchestrator/simulation configuration
-    orchestrator_test = "rv_processor_a1_unicycle.anyrom",
+    orchestrator_test = "rv_pa1.anyrom",
     simulator = "vsim"
 }
 
