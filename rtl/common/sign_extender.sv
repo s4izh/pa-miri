@@ -14,19 +14,19 @@ module sign_extender #(
     logic [XLEN-1:0] byte_signed;
     logic [XLEN-1:0] half_signed;
 
-    assign byte_signed   = {{XLEN-8{data_i[7]}}, data_i[7:0]};
-    assign half_signed   = {{XLEN-16{data_i[15]}}, data_i[15:0]};
+    assign byte_signed = {{XLEN-8{data_i[7]}}, data_i[7:0]};
+    assign half_signed = {{XLEN-16{data_i[15]}}, data_i[15:0]};
 
     always_comb begin
         case (width_i)
             MEMOP_WIDTH_8: begin
-                data_signed_o   = byte_signed;
+                data_signed_o = byte_signed;
             end
             MEMOP_WIDTH_16: begin
-                data_signed_o   = half_signed;
+                data_signed_o = half_signed;
             end
             default: begin
-                data_signed_o   = data_i;
+                data_signed_o = data_i;
             end
         endcase
     end
