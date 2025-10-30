@@ -1,6 +1,6 @@
 TOP_MODULE     := top_tb_wrapper
 
-CONTAINER := $(PROJ_DIR)/utils/vsim_container.sh
+CONTAINER := $(PROJ_DIR)/tools/vsim_container.sh
 
 WORK_DIR       := $(BUILD_DIR)/work
 
