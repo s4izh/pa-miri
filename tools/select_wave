@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-wave_file=$(find build/ -type f -name "*.fst" | fzf)
+wave_file=$(find build/ -type f -name "*.vcd" -o -name "*.fst" | fzf)
 
 if [ -z "$wave_file" ]; then
     echo "No wave file selected."
