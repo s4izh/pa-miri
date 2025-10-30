@@ -27,7 +27,7 @@ module alu#(
                 if (op2_i == XLEN) begin
                     result_o = {XLEN{op1_i[XLEN-1]}};
                 end else begin
-                    result_o = (op1_i >> op2_i[4:0]) | ({XLEN{op1_i[XLEN-1]}} << (XLEN - op2_i[XLEN_LOG2-1:0]));
+                    result_o = (op1_i >> op2_i[4:0]) | ({XLEN{op1_i[XLEN-1]}} << (XLEN - XLEN'(op2_i[XLEN_LOG2-1:0])));
                 end
             end
             default:  result_o = '0;
