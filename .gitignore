@@ -50,3 +50,4 @@ tags
 
 build.ninja
 *.ron
+*.tar.gz
