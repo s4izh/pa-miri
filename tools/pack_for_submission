@@ -27,6 +27,7 @@ tar \
   --exclude="${ARCHIVE_NAME}" \
   --exclude='./tools/pack_for_submission' \
   --exclude='./build' \
+  --exclude='./build.ninja' \
   --exclude='./programs/build' \
   --transform="s,^\./,${TOP_LEVEL_DIR}/," \
   -czvf "${ARCHIVE_NAME}" \
@@ -49,14 +50,14 @@ fi
 
 if [[ $1 == "test" ]]; then
   set -x
-  echo "Extracting the archive to /tmp/ for testing..."
-  tar -xzvf "${ARCHIVE_NAME}" -C /tmp/
-  cd "/tmp/$TOP_LEVEL_DIR"
+  tar -xzvf "${ARCHIVE_NAME}"
+  cd "$TOP_LEVEL_DIR" || exit 1
 
   source set_env.sh
   ./tools/regression --sim vsim
   ./tools/regression --sim verilator
   ./tools/regression --sim iverilog
+  sudo rm -rf "$TOP_LEVEL_DIR"
 else
   echo ""
   echo "No test flag provided. Skipping test extraction and regression tests."
