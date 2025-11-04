@@ -2,33 +2,41 @@
 
 module rob #(
     parameter int XLEN = 32,
-    parameter int N_ENTRIES = 8
+    parameter int N_ENTRIES = 8,
+
+    parameter type rob_id_t = logic[$clog2(N_ENTRIES)-1:0]
 ) (
     input logic clk,
     input logic reset_n,
 
     // Issue interface
     input  logic            issue_valid_i,
-    input  logic [XLEN-1:0] pc_i,
-    input  logic            rd_we_i,
-    input  logic [4:0]      rd_addr_i,
-    input  logic [XLEN-1:0] rd_data_i,
-    input  logic            st_we_i,
-    input  logic [XLEN-1:0] st_addr_i,
-    input  logic [XLEN-1:0] st_data_i,
-    output rob_id_t         rob_id_o,
+    input  logic [XLEN-1:0] issue_pc_i,
+    input  logic            issue_rd_we_i,
+    input  logic [4:0]      issue_rd_addr_i,
+    input  logic            issue_st_we_i,
+    input  logic [XLEN-1:0] issue_st_data_i,
+    output rob_id_t         issue_robid_o,
 
-    // Completed interface
-    input  logic            completed_valid_i,
-    input  rob_id_t         rob_id_i,
+    // writable at a latter time
+    input  logic            complete_rd_data_valid_i,
+    input  rob_id_t         complete_rd_data_robid_i,
+    input  logic [XLEN-1:0] complete_rd_data_i,
+    input  logic            complete_rd_data_valid_i,
+    input  logic [XLEN-1:0] complete_st_addr_i,
+    input  logic            complete_xcpt_i,
+    input  rob_id_t         complete_xcpt_robid_i,
 
-    // Interface with register file
-    output logic            we_o,
-    output logic [4:0]      rd_addr_o,
-    output logic [XLEN-1:0] rd_data_o,
+    // Complete interface
+    input  logic            complete_valid_i,
+    input  rob_id_t         complete_rob_id_i,
+
+    // Commit interface
+    output logic            commit_we_o,
+    output logic [4:0]      commit_rd_addr_o,
+    output logic [XLEN-1:0] commit_rd_data_o,
 )
     // Define a type for reorder buffer
-    typedef logic[$clog2(N_ENTRIES)-1:0] rob_id_t;
 
     typedef struct packed {
         logic               valid;
@@ -36,9 +44,11 @@ module rob #(
 
         logic               rd_valid;
         logic [4:0]         rd_addr;
+        logic               rd_data_valid;
         logic [XLEN-1:0]    rd_data;
 
         logic               st_valid;
+        logic               st_addr_valid;
         logic [XLEN-1:0]    st_addr;
         logic [XLEN-1:0]    st_data;
         // valid bits for reg/data + control bits
@@ -56,7 +66,7 @@ module rob #(
     //    | rob_id 6 |
     //    | rob_id 7 | <- tail
     //      ........
-    rob_id_t tail, head;
+    robid_t tail, head;
     reg rob_entry_t [N_ENTRIES-1:0] entries;
 
     // Write to entries and control head and tail
