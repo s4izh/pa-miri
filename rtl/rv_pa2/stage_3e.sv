@@ -1,0 +1,66 @@
+module stage_3e #(
+    parameter int XLEN = 32
+) (
+    input logic clk,
+    input logic reset_n,
+    // Pipeline input/output
+    input  signals_decode_t  _i,
+    output signals_execute_t _o,
+    // Next pc selection
+    output mux_pc_sel_e     pc_sel_o,
+    output logic            taken_branch_o
+);
+    logic [XLEN-1:0] alu_op1, alu_op2, alu_result;
+
+    // Propagated signals
+    assign _o.pc = _i.pc;
+
+    assign _o.is_wb   = _i.is_wb;
+    assign _o.wb_sel  = _i.wb_sel;
+    assign _o.rd_addr = _i.rd_addr;
+
+    assign _o.is_ld       = _i.is_ld;
+    assign _o.is_st       = _i.is_st;
+    assign _o.rs2_data    = _i.rs2_data;
+    assign _o.memop_width = _i.memop_width;
+    assign _o.ld_unsigned = _i.ld_unsigned;
+
+    // Muxes
+    always_comb begin
+        case(_i.alu_op1_sel)
+            MUX_ALU_OP1_RS1:
+                alu_op1 = _i.rs1_data;
+            MUX_ALU_OP1_PC:
+                alu_op1 = _i.pc;
+        endcase
+    end
+
+    always_comb begin
+        case(_i.alu_op2_sel)
+            MUX_ALU_OP2_RS2:
+                alu_op2 = _i.rs2_data;
+            MUX_ALU_OP2_IMM:
+                alu_op2 = _i.immed;
+        endcase
+    end
+
+    // Instances
+    alu #(
+        .XLEN(XLEN)
+    ) alu_inst (
+        .op1_i(alu_op1),
+        .op2_i(alu_op2),
+        .alu_op_i(_i.alu_op),
+        .result_o(_o.alu_result)
+    );
+
+    rv_branch_compare #(
+        .XLEN(XLEN)
+    ) cmp_inst (
+        .compare_op_i(_i.compare_op),
+        .op1_i(_i.rs1_data),
+        .op2_i(_i.rs2_data),
+        .taken_branch_o(taken_branch_o)
+    );
+
+endmodule

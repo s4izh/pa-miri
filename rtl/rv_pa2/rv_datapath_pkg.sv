@@ -40,7 +40,6 @@ package rv_datapath_pkg;
         mux_wb_sel_e      wb_sel;
 
         mux_pc_sel_e      pc_sel;
-        logic             illegal_ins;
 
         // write enable signals
         logic             is_wb;
@@ -48,10 +47,10 @@ package rv_datapath_pkg;
         logic             is_st;
 
         // decoded instruction fields
-        logic [`XLEN-1:0]  rs1_data;
-        logic [`XLEN-1:0]  rs2_data;
+        logic [`XLEN-1:0] rs1_data;
+        logic [`XLEN-1:0] rs2_data;
         logic [4:0]       rd_addr;
-        logic [`XLEN-1:0]  immed;
+        logic [`XLEN-1:0] immed;
 
         compare_op_e      compare_op;
 
@@ -59,11 +58,11 @@ package rv_datapath_pkg;
         memop_width_e     memop_width;
         logic             ld_unsigned;
 
-        logic [`XLEN-1:0]  pc;
+        logic [`XLEN-1:0] pc;
     } signals_decode_t;
 
     typedef struct packed {
-        logic [`XLEN-1:0]  alu_result;
+        logic [`XLEN-1:0] alu_result;
         mux_wb_sel_e      wb_sel;
         logic [4:0]       rd_addr;
 
@@ -75,27 +74,46 @@ package rv_datapath_pkg;
         // memory signals
         memop_width_e     memop_width;
         logic             ld_unsigned;
+        logic [`XLEN-1:0] rs2_data;
 
-        logic [`XLEN-1:0]  pc;
+
+        logic [`XLEN-1:0] pc;
     } signals_execute_t;
 
     typedef struct packed {
-        logic [`XLEN-1:0]  mem_result;
-        logic [`XLEN-1:0]  alu_result;
+        logic [`XLEN-1:0] mem_result;
+        logic [`XLEN-1:0] alu_result;
         mux_wb_sel_e      wb_sel;
         logic [4:0]       rd_addr;
 
         // write enable signals
-        logic             is_wb; // is_wb = (wb_sel == (MUX_MB_MEM || MUX_MB_ALU))
+        logic             is_wb;
+
+        logic [`XLEN-1:0] pc;
     } signals_memory_t;
 
     typedef struct packed {
-        logic [`XLEN-1:0]  data;
+        logic [`XLEN-1:0] rd_data;
         logic [4:0]       rd_addr;
 
         // write enable signals
         logic             is_wb;
     } signals_writeback_t;
+
+
+    // Data memory interfacing structs
+    typedef struct packed {
+        logic             valid;
+        logic             we;
+        logic [`XLEN-1:0] addr;
+        logic [`XLEN-1:0] data;
+        memop_width_e     width;
+    } dmem_if_out_t;
+
+    typedef struct packed {
+        logic [`XLEN-1:0] data;
+        trap_t            trap;
+    } dmem_if_in_t;
 
 endpackage
 

@@ -5,7 +5,8 @@ import alu_pkg::*;
 import rv_isa_pkg::*;
 
 module rv_pa2# (
-    parameter int XLEN = 32
+    parameter int XLEN = 32,
+    parameter int N_PHY_REG = 32
 )(
     input  logic clk,
     input  logic reset_n,
@@ -23,91 +24,43 @@ module rv_pa2# (
     input  trap_t           dmem_trap_i
 );
 
-    localparam int RALEN = $clog2(32);
+    localparam int RALEN = $clog2(N_PHY_REG);
 
-    logic [XLEN-1:0] rs1_data, rs2_data, rd_data;
-    logic [RALEN-1:0] rs1_addr, rs2_addr, rd_addr;
-
-    compare_op_e compare_op;
-    alu_op_e alu_op;
-
+    // pc
     logic [XLEN-1:0] pc;
-
-    logic [XLEN-1:0] immed;
-    mux_alu_op1_sel_e alu_op1_sel;
-    mux_alu_op2_sel_e alu_op2_sel;
+    // trap control signals
+    logic trap_valid, xcpt_illegal_ins;
+    // branch control
+    logic taken_branch;
+    // mux selectors
     mux_pc_sel_e pc_sel;
     mux_wb_sel_e wb_sel;
-
-    logic illegal_ins, ld_unsigned, is_ld, is_wb, is_st, taken_branch;
-    memop_width_e memop_width;
-
-    logic [XLEN-1:0] alu_op1, alu_op2, alu_result;
-    logic trap_valid;
-
-    logic [XLEN-1:0] dmem_data_sign_extended;
-
-    // local assigns
-    assign trap_valid = imem_trap_i.valid | dmem_trap_i.valid | illegal_ins;
-
-    // external interface
-    assign imem_addr_o = pc;
-    assign dmem_addr_o = alu_result;
-    assign dmem_data_o = rs2_data;
-    assign dmem_we_o = is_st;
-    assign dmem_width_o = memop_width;
-    assign dmem_memop_valid_o = is_ld || is_st;
-
-    // stage data
+    // pipeline stages data
     signals_fetch_t     s_1f_d, s_1f_q;
     signals_decode_t    s_2d_d, s_2d_q;
     signals_execute_t   s_3e_d, s_3e_q;
     signals_memory_t    s_4m_d, s_4m_q;
     signals_writeback_t s_5w_d;
+    // data mem interfacing
+    dmem_if_in_t  dmem_if_in;
+    dmem_if_out_t dmem_if_out;
 
-    assign s_1f_d.pc = pc;
+    // local assigns
+    assign trap_valid = imem_trap_i.valid | dmem_trap_i.valid | xcpt_illegal_ins;
 
-    decoupling_reg #(
-        .regtype_t(signals_fetch_t)
-    ) decoupling_reg_1f_2d_inst (
-        .clk,
-        .reset_n,
-        .stall_i(0),
-        .d_i(s_1f_d),
-        .q_o(s_1f_q)
-    );
+    assign dmem_if_in.data = dmem_data_i;
+    assign dmem_if_in.trap = dmem_trap_i;
 
-    decoupling_reg #(
-        .regtype_t(signals_decode_t)
-    ) decoupling_reg_2d_3e_inst (
-        .clk,
-        .reset_n,
-        .stall_i(0),
-        .d_i(s_2d_d),
-        .q_o(s_2d_q)
-    );
+    assign dmem_memop_valid_o = dmem_if_out.valid;
+    assign dmem_we_o          = dmem_if_out.we;
+    assign dmem_addr_o        = dmem_if_out.addr;
+    assign dmem_data_o        = dmem_if_out.data;
+    assign dmem_width_o       = dmem_if_out.width;
 
-    decoupling_reg #(
-        .regtype_t(signals_execute_t)
-    ) decoupling_reg_3e_4m_inst (
-        .clk,
-        .reset_n,
-        .stall_i(0),
-        .d_i(s_3e_d),
-        .q_o(s_3e_q)
-    );
-
-    decoupling_reg #(
-        .regtype_t(signals_memory_t)
-    ) decoupling_reg_4m_5w_inst (
-        .clk,
-        .reset_n,
-        .stall_i(0),
-        .d_i(s_4m_d),
-        .q_o(s_4m_q)
-    );
-
-    // PC
+    // =========================================================================
+    // = Stage 1: Fetch
+    // =========================================================================
+    // pc
     always @(posedge clk) begin
         if (!reset_n) begin
             pc <= 'h1000;
@@ -120,120 +73,123 @@ module rv_pa2# (
                         pc <= pc + 4;
                     MUX_PC_BRANCH:
                         if (taken_branch)
-                            pc <= alu_result;
+                            pc <= s_3e_d.alu_result;
                         else
                             pc <= pc + 4;
                     MUX_PC_JAL:
-                        pc <= alu_result;
+                        pc <= s_3e_d.alu_result;
                     MUX_PC_JALR:
-                        pc <= {alu_result[31:1], 1'b0};
+                        pc <= {s_3e_d.alu_result[31:1], 1'b0};
                 endcase
             end
         end
     end
 
-    always_comb begin
-        case(alu_op1_sel)
-            MUX_ALU_OP1_RS1:
-                alu_op1 = rs1_data;
-            MUX_ALU_OP1_PC:
-                alu_op1 = pc;
-        endcase
-    end
+    // external interface
+    assign imem_addr_o = pc;
 
-    always_comb begin
-        case(alu_op2_sel)
-            MUX_ALU_OP2_RS2:
-                alu_op2 = rs2_data;
-            MUX_ALU_OP2_IMM:
-                alu_op2 = immed;
-        endcase
-    end
+    // pipeline
+    assign s_1f_d.pc = pc;
+    assign s_1f_d.ins = imem_data_i;
 
-    always_comb begin
-        case (wb_sel)
-            MUX_WB_ALU:
-                rd_data = alu_result;
-            MUX_WB_MEM:
-                if (ld_unsigned == 1)
-                    rd_data = dmem_data_i;
-                else
-                    rd_data = dmem_data_sign_extended;
-            MUX_WB_PC_NEXT:
-                rd_data = pc + 4;
-            default:
-                rd_data = pc + 4;
-        endcase
-    end
-
-    sign_extender #(
-        .XLEN(XLEN)
-    ) sign_extender_inst (
-        .data_i        (dmem_data_i),
-        .width_i       (memop_width),
-        .data_signed_o (dmem_data_sign_extended)
-    );
-
-    rv_regfile #(
-        .XLEN(XLEN)
-    ) regs_inst (
+    decoupling_reg #(
+        .regtype_t(signals_fetch_t)
+    ) decoupling_reg_1f_2d_inst (
         .clk,
         .reset_n,
-
-        .rs1_addr_i(rs1_addr),
-        .rs1_data_o(rs1_data),
-
-        .rs2_addr_i(rs2_addr),
-        .rs2_data_o(rs2_data),
-
-        .rd_addr_i(rd_addr),
-        .rd_data_i(rd_data),
-        .rd_we_i(is_wb)
+        .stall_i(0),
+        .d_i(s_1f_d),
+        .q_o(s_1f_q)
     );
 
-    rv_decoder #(
+    // =========================================================================
+    // = Stage 2: Decode
+    // =========================================================================
+    stage_2d #(
+        .XLEN(XLEN),
+        .NREG(N_PHY_REG)
+    ) stage_2d_inst (
+        .clk,
+        .reset_n,
+        // Pipeline input/output
+        ._i(s_1f_q),
+        ._o(s_2d_d),
+        // Write-back
+        .rd_we_i(s_5w_d.is_wb),
+        .rd_addr_i(s_5w_d.rd_addr),
+        .rd_data_i(s_5w_d.rd_data),
+        // Exceptions
+        .xcpt_illegal_ins_o(xcpt_illegal_ins)
+    );
+
+    decoupling_reg #(
+        .regtype_t(signals_decode_t)
+    ) decoupling_reg_2d_3e_inst (
+        .clk,
+        .reset_n,
+        .stall_i(0),
+        .d_i(s_2d_d),
+        .q_o(s_2d_q)
+    );
+
+    // =========================================================================
+    // = Stage 3: Execute
+    // =========================================================================
+    stage_3e #(
         .XLEN(XLEN)
-    ) dec_inst (
-        .ins_i(imem_data_i),
-
-        .alu_op_o(alu_op),
-        .alu_op1_sel_o(alu_op1_sel),
-        .alu_op2_sel_o(alu_op2_sel),
-        .wb_sel_o(wb_sel),
-
+    ) stage_3e_inst (
+        .clk,
+        .reset_n,
+        // Pipeline input/output
+        ._i(s_2d_q),
+        ._o(s_3e_d),
+        // Next pc selection
         .pc_sel_o(pc_sel),
-        .illegal_ins_o(illegal_ins),
-
-        .is_wb_o(is_wb),
-        .is_ld_o(is_ld),
-        .is_st_o(is_st),
-
-        .rs1_addr_o(rs1_addr),
-        .rs2_addr_o(rs2_addr),
-        .rd_addr_o(rd_addr),
-        .immed_o(immed),
-
-        .compare_op_o(compare_op),
-        .memop_width_o(memop_width),
-        .ld_unsigned_o(ld_unsigned)
-    );
-
-    alu #(
-        .XLEN(XLEN)
-    ) alu_inst (
-        .op1_i(alu_op1),
-        .op2_i(alu_op2),
-        .alu_op_i(alu_op),
-        .result_o(alu_result)
-    );
-
-    rv_branch_compare #(
-        .XLEN(XLEN)
-    ) cmp_inst (
-        .compare_op_i(compare_op),
-        .op1_i(rs1_data),
-        .op2_i(rs2_data),
         .taken_branch_o(taken_branch)
     );
+
+    decoupling_reg #(
+        .regtype_t(signals_execute_t)
+    ) decoupling_reg_3e_4m_inst (
+        .clk,
+        .reset_n,
+        .stall_i(0),
+        .d_i(s_3e_d),
+        .q_o(s_3e_q)
+    );
+
+    // =========================================================================
+    // = Stage 4: Memory
+    // =========================================================================
+    // (...)
+
+    decoupling_reg #(
+        .regtype_t(signals_memory_t)
+    ) decoupling_reg_4m_5w_inst (
+        .clk,
+        .reset_n,
+        .stall_i(0),
+        .d_i(s_4m_d),
+        .q_o(s_4m_q)
+    );
+
+    // =========================================================================
+    // = Stage 5: Write-back
+    // =========================================================================
+    always_comb begin
+        case (s_4m_q.wb_sel)
+            MUX_WB_ALU:
+                s_5w_d.rd_data = s_4m_q.alu_result;
+            MUX_WB_MEM:
+                s_5w_d.rd_data = s_4m_q.mem_result;
+            MUX_WB_PC_NEXT:
+                s_5w_d.rd_data = s_4m_q.pc + 4;
+            default:
+                s_5w_d.rd_data = s_4m_q.pc + 4;
+        endcase
+    end
+
+    assign s_5w_d.is_wb = s_4m_q.is_wb;
+
 endmodule
 
