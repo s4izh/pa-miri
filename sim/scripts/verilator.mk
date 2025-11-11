@@ -1,7 +1,7 @@
 TOP_MODULE      := top_tb_wrapper
 
 COMPILER        := verilator
-COMPILE_FLAGS   := --cc --binary --build -O3 --trace-fst --timing
+COMPILE_FLAGS   := --cc --binary --build -O3 --trace-fst --trace-structs --timing -j$(nproc)
 COMPILED_FILE   := $(BUILD_DIR)/V$(TOP_MODULE)
 COMPILE_COMMAND := $(COMPILER) --Mdir $(BUILD_DIR) -f $(FILELIST) --top-module $(TOP_MODULE) $(COMPILE_FLAGS)
 

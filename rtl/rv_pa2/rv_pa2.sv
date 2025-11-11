@@ -88,7 +88,7 @@ module rv_pa2# (
     );
 
     decoupling_reg #(
-        .regtype_t(signals_memory_t)
+        .regtype_t(signals_execute_t)
     ) decoupling_reg_3e_4m_inst (
         .clk,
         .reset_n,
@@ -98,13 +98,13 @@ module rv_pa2# (
     );
 
     decoupling_reg #(
-        .regtype_t(signals_execute_t)
+        .regtype_t(signals_memory_t)
     ) decoupling_reg_4m_5w_inst (
         .clk,
         .reset_n,
         .stall_i(0),
-        .d_i(s_4e_d),
-        .q_o(s_4e_q)
+        .d_i(s_4m_d),
+        .q_o(s_4m_q)
     );
 
     // PC

@@ -28,8 +28,8 @@ package rv_datapath_pkg;
     } mux_pc_sel_e;
 
     typedef struct packed {
-        logic [INS_WIDTH-1:0] ins;
-        logic [XLEN-1:0] pc;
+        logic [`INS_WIDTH-1:0] ins;
+        logic [`XLEN-1:0] pc;
     } signals_fetch_t;
 
     typedef struct packed {
@@ -48,10 +48,10 @@ package rv_datapath_pkg;
         logic             is_st;
 
         // decoded instruction fields
-        logic [XLEN-1:0]  rs1_data;
-        logic [XLEN-1:0]  rs2_data;
+        logic [`XLEN-1:0]  rs1_data;
+        logic [`XLEN-1:0]  rs2_data;
         logic [4:0]       rd_addr;
-        logic [XLEN-1:0]  immed;
+        logic [`XLEN-1:0]  immed;
 
         compare_op_e      compare_op;
 
@@ -59,11 +59,11 @@ package rv_datapath_pkg;
         memop_width_e     memop_width;
         logic             ld_unsigned;
 
-        logic [XLEN-1:0]  pc;
+        logic [`XLEN-1:0]  pc;
     } signals_decode_t;
 
     typedef struct packed {
-        logic [XLEN-1:0]  alu_result;
+        logic [`XLEN-1:0]  alu_result;
         mux_wb_sel_e      wb_sel;
         logic [4:0]       rd_addr;
 
@@ -76,12 +76,12 @@ package rv_datapath_pkg;
         memop_width_e     memop_width;
         logic             ld_unsigned;
 
-        logic [XLEN-1:0]  pc;
+        logic [`XLEN-1:0]  pc;
     } signals_execute_t;
 
     typedef struct packed {
-        logic [XLEN-1:0]  mem_result;
-        logic [XLEN-1:0]  alu_result;
+        logic [`XLEN-1:0]  mem_result;
+        logic [`XLEN-1:0]  alu_result;
         mux_wb_sel_e      wb_sel;
         logic [4:0]       rd_addr;
 
@@ -90,7 +90,7 @@ package rv_datapath_pkg;
     } signals_memory_t;
 
     typedef struct packed {
-        logic [XLEN-1:0]  data;
+        logic [`XLEN-1:0]  data;
         logic [4:0]       rd_addr;
 
         // write enable signals
