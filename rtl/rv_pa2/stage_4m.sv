@@ -4,18 +4,18 @@ module stage_4m #(
     input logic clk,
     input logic reset_n,
     // Pipeline input/output
-    input  signals_decode_t  _i,
-    output signals_execute_t _o,
+    input  signals_execute_t _i,
+    output signals_memory_t  _o,
     // Interface with dmem
     output dmem_if_out_t dmem_o,
-    output dmem_if_in_t  dmem_i
+    input dmem_if_in_t   dmem_i
 
 );
     logic [XLEN-1:0] dmem_data_sign_extended;
 
     assign _o.pc = _i.pc;
 
-    assign dmem_o.valid = is_ld || is_st;
+    assign dmem_o.valid = _i.is_ld || _i.is_st;
     assign dmem_o.we    = _i.is_st;
     assign dmem_o.addr  = _i.alu_result;
     assign dmem_o.data  = _i.rs2_data;
@@ -31,7 +31,7 @@ module stage_4m #(
 
     always_comb begin
         if (_i.ld_unsigned == 1)
-            _o.mem_result = dmem_data_i;
+            _o.mem_result = dmem_i.data;
         else
             _o.mem_result = dmem_data_sign_extended;
     end

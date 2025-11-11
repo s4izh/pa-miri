@@ -161,7 +161,18 @@ module rv_pa2# (
     // =========================================================================
     // = Stage 4: Memory
     // =========================================================================
-    // (...)
+    stage_4m #(
+        .XLEN(XLEN)
+    ) stage_4m_inst (
+        .clk,
+        .reset_n,
+        // Pipeline input/output
+        ._i(s_3e_q),
+        ._o(s_4m_d),
+        // Interface with dmem
+        .dmem_o(dmem_if_out),
+        .dmem_i(dmem_if_in)
+    );
 
     decoupling_reg #(
         .regtype_t(signals_memory_t)
