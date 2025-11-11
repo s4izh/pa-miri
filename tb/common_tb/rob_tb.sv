@@ -17,6 +17,7 @@ module tb (
     logic [4:0]      issue_rd_addr_i;
     logic            issue_st_we_i;
     logic [XLEN-1:0] issue_st_data_i;
+    logic            issue_robid_valid_o;
     rob_id_t         issue_robid_o;
     // Complete interface
     logic            complete_valid_i;
@@ -69,6 +70,27 @@ module tb (
         complete(robid1, 'hfe0fe0fe,
             complete_valid_i, complete_rob_id_i, complete_rd_data_i);
         @(posedge clk);
+        noop(issue_valid_i, complete_valid_i);
+        @(posedge clk);
+        @(posedge clk);
+        issue('h80000000, 8,
+            issue_valid_i, issue_pc_i, issue_rd_we_i, issue_rd_addr_i, issue_st_we_i, issue_st_data_i);
+        @(posedge clk);
+        robid1 = issue_robid_o;
+        issue('h80000004, 13,
+            issue_valid_i, issue_pc_i, issue_rd_we_i, issue_rd_addr_i, issue_st_we_i, issue_st_data_i);
+        @(posedge clk);
+        robid2 = issue_robid_o;
+        noop(issue_valid_i, complete_valid_i);
+        @(posedge clk);
+        @(posedge clk);
+        complete(robid2, 'hcafecafe,
+            complete_valid_i, complete_rob_id_i, complete_rd_data_i);
+        @(posedge clk);
+        complete(robid1, 'hfe0fe0fe,
+            complete_valid_i, complete_rob_id_i, complete_rd_data_i);
+        @(posedge clk);
+        noop(issue_valid_i, complete_valid_i);
         @(posedge clk);
         @(posedge clk);
     endtask

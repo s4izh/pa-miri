@@ -16,6 +16,7 @@ module rob #(
     input  logic [4:0]      issue_rd_addr_i,
     input  logic            issue_st_we_i,
     input  logic [XLEN-1:0] issue_st_data_i,
+    output logic            issue_robid_valid_o,
     output rob_id_t         issue_robid_o,
 
     // writable at a latter time
@@ -82,8 +83,11 @@ module rob #(
                 entries[tail].rd_data_valid <= 0;
                 entries[tail].st_we         <= issue_st_we_i;
                 entries[tail].xcpt          <= 0;
+                issue_robid_valid_o         <= 1;
                 issue_robid_o               <= tail;
                 tail                        <= tail + 1;
+            end else begin
+                issue_robid_valid_o         <= 0;
             end
 
             if (complete_valid_i) begin
@@ -101,7 +105,10 @@ module rob #(
                 commit_rd_data_o    <= entries[head].rd_data;
                 entries[head].valid <= 0;
                 head                <= head + 1;
+            end else begin
+                commit_we_o         <= 0;
             end
+
             // TODO: CAM lookup for younger instructions to use my value
         end
     end
