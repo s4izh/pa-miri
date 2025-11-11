@@ -4,6 +4,7 @@
 -f $(PROJ_DIR)/rtl/common/alu.f
 -f $(PROJ_DIR)/rtl/common/sign_extender.f
 -f $(PROJ_DIR)/rtl/rv_pa2/rv_decoder.f
-$(PROJ_DIR)/rtl/rv_pa2/rv_pa1.sv
+-f $(PROJ_DIR)/rtl/rv_pa2/rv_datapath_pkg.f
+$(PROJ_DIR)/rtl/rv_pa2/rv_pa2.sv
 $(PROJ_DIR)/rtl/rv_pa2/soc.sv
 

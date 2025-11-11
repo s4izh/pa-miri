@@ -1,6 +1,8 @@
 `ifndef _RV_DATAPATH_PKG_
 `define _RV_DATAPATH_PKG_
 
+import rv_isa_pkg::*;
+
 package rv_datapath_pkg;
     typedef enum logic [0:0] {
         MUX_ALU_OP1_RS1,
@@ -24,6 +26,76 @@ package rv_datapath_pkg;
         MUX_PC_JAL,       // PC = PC + immediate (unconditional jump - JAL)
         MUX_PC_JALR       // PC = rs1 + immediate (unconditional jump - JALR)
     } mux_pc_sel_e;
+
+    typedef struct packed {
+        logic [INS_WIDTH-1:0] ins;
+        logic [XLEN-1:0] pc;
+    } signals_fetch_t;
+
+    typedef struct packed {
+        // outputs for datapath control
+        alu_op_e          alu_op;
+        mux_alu_op1_sel_e alu_op1_sel;
+        mux_alu_op2_sel_e alu_op2_sel;
+        mux_wb_sel_e      wb_sel;
+
+        mux_pc_sel_e      pc_sel;
+        logic             illegal_ins;
+
+        // write enable signals
+        logic             is_wb;
+        logic             is_ld; // kept for convenience (is_ld_o = (wb_sel_o == MUX_WB_MEM) && is_wb_o)
+        logic             is_st;
+
+        // decoded instruction fields
+        logic [XLEN-1:0]  rs1_data;
+        logic [XLEN-1:0]  rs2_data;
+        logic [4:0]       rd_addr;
+        logic [XLEN-1:0]  immed;
+
+        compare_op_e      compare_op;
+
+        // memory signals
+        memop_width_e     memop_width;
+        logic             ld_unsigned;
+
+        logic [XLEN-1:0]  pc;
+    } signals_decode_t;
+
+    typedef struct packed {
+        logic [XLEN-1:0]  alu_result;
+        mux_wb_sel_e      wb_sel;
+        logic [4:0]       rd_addr;
+
+        // write enable signals
+        logic             is_wb;
+        logic             is_ld; // kept for convenience (is_ld_o = (wb_sel_o == MUX_WB_MEM) && is_wb_o)
+        logic             is_st;
+
+        // memory signals
+        memop_width_e     memop_width;
+        logic             ld_unsigned;
+
+        logic [XLEN-1:0]  pc;
+    } signals_execute_t;
+
+    typedef struct packed {
+        logic [XLEN-1:0]  mem_result;
+        logic [XLEN-1:0]  alu_result;
+        mux_wb_sel_e      wb_sel;
+        logic [4:0]       rd_addr;
+
+        // write enable signals
+        logic             is_wb; // is_wb = (wb_sel == (MUX_MB_MEM || MUX_MB_ALU))
+    } signals_memory_t;
+
+    typedef struct packed {
+        logic [XLEN-1:0]  data;
+        logic [4:0]       rd_addr;
+
+        // write enable signals
+        logic             is_wb;
+    } signals_writeback_t;
 
 endpackage
 

@@ -58,6 +58,55 @@ module rv_pa2# (
     assign dmem_width_o = memop_width;
     assign dmem_memop_valid_o = is_ld || is_st;
 
+    // stage data
+    signals_fetch_t     s_1f_d, s_1f_q;
+    signals_decode_t    s_2d_d, s_2d_q;
+    signals_execute_t   s_3e_d, s_3e_q;
+    signals_memory_t    s_4m_d, s_4m_q;
+    signals_writeback_t s_5w_d;
+
+    assign s_1f_d.pc = pc;
+
+    decoupling_reg #(
+        .regtype_t(signals_fetch_t)
+    ) decoupling_reg_1f_2d_inst (
+        .clk,
+        .reset_n,
+        .stall_i(0),
+        .d_i(s_1f_d),
+        .q_o(s_1f_q)
+    );
+
+    decoupling_reg #(
+        .regtype_t(signals_decode_t)
+    ) decoupling_reg_2d_3e_inst (
+        .clk,
+        .reset_n,
+        .stall_i(0),
+        .d_i(s_2d_d),
+        .q_o(s_2d_q)
+    );
+
+    decoupling_reg #(
+        .regtype_t(signals_memory_t)
+    ) decoupling_reg_3e_4m_inst (
+        .clk,
+        .reset_n,
+        .stall_i(0),
+        .d_i(s_3e_d),
+        .q_o(s_3e_q)
+    );
+
+    decoupling_reg #(
+        .regtype_t(signals_execute_t)
+    ) decoupling_reg_4m_5w_inst (
+        .clk,
+        .reset_n,
+        .stall_i(0),
+        .d_i(s_4e_d),
+        .q_o(s_4e_q)
+    );
+
     // PC
     always @(posedge clk) begin
         if (!reset_n) begin

@@ -1,8 +1,8 @@
 module decoupling_reg#(
     parameter type regtype_t = int
 )(
-    input clk_i,
-    input rst_i,
+    input clk,
+    input reset_n,
     input stall_i,
     input  regtype_t d_i,
     output regtype_t q_o
@@ -10,10 +10,10 @@ module decoupling_reg#(
 
     regtype_t r_reg;
 
-    always_ff @(posedge clk_i or posedge rst_i) begin
-        if (!stall_i) begin
-            if (rst_i) r_reg <= 0;
-            else r_reg <= d_i;
+    always_ff @(posedge clk) begin
+        if (reset_n) r_reg <= 0;
+        else if (!stall_i) begin
+            r_reg <= d_i;
         end
     end
 
