@@ -5,26 +5,43 @@ module tb (
 );
     // Parameters
     localparam XLEN = 32;
-    localparam MEM_ALEN = 12;
-    localparam MEM_DLEN = 32;
+    localparam N_ENTRIES = 8;
+
+    parameter type rob_id_t = logic[$clog2(N_ENTRIES)-1:0];
 
     // DUT signals
+    // Issue interface
+    logic            issue_valid_i;
+    logic [XLEN-1:0] issue_pc_i;
+    logic            issue_rd_we_i;
+    logic [4:0]      issue_rd_addr_i;
+    logic            issue_st_we_i;
+    logic [XLEN-1:0] issue_st_data_i;
+    rob_id_t         issue_robid_o;
+    // Complete interface
+    logic            complete_valid_i;
+    rob_id_t         complete_rob_id_i;
+    logic [XLEN-1:0] complete_rd_data_i;
+    // Commit interface
+    logic            commit_we_o;
+    logic [4:0]      commit_rd_addr_o;
+    logic [XLEN-1:0] commit_rd_data_o;
 
     // Instantiate the DUT
     rob #(
-        .XLEN(XLEN)
+        .XLEN(XLEN),
+        .N_ENTRIES(N_ENTRIES)
     ) dut (.*);
 
     // Test sequence
     initial begin
-        noop(valid_i, we_i, addr_i, data_i, width_i);
+        noop(issue_valid_i, complete_valid_i);
         @(posedge reset_n);
         @(posedge clk);
 
-        // test_directed();
-        test_random(100, 50, 32'h0000_1000);
+        test_directed();
 
-        noop(valid_i, we_i, addr_i, data_i, width_i);
+        noop(issue_valid_i, complete_valid_i);
         @(posedge clk);
         $finish;
     end
@@ -33,42 +50,26 @@ module tb (
     // - A completing instructions generator
     // - A commiting instructions monitor
 
-    task test_random(input int n_ops, input int write_prob, input logic[XLEN-1:0] addr_base);
-        logic [3:0] addr_offset;
-        logic [XLEN-1:0] data;
-        memop_width_e width;
-        for (int i = 0; i < n_ops; ++i) begin
-            // Randomize
-            addr_offset = $urandom_range(0, 1<<4);
-            data = $urandom_range(0, 1<<32);
-            width = memop_width_e'($urandom_range(0, 1<<2));
-            if ($urandom_range(1,100) < write_prob) begin
-                write(addr_base+addr_offset, width, data,
-                    valid_i, we_i, addr_i, data_i, width_i);
-            end else begin
-                read(addr_base+addr_offset, width,
-                    valid_i, we_i, addr_i, data_i, width_i);
-            end
-            @(posedge clk);
-        end
-    endtask
-
     task test_directed();
+        rob_id_t robid1, robid2;
+        issue('h80000000, 2,
+            issue_valid_i, issue_pc_i, issue_rd_we_i, issue_rd_addr_i, issue_st_we_i, issue_st_data_i);
         @(posedge clk);
-        write(32'h00000105, MEMOP_WIDTH_8, 32'h000000ca,
-            valid_i, we_i, addr_i, data_i, width_i);
+        robid1 = issue_robid_o;
+        issue('h80000004, 3,
+            issue_valid_i, issue_pc_i, issue_rd_we_i, issue_rd_addr_i, issue_st_we_i, issue_st_data_i);
         @(posedge clk);
-        write(32'h00000100, MEMOP_WIDTH_32, 32'hcac0cafe,
-            valid_i, we_i, addr_i, data_i, width_i);
+        robid2 = issue_robid_o;
+        noop(issue_valid_i, complete_valid_i);
         @(posedge clk);
-        read(32'h00000100, MEMOP_WIDTH_16,
-            valid_i, we_i, addr_i, data_i, width_i);
         @(posedge clk);
-        read(32'h00000102, MEMOP_WIDTH_16,
-            valid_i, we_i, addr_i, data_i, width_i);
+        complete(robid2, 'hcafecafe,
+            complete_valid_i, complete_rob_id_i, complete_rd_data_i);
         @(posedge clk);
-        read(32'h00000104, MEMOP_WIDTH_16,
-            valid_i, we_i, addr_i, data_i, width_i);
+        complete(robid1, 'hfe0fe0fe,
+            complete_valid_i, complete_rob_id_i, complete_rd_data_i);
+        @(posedge clk);
+        @(posedge clk);
         @(posedge clk);
     endtask
 
@@ -77,26 +78,39 @@ module tb (
         input logic[4:0] rd,
 
         // output robid_t robid;
+        output logic            issue_valid_i,
+        output logic [XLEN-1:0] issue_pc_i,
+        output logic            issue_rd_we_i,
+        output logic [4:0]      issue_rd_addr_i,
+        output logic            issue_st_we_i,
+        output logic [XLEN-1:0] issue_st_data_i
     );
+        issue_valid_i       = 1;
+        issue_pc_i          = pc;
+        issue_rd_we_i       = 1;
+        issue_rd_addr_i     = rd;
+        issue_st_we_i       = 0;
     endtask
 
     task complete (
-        input robid;
+        input rob_id_t robid,
+        input logic[XLEN-1:0] result,
+
+        output logic            complete_valid_i,
+        output rob_id_t         complete_rob_id_i,
+        output logic [XLEN-1:0] complete_rd_data_i
     );
+        complete_valid_i    = 1;
+        complete_rob_id_i   = robid;
+        complete_rd_data_i  = result;
     endtask
 
     task noop (
-        output logic valid_i,
-        output logic we_i,
-        output logic[XLEN-1:0] addr_i,
-        output logic[XLEN-1:0] data_i,
-        output memop_width_e width_i
+        output logic issue_valid_i,
+        output logic complete_valid_i
     );
-        valid_i = 0;
-        we_i    = 0;
-        addr_i  = '0;
-        data_i  = '0;
-        width_i = MEMOP_WIDTH_INVALID;
+        issue_valid_i = 0;
+        complete_valid_i = 0;
     endtask
 
 endmodule
