@@ -12,7 +12,7 @@ module stage_3e #(
     output mux_pc_sel_e     pc_sel_o,
     output logic            taken_branch_o
 );
-    logic [XLEN-1:0] alu_op1, alu_op2, alu_result;
+    logic [XLEN-1:0] alu_op1, alu_op2;
 
     // Propagated signals
     assign _o.valid = _i.valid;
@@ -27,6 +27,9 @@ module stage_3e #(
     assign _o.rs2_data    = _i.rs2_data;
     assign _o.memop_width = _i.memop_width;
     assign _o.ld_unsigned = _i.ld_unsigned;
+
+    // Outputs
+    assign pc_sel_o = (_i.valid == 1) ? _i.pc_sel : MUX_PC_NEXT;
 
     // Muxes
     always_comb begin
