@@ -11,7 +11,7 @@ module decoupling_reg#(
     regtype_t r_reg;
 
     always_ff @(posedge clk) begin
-        if (reset_n) r_reg <= 0;
+        if (!reset_n) r_reg <= 0;
         else if (!stall_i) begin
             r_reg <= d_i;
         end

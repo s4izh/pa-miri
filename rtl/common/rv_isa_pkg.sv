@@ -2,8 +2,6 @@
 `define _RV_ISA_PKG_
 
 package rv_isa_pkg;
-    `define INS_WIDTH 32
-    `define XLEN 32
 
     // opcodes
     localparam logic [6:0] OPCODE_LUI    = 7'b0110111;

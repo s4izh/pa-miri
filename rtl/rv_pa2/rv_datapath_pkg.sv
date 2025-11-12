@@ -1,9 +1,14 @@
 `ifndef _RV_DATAPATH_PKG_
 `define _RV_DATAPATH_PKG_
 
-import rv_isa_pkg::*;
-
 package rv_datapath_pkg;
+    `define INS_WIDTH 32
+    `define XLEN 32
+    import rv_isa_pkg::*;
+    import alu_pkg::*;
+    import rv_branch_compare_pkg::*;
+    import memory_controller_pkg::*;
+
     typedef enum logic [0:0] {
         MUX_ALU_OP1_RS1,
         MUX_ALU_OP1_PC
@@ -28,11 +33,13 @@ package rv_datapath_pkg;
     } mux_pc_sel_e;
 
     typedef struct packed {
+        logic                  valid;
         logic [`INS_WIDTH-1:0] ins;
-        logic [`XLEN-1:0] pc;
+        logic [`XLEN-1:0]      pc;
     } signals_fetch_t;
 
     typedef struct packed {
+        logic             valid;
         // outputs for datapath control
         alu_op_e          alu_op;
         mux_alu_op1_sel_e alu_op1_sel;
@@ -62,6 +69,7 @@ package rv_datapath_pkg;
     } signals_decode_t;
 
     typedef struct packed {
+        logic             valid;
         logic [`XLEN-1:0] alu_result;
         mux_wb_sel_e      wb_sel;
         logic [4:0]       rd_addr;
@@ -81,6 +89,7 @@ package rv_datapath_pkg;
     } signals_execute_t;
 
     typedef struct packed {
+        logic             valid;
         logic [`XLEN-1:0] mem_result;
         logic [`XLEN-1:0] alu_result;
         mux_wb_sel_e      wb_sel;

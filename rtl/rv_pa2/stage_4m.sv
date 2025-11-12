@@ -1,3 +1,5 @@
+import rv_datapath_pkg::*;
+
 module stage_4m #(
     parameter int XLEN = 32
 ) (
@@ -13,7 +15,14 @@ module stage_4m #(
 );
     logic [XLEN-1:0] dmem_data_sign_extended;
 
-    assign _o.pc = _i.pc;
+    assign _o.valid = _i.valid;
+    assign _o.pc    = _i.pc;
+
+    assign _o.is_wb   = _i.is_wb;
+    assign _o.wb_sel  = _i.wb_sel;
+    assign _o.rd_addr = _i.rd_addr;
+
+    assign _o.alu_result = _i.alu_result;
 
     assign dmem_o.valid = _i.is_ld || _i.is_st;
     assign dmem_o.we    = _i.is_st;

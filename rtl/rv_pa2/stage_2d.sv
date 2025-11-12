@@ -1,3 +1,5 @@
+import rv_datapath_pkg::*;
+
 module stage_2d #(
     parameter int XLEN = 32,
     parameter int NREG = 32
@@ -17,7 +19,8 @@ module stage_2d #(
 
     logic [$clog2(NREG)-1:0] rs1_addr, rs2_addr;
 
-    assign _o.pc = _i.pc;
+    assign _o.valid = _i.valid;
+    assign _o.pc    = _i.pc;
 
     rv_decoder #(
         .XLEN(XLEN)

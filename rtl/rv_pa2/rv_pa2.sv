@@ -46,7 +46,10 @@ module rv_pa2# (
     dmem_if_out_t dmem_if_out;
 
     // local assigns
-    assign trap_valid = imem_trap_i.valid | dmem_trap_i.valid | xcpt_illegal_ins;
+    assign trap_valid =
+        imem_trap_i.valid |
+        (dmem_trap_i.valid & s_4m_d.valid) |
+        (xcpt_illegal_ins & s_2d_d.valid);
 
     assign dmem_if_in.data = dmem_data_i;
     assign dmem_if_in.trap = dmem_trap_i;
@@ -89,6 +92,7 @@ module rv_pa2# (
     assign imem_addr_o = pc;
 
     // pipeline
+    assign s_1f_d.valid = reset_n;
     assign s_1f_d.pc = pc;
     assign s_1f_d.ins = imem_data_i;
 
@@ -200,7 +204,8 @@ module rv_pa2# (
         endcase
     end
 
-    assign s_5w_d.is_wb = s_4m_q.is_wb;
+    assign s_5w_d.is_wb   = s_4m_q.is_wb && s_4m_d.valid;
+    assign s_5w_d.rd_addr = s_4m_q.rd_addr;
 
 endmodule
 
