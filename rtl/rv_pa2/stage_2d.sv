@@ -16,11 +16,12 @@ module stage_2d #(
     // Exceptions
     output logic xcpt_illegal_ins_o
 );
+    `define PROPAGATE(signal) assign _o.signal = _i.signal
 
     logic [$clog2(NREG)-1:0] rs1_addr, rs2_addr;
 
-    assign _o.valid = _i.valid;
-    assign _o.pc    = _i.pc;
+    `PROPAGATE(valid);
+    `PROPAGATE(pc);
 
     rv_decoder #(
         .XLEN(XLEN)

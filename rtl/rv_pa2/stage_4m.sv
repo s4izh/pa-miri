@@ -13,16 +13,18 @@ module stage_4m #(
     input dmem_if_in_t   dmem_i
 
 );
+    `define PROPAGATE(signal) assign _o.signal = _i.signal
+
     logic [XLEN-1:0] dmem_data_sign_extended;
 
-    assign _o.valid = _i.valid;
-    assign _o.pc    = _i.pc;
+    `PROPAGATE(valid);
+    `PROPAGATE(pc);
 
-    assign _o.is_wb   = _i.is_wb;
-    assign _o.wb_sel  = _i.wb_sel;
-    assign _o.rd_addr = _i.rd_addr;
+    `PROPAGATE(is_wb);
+    `PROPAGATE(wb_sel);
+    `PROPAGATE(rd_addr);
 
-    assign _o.alu_result = _i.alu_result;
+    `PROPAGATE(alu_result);
 
     assign dmem_o.valid = _i.is_ld || _i.is_st;
     assign dmem_o.we    = _i.is_st;

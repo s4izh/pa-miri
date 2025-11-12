@@ -101,7 +101,7 @@ module rv_pa2# (
     ) decoupling_reg_1f_2d_inst (
         .clk,
         .reset_n,
-        .stall_i(0),
+        .stall_i('0),
         .d_i(s_1f_d),
         .q_o(s_1f_q)
     );
@@ -131,7 +131,7 @@ module rv_pa2# (
     ) decoupling_reg_2d_3e_inst (
         .clk,
         .reset_n,
-        .stall_i(0),
+        .stall_i('0),
         .d_i(s_2d_d),
         .q_o(s_2d_q)
     );
@@ -157,7 +157,7 @@ module rv_pa2# (
     ) decoupling_reg_3e_4m_inst (
         .clk,
         .reset_n,
-        .stall_i(0),
+        .stall_i('0),
         .d_i(s_3e_d),
         .q_o(s_3e_q)
     );
@@ -183,7 +183,7 @@ module rv_pa2# (
     ) decoupling_reg_4m_5w_inst (
         .clk,
         .reset_n,
-        .stall_i(0),
+        .stall_i('0),
         .d_i(s_4m_d),
         .q_o(s_4m_q)
     );

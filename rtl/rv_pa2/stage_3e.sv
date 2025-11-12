@@ -12,21 +12,23 @@ module stage_3e #(
     output mux_pc_sel_e     pc_sel_o,
     output logic            taken_branch_o
 );
+    `define PROPAGATE(signal) assign _o.signal = _i.signal
+
     logic [XLEN-1:0] alu_op1, alu_op2;
 
     // Propagated signals
-    assign _o.valid = _i.valid;
-    assign _o.pc    = _i.pc;
+    `PROPAGATE(valid);
+    `PROPAGATE(pc);
 
-    assign _o.is_wb   = _i.is_wb;
-    assign _o.wb_sel  = _i.wb_sel;
-    assign _o.rd_addr = _i.rd_addr;
+    `PROPAGATE(is_wb);
+    `PROPAGATE(wb_sel);
+    `PROPAGATE(rd_addr);
 
-    assign _o.is_ld       = _i.is_ld;
-    assign _o.is_st       = _i.is_st;
-    assign _o.rs2_data    = _i.rs2_data;
-    assign _o.memop_width = _i.memop_width;
-    assign _o.ld_unsigned = _i.ld_unsigned;
+    `PROPAGATE(is_ld);
+    `PROPAGATE(is_st);
+    `PROPAGATE(rs2_data);
+    `PROPAGATE(memop_width);
+    `PROPAGATE(ld_unsigned);
 
     // Outputs
     assign pc_sel_o = (_i.valid == 1) ? _i.pc_sel : MUX_PC_NEXT;
