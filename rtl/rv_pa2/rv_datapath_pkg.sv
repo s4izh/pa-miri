@@ -26,7 +26,7 @@ package rv_datapath_pkg;
     } mux_wb_sel_e;
 
     typedef enum logic [1:0] {
-        MUX_PC_NEXT,      // PC = PC + 4 (default sequential execution)
+        MUX_PC_NEXT = '0, // PC = PC + 4 (default sequential execution)
         MUX_PC_BRANCH,    // PC = PC + immediate (conditional branch taken)
         MUX_PC_JAL,       // PC = PC + immediate (unconditional jump - JAL)
         MUX_PC_JALR       // PC = rs1 + immediate (unconditional jump - JALR)
@@ -40,6 +40,7 @@ package rv_datapath_pkg;
 
     typedef struct packed {
         logic             valid;
+        logic [`INS_WIDTH-1:0] ins;
         // outputs for datapath control
         alu_op_e          alu_op;
         mux_alu_op1_sel_e alu_op1_sel;
@@ -70,6 +71,7 @@ package rv_datapath_pkg;
 
     typedef struct packed {
         logic             valid;
+        logic [`INS_WIDTH-1:0] ins;
         logic [`XLEN-1:0] alu_result;
         mux_wb_sel_e      wb_sel;
         logic [4:0]       rd_addr;
@@ -90,6 +92,7 @@ package rv_datapath_pkg;
 
     typedef struct packed {
         logic             valid;
+        logic [`INS_WIDTH-1:0] ins;
         logic [`XLEN-1:0] mem_result;
         logic [`XLEN-1:0] alu_result;
         mux_wb_sel_e      wb_sel;
@@ -102,6 +105,7 @@ package rv_datapath_pkg;
     } signals_memory_t;
 
     typedef struct packed {
+        logic [`INS_WIDTH-1:0] ins;
         logic [`XLEN-1:0] rd_data;
         logic [4:0]       rd_addr;
 

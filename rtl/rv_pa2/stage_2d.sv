@@ -14,14 +14,41 @@ module stage_2d #(
     input logic [$clog2(NREG)-1:0] rd_addr_i,
     input logic [XLEN-1:0]         rd_data_i,
     // Exceptions
-    output logic xcpt_illegal_ins_o
+    output logic xcpt_illegal_ins_o,
+    // Hazard detection
+    input  logic                    noop_i,
+    input  logic                    stall_i,
+    output logic [$clog2(NREG)-1:0] rs1_addr_o,
+    output logic                    rs1_valid_o,
+    output logic [$clog2(NREG)-1:0] rs2_addr_o,
+    output logic                    rs2_valid_o
 );
     `define PROPAGATE(signal) assign _o.signal = _i.signal
 
     logic [$clog2(NREG)-1:0] rs1_addr, rs2_addr;
+    logic is_wb, is_st;
+    mux_pc_sel_e pc_sel;
 
     `PROPAGATE(valid);
+    `PROPAGATE(ins);
     `PROPAGATE(pc);
+
+    assign rs1_addr_o = rs1_addr;
+    assign rs2_addr_o = rs2_addr;
+
+    always_comb begin
+        if (noop_i || stall_i) begin
+            _o.is_wb  = 0;
+            _o.is_st  = 0;
+            _o.pc_sel = MUX_PC_NEXT;
+            // _o.ins = 32'h00000033; // noop (add x0, x0, x0)
+        end else begin
+            _o.is_wb  = is_wb;
+            _o.is_st  = is_st;
+            _o.pc_sel = pc_sel;
+            // _o.ins    = _i.ins;
+        end
+    end
 
     rv_decoder #(
         .XLEN(XLEN)
@@ -33,15 +60,17 @@ module stage_2d #(
         .alu_op2_sel_o(_o.alu_op2_sel),
         .wb_sel_o(_o.wb_sel),
 
-        .pc_sel_o(_o.pc_sel),
+        .pc_sel_o(pc_sel),
         .illegal_ins_o(xcpt_illegal_ins_o),
 
-        .is_wb_o(_o.is_wb),
+        .is_wb_o(is_wb),
         .is_ld_o(_o.is_ld),
-        .is_st_o(_o.is_st),
+        .is_st_o(is_st),
 
         .rs1_addr_o(rs1_addr),
+        .rs1_valid_o(rs1_valid_o),
         .rs2_addr_o(rs2_addr),
+        .rs2_valid_o(rs2_valid_o),
         .rd_addr_o(_o.rd_addr),
         .immed_o(_o.immed),
 

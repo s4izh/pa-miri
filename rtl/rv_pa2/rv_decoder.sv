@@ -25,7 +25,9 @@ module rv_decoder #(
 
     // decoded instruction fields
     output logic [4:0]       rs1_addr_o,
+    output logic             rs1_valid_o,
     output logic [4:0]       rs2_addr_o,
+    output logic             rs2_valid_o,
     output logic [4:0]       rd_addr_o,
     output logic [XLEN-1:0]  immed_o,
 
@@ -78,6 +80,34 @@ module rv_decoder #(
                 immed_o = immed_s;
             default:
                 immed_o = 32'hDEADBEEF;
+        endcase
+    end
+
+    always_comb begin
+        case (opcode)
+            OPCODE_LUI,
+            OPCODE_AUIPC,
+            OPCODE_JAL,
+            OPCODE_FENCE,
+            OPCODE_SYSTEM: begin
+                rs1_valid_o = 0;
+                rs2_valid_o = 0;
+            end
+            OPCODE_JALR,
+            OPCODE_IMM,
+            OPCODE_LOAD: begin
+                rs1_valid_o = 1;
+                rs2_valid_o = 0;
+            end
+            OPCODE_BRANCH,
+            OPCODE_STORE: begin
+                rs1_valid_o = 1;
+                rs2_valid_o = 1;
+            end
+            default: begin
+                rs1_valid_o = 0;
+                rs2_valid_o = 0;
+            end
         endcase
     end
 

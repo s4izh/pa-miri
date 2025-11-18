@@ -17,7 +17,7 @@ except KeyError:
 PROGRAMS_DIR = PROJ_DIR / "programs"
 PROGRAMS_BUILD_DIR = PROJ_DIR / "build" / "programs"
 TOHOST_TESTS_DIR = PROGRAMS_DIR / "tohost_tests"
-ORCHESTRATOR_TEST = "rv_pa1.anyrom"
+ORCHESTRATOR_TEST = "rv_pa2.anyrom"
 
 SIM_ROOT = PROJ_DIR / "sim"
 SIM_COMMON = SIM_ROOT / "common"

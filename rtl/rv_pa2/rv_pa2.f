@@ -9,6 +9,7 @@
 $(PROJ_DIR)/rtl/rv_pa2/stage_2d.sv
 $(PROJ_DIR)/rtl/rv_pa2/stage_3e.sv
 $(PROJ_DIR)/rtl/rv_pa2/stage_4m.sv
+$(PROJ_DIR)/rtl/rv_pa2/hazard_unit.sv
 $(PROJ_DIR)/rtl/rv_pa2/rv_pa2.sv
 $(PROJ_DIR)/rtl/rv_pa2/soc.sv
 

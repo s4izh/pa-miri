@@ -18,6 +18,7 @@ module stage_4m #(
     logic [XLEN-1:0] dmem_data_sign_extended;
 
     `PROPAGATE(valid);
+    `PROPAGATE(ins);
     `PROPAGATE(pc);
 
     `PROPAGATE(is_wb);

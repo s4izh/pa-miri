@@ -45,6 +45,11 @@ module rv_pa2# (
     dmem_if_in_t  dmem_if_in;
     dmem_if_out_t dmem_if_out;
 
+    // Hazard control
+    logic rs1_valid, rs2_valid;
+    logic [$clog2(N_PHY_REG)-1:0] rs1_addr, rs2_addr;
+    logic noop, stall;
+
     // local assigns
     assign trap_valid =
         imem_trap_i.valid |
@@ -71,19 +76,21 @@ module rv_pa2# (
             if (trap_valid) begin
                 pc <= 'h2000;
             end else begin
-                case (pc_sel)
-                    MUX_PC_NEXT:
-                        pc <= pc + 4;
-                    MUX_PC_BRANCH:
-                        if (taken_branch)
-                            pc <= s_3e_d.alu_result;
-                        else
+                if (!stall) begin
+                    case (pc_sel)
+                        MUX_PC_NEXT:
                             pc <= pc + 4;
-                    MUX_PC_JAL:
-                        pc <= s_3e_d.alu_result;
-                    MUX_PC_JALR:
-                        pc <= {s_3e_d.alu_result[31:1], 1'b0};
-                endcase
+                        MUX_PC_BRANCH:
+                            if (taken_branch)
+                                pc <= s_3e_d.alu_result;
+                            else
+                                pc <= pc + 4;
+                        MUX_PC_JAL:
+                            pc <= s_3e_d.alu_result;
+                        MUX_PC_JALR:
+                            pc <= {s_3e_d.alu_result[31:1], 1'b0};
+                    endcase
+                end
             end
         end
     end
@@ -94,14 +101,20 @@ module rv_pa2# (
     // pipeline
     assign s_1f_d.valid = reset_n;
     assign s_1f_d.pc = pc;
-    assign s_1f_d.ins = imem_data_i;
+    always_comb begin
+        if (noop) begin
+            s_1f_d.ins = 32'h00000033; // noop (add x0, x0, x0)
+        end else begin
+            s_1f_d.ins = imem_data_i;
+        end
+    end
 
     decoupling_reg #(
         .regtype_t(signals_fetch_t)
     ) decoupling_reg_1f_2d_inst (
         .clk,
         .reset_n,
-        .stall_i('0),
+        .stall_i(stall),
         .d_i(s_1f_d),
         .q_o(s_1f_q)
     );
@@ -123,7 +136,14 @@ module rv_pa2# (
         .rd_addr_i(s_5w_d.rd_addr),
         .rd_data_i(s_5w_d.rd_data),
         // Exceptions
-        .xcpt_illegal_ins_o(xcpt_illegal_ins)
+        .xcpt_illegal_ins_o(xcpt_illegal_ins),
+        // Hazard detection
+        .noop_i(noop),
+        .stall_i(stall),
+        .rs1_addr_o(rs1_addr),
+        .rs1_valid_o(rs1_valid),
+        .rs2_addr_o(rs2_addr),
+        .rs2_valid_o(rs2_valid)
     );
 
     decoupling_reg #(
@@ -204,8 +224,28 @@ module rv_pa2# (
         endcase
     end
 
+    assign s_5w_d.ins     = s_4m_q.ins;
     assign s_5w_d.is_wb   = s_4m_q.is_wb && s_4m_d.valid;
     assign s_5w_d.rd_addr = s_4m_q.rd_addr;
+
+    // =========================================================================
+    // = Hazards and bypasses
+    // =========================================================================
+    hazard_unit hazard_unit_inst (
+        .rs1_2d_i(rs1_addr),
+        .rs2_2d_i(rs2_addr),
+        .rs1_valid_2d_i(rs1_valid),
+        .rs2_valid_2d_i(rs2_valid),
+        .rd_3e_i(s_3e_d.rd_addr),
+        .rd_4m_i(s_4m_d.rd_addr),
+        .rd_5w_i(s_5w_d.rd_addr),
+        .rd_is_wb_3e_i(s_3e_d.is_wb),
+        .rd_is_wb_4m_i(s_4m_d.is_wb),
+        .rd_is_wb_5w_i(s_5w_d.is_wb),
+        .jump_or_branch_3e_i(taken_branch || pc_sel[1]),
+        .noop_o(noop),
+        .stall_o(stall)
+    );
 
 endmodule
 

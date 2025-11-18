@@ -2,7 +2,9 @@
 .global _start
 .section .text
 _start:
-    li a1, 10; li a2, 10; li a3, 20
+    li a1, 10
+    li a2, 10
+    li a3, 20
     beq a1, a2, taken_ok  # Should be taken
     j fail_loop
 taken_ok:

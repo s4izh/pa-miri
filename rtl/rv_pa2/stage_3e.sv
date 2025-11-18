@@ -18,6 +18,7 @@ module stage_3e #(
 
     // Propagated signals
     `PROPAGATE(valid);
+    `PROPAGATE(ins);
     `PROPAGATE(pc);
 
     `PROPAGATE(is_wb);
