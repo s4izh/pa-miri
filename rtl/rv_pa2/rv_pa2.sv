@@ -242,7 +242,7 @@ module rv_pa2# (
         .rd_is_wb_3e_i(s_3e_d.is_wb),
         .rd_is_wb_4m_i(s_4m_d.is_wb),
         .rd_is_wb_5w_i(s_5w_d.is_wb),
-        .jump_or_branch_3e_i(taken_branch || pc_sel[1]),
+        .jump_or_branch_3e_i((taken_branch || pc_sel[1]) && s_3e_d.valid),
         .noop_o(noop),
         .stall_o(stall)
     );
