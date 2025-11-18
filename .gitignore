@@ -49,5 +49,4 @@ tags
 *.map
 
 build.ninja
-*.ron
 *.tar.gz
