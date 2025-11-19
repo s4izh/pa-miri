@@ -100,6 +100,7 @@ module rv_decoder #(
                 rs2_valid_o = 0;
             end
             OPCODE_BRANCH,
+            OPCODE_OP,
             OPCODE_STORE: begin
                 rs1_valid_o = 1;
                 rs2_valid_o = 1;
