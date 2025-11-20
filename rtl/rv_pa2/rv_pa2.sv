@@ -225,7 +225,7 @@ module rv_pa2# (
     end
 
     assign s_5w_d.ins     = s_4m_q.ins;
-    assign s_5w_d.is_wb   = s_4m_q.is_wb && s_4m_d.valid;
+    assign s_5w_d.is_wb   = s_4m_q.is_wb && s_4m_q.valid;
     assign s_5w_d.rd_addr = s_4m_q.rd_addr;
 
     // =========================================================================
