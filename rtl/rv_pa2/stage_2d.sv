@@ -29,7 +29,6 @@ module stage_2d #(
     logic is_wb, is_st;
     mux_pc_sel_e pc_sel;
 
-    `PROPAGATE(valid);
     `PROPAGATE(ins);
     `PROPAGATE(pc);
 
@@ -38,11 +37,13 @@ module stage_2d #(
 
     always_comb begin
         if (noop_i || stall_i) begin
+            _o.valid  = 0;
             _o.is_wb  = 0;
             _o.is_st  = 0;
             _o.pc_sel = MUX_PC_NEXT;
             // _o.ins = 32'h00000033; // noop (add x0, x0, x0)
         end else begin
+            _o.valid  = _i.valid;
             _o.is_wb  = is_wb;
             _o.is_st  = is_st;
             _o.pc_sel = pc_sel;
