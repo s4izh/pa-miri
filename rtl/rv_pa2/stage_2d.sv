@@ -29,6 +29,8 @@ module stage_2d #(
     logic is_wb, is_st;
     mux_pc_sel_e pc_sel;
 
+    logic [XLEN-1:0] rf_rs1_data, rf_rs2_data;
+
     `PROPAGATE(ins);
     `PROPAGATE(pc);
 
@@ -88,14 +90,30 @@ module stage_2d #(
         .reset_n,
 
         .rs1_addr_i(rs1_addr),
-        .rs1_data_o(_o.rs1_data),
+        .rs1_data_o(rf_rs1_data),
 
         .rs2_addr_i(rs2_addr),
-        .rs2_data_o(_o.rs2_data),
+        .rs2_data_o(rf_rs2_data),
 
         .rd_addr_i(rd_addr_i),
         .rd_data_i(rd_data_i),
         .rd_we_i(rd_we_i)
     );
+
+    always_comb begin
+        if (rd_we_i && (rs1_addr == rd_addr_i) && (rs1_addr != 0)) begin
+            _o.rs1_data = rd_data_i;
+        end else begin
+            _o.rs1_data = rf_rs1_data;
+        end
+    end
+
+    always_comb begin
+        if (rd_we_i && (rs2_addr == rd_addr_i) && (rs2_addr != 0)) begin
+            _o.rs2_data = rd_data_i;
+        end else begin
+            _o.rs2_data = rf_rs2_data;
+        end
+    end
 
 endmodule
