@@ -18,6 +18,10 @@ module stage_2d #(
     // Hazard detection
     input  logic                    noop_i,
     input  logic                    stall_i,
+    input  logic                    bypass_rs1_sel_i,
+    input  logic                    bypass_rs2_sel_i,
+    input  logic [XLEN-1:0]         bypass_rs1_data_i,
+    input  logic [XLEN-1:0]         bypass_rs2_data_i,
     output logic [$clog2(NREG)-1:0] rs1_addr_o,
     output logic                    rs1_valid_o,
     output logic [$clog2(NREG)-1:0] rs2_addr_o,
@@ -36,6 +40,9 @@ module stage_2d #(
 
     assign rs1_addr_o = rs1_addr;
     assign rs2_addr_o = rs2_addr;
+
+    assign _o.rs1_data = (bypass_rs1_sel_i == '1) ? bypass_rs1_data_i : rf_rs1_data;
+    assign _o.rs2_data = (bypass_rs2_sel_i == '1) ? bypass_rs2_data_i : rf_rs2_data;
 
     always_comb begin
         if (noop_i || stall_i) begin
@@ -99,21 +106,5 @@ module stage_2d #(
         .rd_data_i(rd_data_i),
         .rd_we_i(rd_we_i)
     );
-
-    always_comb begin
-        if (rd_we_i && (rs1_addr == rd_addr_i) && (rs1_addr != 0)) begin
-            _o.rs1_data = rd_data_i;
-        end else begin
-            _o.rs1_data = rf_rs1_data;
-        end
-    end
-
-    always_comb begin
-        if (rd_we_i && (rs2_addr == rd_addr_i) && (rs2_addr != 0)) begin
-            _o.rs2_data = rd_data_i;
-        end else begin
-            _o.rs2_data = rf_rs2_data;
-        end
-    end
 
 endmodule

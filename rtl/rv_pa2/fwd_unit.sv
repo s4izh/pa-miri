@@ -1,0 +1,74 @@
+module fwd_unit #(
+    parameter int XLEN = 32
+) (
+    input  logic [4:0] rs1_2d_i,
+    input  logic [4:0] rs2_2d_i,
+    input  logic       rs1_valid_2d_i,
+    input  logic       rs2_valid_2d_i,
+    input  logic [4:0] rd_3e_i,
+    input  logic [4:0] rd_4m_i,
+    input  logic [4:0] rd_5w_i,
+    input  logic       rd_is_wb_3e_i,
+    input  logic       rd_is_wb_4m_i,
+    input  logic       rd_is_wb_5w_i,
+
+    input  logic [XLEN-1:0] data_3e_i,
+    input  logic [XLEN-1:0] data_4m_i,
+    input  logic [XLEN-1:0] data_5w_i,
+
+    output logic            bypass_rs1_2d_sel_o,
+    output logic            bypass_rs2_2d_sel_o,
+    output logic [XLEN-1:0] bypass_rs1_2d_data_o,
+    output logic [XLEN-1:0] bypass_rs2_2d_data_o,
+    output logic            fwd_unit_hazard
+);
+
+    logic hazard_rs1_2d, hazard_rs2_2d;
+    logic rd_3e_not_zero, rd_4m_not_zero, rd_5w_not_zero;
+
+    assign rd_3e_not_zero = (rd_3e_i != '0);
+    assign rd_4m_not_zero = (rd_4m_i != '0);
+    assign rd_5w_not_zero = (rd_5w_i != '0);
+
+    always_comb begin
+        bypass_rs1_2d_sel_o  =  0;
+        bypass_rs1_2d_data_o = '0;
+        hazard_rs1_2d        =  0;
+
+        if ((rs1_2d_i == rd_3e_i) && rd_3e_not_zero && rs1_valid_2d_i && rd_is_wb_3e_i) begin
+            hazard_rs1_2d = 1;
+            bypass_rs1_2d_sel_o  = 1;
+            bypass_rs1_2d_data_o = data_3e_i;
+        end else if ((rs1_2d_i == rd_4m_i) && rd_4m_not_zero && rs1_valid_2d_i && rd_is_wb_4m_i) begin
+            hazard_rs1_2d = 1;
+            bypass_rs1_2d_sel_o  = 1;
+            bypass_rs1_2d_data_o = data_4m_i;
+        end else if ((rs1_2d_i == rd_5w_i) && rd_5w_not_zero && rs1_valid_2d_i && rd_is_wb_5w_i) begin
+            bypass_rs1_2d_sel_o  = 1;
+            bypass_rs1_2d_data_o = data_5w_i;
+        end
+    end
+
+    always_comb begin
+        bypass_rs2_2d_sel_o  =  0;
+        bypass_rs2_2d_data_o = '0;
+        hazard_rs2_2d        =  0;
+
+        if ((rs2_2d_i == rd_3e_i) && rd_3e_not_zero && rs2_valid_2d_i && rd_is_wb_3e_i) begin
+            hazard_rs2_2d = 1;
+            bypass_rs2_2d_sel_o  = 1;
+            bypass_rs2_2d_data_o = data_3e_i;
+        end else if ((rs2_2d_i == rd_4m_i) && rd_4m_not_zero && rs2_valid_2d_i && rd_is_wb_4m_i) begin
+            hazard_rs2_2d = 1;
+            bypass_rs2_2d_sel_o  = 1;
+            bypass_rs2_2d_data_o = data_4m_i;
+        end else if ((rs2_2d_i == rd_5w_i) && rd_5w_not_zero && rs2_valid_2d_i && rd_is_wb_5w_i) begin
+            bypass_rs2_2d_sel_o  = 1;
+            bypass_rs2_2d_data_o = data_5w_i;
+        end
+    end
+
+    assign fwd_unit_hazard = hazard_rs1_2d | hazard_rs2_2d;
+
+
+endmodule

@@ -119,6 +119,9 @@ module rv_pa2# (
         .q_o(s_1f_q)
     );
 
+    logic data_hazard;
+    logic bypass_rs1_2d_sel, bypass_rs2_2d_sel;
+    logic [XLEN-1:0] bypass_rs1_2d_data, bypass_rs2_2d_data;
     // =========================================================================
     // = Stage 2: Decode
     // =========================================================================
@@ -140,6 +143,10 @@ module rv_pa2# (
         // Hazard detection
         .noop_i(noop),
         .stall_i(stall),
+        .bypass_rs1_sel_i(bypass_rs1_2d_sel),
+        .bypass_rs2_sel_i(bypass_rs2_2d_sel),
+        .bypass_rs1_data_i(bypass_rs1_2d_data),
+        .bypass_rs2_data_i(bypass_rs2_2d_data),
         .rs1_addr_o(rs1_addr),
         .rs1_valid_o(rs1_valid),
         .rs2_addr_o(rs2_addr),
@@ -232,6 +239,15 @@ module rv_pa2# (
     // = Hazards and bypasses
     // =========================================================================
     hazard_unit hazard_unit_inst (
+        .jump_or_branch_3e_i((taken_branch || pc_sel[1]) && s_3e_d.valid),
+        .data_hazard_i(data_hazard),
+        .noop_o(noop),
+        .stall_o(stall)
+    );
+
+    fwd_unit #(
+        .XLEN(XLEN)
+    ) fwd_unit_inst (
         .rs1_2d_i(rs1_addr),
         .rs2_2d_i(rs2_addr),
         .rs1_valid_2d_i(rs1_valid),
@@ -242,9 +258,14 @@ module rv_pa2# (
         .rd_is_wb_3e_i(s_3e_d.is_wb),
         .rd_is_wb_4m_i(s_4m_d.is_wb),
         .rd_is_wb_5w_i(s_5w_d.is_wb),
-        .jump_or_branch_3e_i((taken_branch || pc_sel[1]) && s_3e_d.valid),
-        .noop_o(noop),
-        .stall_o(stall)
+        .data_3e_i(s_3e_d.alu_result),
+        .data_4m_i(s_4m_d.alu_result), //TODO: mux entre los 2 resultados
+        .data_5w_i(s_5w_d.rd_data),
+        .bypass_rs1_2d_sel_o(bypass_rs1_2d_sel),
+        .bypass_rs2_2d_sel_o(bypass_rs2_2d_sel),
+        .bypass_rs1_2d_data_o(bypass_rs1_2d_data),
+        .bypass_rs2_2d_data_o(bypass_rs2_2d_data),
+        .fwd_unit_hazard(data_hazard)
     );
 
 endmodule
