@@ -49,6 +49,10 @@ module rv_pa2# (
     logic rs1_valid, rs2_valid;
     logic [$clog2(N_PHY_REG)-1:0] rs1_addr, rs2_addr;
     logic noop, stall;
+    logic data_hazard;
+    // Bypass control
+    logic bypass_rs1_2d_sel, bypass_rs2_2d_sel;
+    logic [XLEN-1:0] bypass_rs1_2d_data, bypass_rs2_2d_data;
 
     // local assigns
     assign trap_valid =
@@ -119,9 +123,6 @@ module rv_pa2# (
         .q_o(s_1f_q)
     );
 
-    logic data_hazard;
-    logic bypass_rs1_2d_sel, bypass_rs2_2d_sel;
-    logic [XLEN-1:0] bypass_rs1_2d_data, bypass_rs2_2d_data;
     // =========================================================================
     // = Stage 2: Decode
     // =========================================================================
