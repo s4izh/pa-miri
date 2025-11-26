@@ -2,7 +2,9 @@
 .global _start
 .section .text
 _start:
-    li a1, 10; li a2, 5; li a3, 10
+    li a1, 10 # mantain dependency on a1 for bge
+    li a2, 5
+    li a3, 10
     bge a1, a2, taken_1 # (10 >= 5) is true. Should be taken.
     j fail_loop
 taken_1:

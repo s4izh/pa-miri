@@ -239,6 +239,17 @@ module rv_pa2# (
     // =========================================================================
     // = Hazards and bypasses
     // =========================================================================
+    logic [XLEN-1:0] fwd_data_4m;
+    always_comb begin
+        if (s_4m_d.wb_sel == MUX_WB_MEM) begin
+            fwd_data_4m = s_4m_d.mem_result;
+        end else if (s_4m_d.wb_sel == MUX_WB_PC_NEXT) begin
+            fwd_data_4m = s_4m_d.pc + 4;
+        end else begin
+            fwd_data_4m = s_4m_d.alu_result;
+        end
+    end
+
     hazard_unit hazard_unit_inst (
         .jump_or_branch_3e_i((taken_branch || pc_sel[1]) && s_3e_d.valid),
         .data_hazard_i(data_hazard),
@@ -253,15 +264,24 @@ module rv_pa2# (
         .rs2_2d_i(rs2_addr),
         .rs1_valid_2d_i(rs1_valid),
         .rs2_valid_2d_i(rs2_valid),
+        
+        // stage 3 inputs
         .rd_3e_i(s_3e_d.rd_addr),
-        .rd_4m_i(s_4m_d.rd_addr),
-        .rd_5w_i(s_5w_d.rd_addr),
         .rd_is_wb_3e_i(s_3e_d.is_wb),
+        .is_ld_3e_i(s_3e_d.is_ld),
+        .data_3e_i(s_3e_d.alu_result), // I think that if 3E is PC_NEXT (JAL), this is wrong
+        
+        // stage 4 inputs
+        .rd_4m_i(s_4m_d.rd_addr),
         .rd_is_wb_4m_i(s_4m_d.is_wb),
+        .data_4m_i(fwd_data_4m), // TODO: proper mux this in stage 4
+        
+        // stage 5 inputs
+        .rd_5w_i(s_5w_d.rd_addr),
         .rd_is_wb_5w_i(s_5w_d.is_wb),
-        .data_3e_i(s_3e_d.alu_result),
-        .data_4m_i(s_4m_d.alu_result), //TODO: mux entre los 2 resultados
         .data_5w_i(s_5w_d.rd_data),
+        
+        // outputs
         .bypass_rs1_2d_sel_o(bypass_rs1_2d_sel),
         .bypass_rs2_2d_sel_o(bypass_rs2_2d_sel),
         .bypass_rs1_2d_data_o(bypass_rs1_2d_data),
