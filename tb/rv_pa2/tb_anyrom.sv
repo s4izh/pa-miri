@@ -46,6 +46,26 @@ module tb (
         .data_o(dmem_data_i)
     );
 
+    konata_tracer #(
+        .LOG_PREFIX("konata_output")
+    ) tracer (
+        .clk(clk),
+        .reset_n(reset_n),
+        .stall_i(dut.hart0_inst.stall),
+
+        // Fetch is valid if we are not inserting a bubble (noop)
+        .valid_f_i(!dut.hart0_inst.noop),
+        .fetch_pc_i(dut.hart0_inst.pc),
+        .fetch_ins_i(dut.hart0_inst.imem_data_i),
+
+        // For other stages, we trust the valid bit of the pipeline register
+        // "If s_1f_q.valid is high, then there is a real instruction in Decode"
+        .valid_d_i(dut.hart0_inst.s_1f_q.valid),
+        .valid_e_i(dut.hart0_inst.s_2d_q.valid),
+        .valid_m_i(dut.hart0_inst.s_3e_q.valid),
+        .valid_w_i(dut.hart0_inst.s_4m_q.valid)
+    );
+
     int TIMEOUT_CYCLES;
     initial begin
         string rom_file, sram_file;
