@@ -55,10 +55,22 @@ module rv_pa2# (
     logic [XLEN-1:0] bypass_rs1_2d_data, bypass_rs2_2d_data;
 
     // local assigns
+    // assign trap_valid =
+    //     imem_trap_i.valid |
+    //     (dmem_trap_i.valid & s_4m_d.valid) |
+    //     (xcpt_illegal_ins & s_2d_d.valid);
+
+    // are we jumping or branching in the execute stage?
+    logic jump_or_branch_3e;
+    assign jump_or_branch_3e = (taken_branch || pc_sel[1]) && s_3e_d.valid;
+
+    // use s_1f_q.valid (input to decode) instead of s_2d_d.valid (output of decode)
+    // this avoids the circular loop where trap -> noop -> s_2d_d.valid=0 -> trap=0
+    // we must manually mask with jump_or_branch_3e because a branch should kill the trap
     assign trap_valid =
         imem_trap_i.valid |
         (dmem_trap_i.valid & s_4m_d.valid) |
-        (xcpt_illegal_ins & s_2d_d.valid);
+        (xcpt_illegal_ins & s_1f_q.valid & ~jump_or_branch_3e);
 
     assign dmem_if_in.data = dmem_data_i;
     assign dmem_if_in.trap = dmem_trap_i;
@@ -251,7 +263,8 @@ module rv_pa2# (
     end
 
     hazard_unit hazard_unit_inst (
-        .jump_or_branch_3e_i((taken_branch || pc_sel[1]) && s_3e_d.valid),
+        .jump_or_branch_3e_i(jump_or_branch_3e),
+        .trap_i(trap_valid),
         .data_hazard_i(data_hazard),
         .noop_o(noop),
         .stall_o(stall)
