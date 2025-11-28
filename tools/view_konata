@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 <simulation_log_file>"
+    echo "Example: $0 build/rv_pa2/anyrom/verilator/outputs/my_test.log"
+    exit 1
+fi
+
+LOG_FILE="$1"
+TRACE_FILE="trace.log"
+
+echo "Extracting Konata trace from $LOG_FILE..."
+grep "^konata_output:" "$LOG_FILE" | sed 's/^konata_output://' > "$TRACE_FILE"
+
+if [ ! -s "$TRACE_FILE" ]; then
+    echo "Error: No Konata traces found in log file."
+    exit 1
+fi
+
+konata "$TRACE_FILE"
