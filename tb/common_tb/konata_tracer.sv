@@ -101,8 +101,8 @@ module konata_tracer #(
                     LOG_PREFIX, id_pipe[4], 0, "W");
 
             if (id_pipe[5] != 0)
-                $display("%s:R\t%0d\t%0d\t%s",
-                    LOG_PREFIX, id_pipe[4], 0, 0);
+                $display("%s:R\t%0d\t%0d\t%0d",
+                    LOG_PREFIX, id_pipe[5], 0, 0);
 
         end
     end
