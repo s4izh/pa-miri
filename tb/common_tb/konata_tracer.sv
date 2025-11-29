@@ -33,7 +33,16 @@ module konata_tracer #(
     // track the previous valid instruction to calculate retirement latency
     longint unsigned last_retired_id;
 
+    // Init kanata format
+    //   - Header
+    //   - Location of first instruction
+    initial begin
+        $display("%s:Kanata\t0004", LOG_PREFIX);
+        $display("%s:C=\t0", LOG_PREFIX);
+    end
+
     always @(posedge clk) begin
+        $display("%s:C\t1", LOG_PREFIX);
         if (!reset_n) begin
             id_pipe <= '{default:0};
             id_counter <= 1;
@@ -48,12 +57,14 @@ module konata_tracer #(
             // If the processor is flushing (valid_f_i is low), we insert a 0 (bubble)
             if (valid_f_i) begin
                 id_pipe[0] <= id_counter;
-                
+
                 // Log the creation of this instruction immediately
                 // fetch : time : pc : global_id : 0 : asm
-                $display("%s:O3PipeView:fetch:%0t:0x%h:%0d:0:DASM(%h)", 
-                         LOG_PREFIX, $time, fetch_pc_i, id_counter, fetch_ins_i);
-                
+                $display("%s:I\t%0d\t%0t\t0",
+                    LOG_PREFIX, id_counter, fetch_pc_i);
+                $display("%s:L\t%0d\t%0d\t%s",
+                    LOG_PREFIX, id_counter, 0, fetch_ins_i);
+
                 id_counter++;
             end else begin
                 id_pipe[0] <= 0; // Bubble
@@ -66,23 +77,30 @@ module konata_tracer #(
     // Since we use non-blocking assignments above, we check the OLD value of the previous stage.
     always @(posedge clk) begin
         if (reset_n && !stall_i) begin
-            
-            // ID moving from Fetch (pipe[0]) -> Decode (pipe[1])
-            // We check valid_d_i to see if the hardware accepted it
-            if (id_pipe[0] != 0) 
-                $display("%s:O3PipeView:decode:%0t:%0d", LOG_PREFIX, $time, id_pipe[0]);
 
-            // ID moving from Decode (pipe[1]) -> Execute (pipe[2])
-            if (id_pipe[1] != 0 && valid_e_i) 
-                $display("%s:O3PipeView:issue:%0t:%0d", LOG_PREFIX, $time, id_pipe[1]);
+            if (id_pipe[0] != 0 && valid_f_i)
+                $display("%s:S\t%0d\t%0d\t%s",
+                    LOG_PREFIX, id_pipe[0], 0, "F");
 
-            // ID moving from Execute (pipe[2]) -> Memory (pipe[3])
-            if (id_pipe[2] != 0 && valid_m_i) 
-                $display("%s:O3PipeView:complete:%0t:%0d", LOG_PREFIX, $time, id_pipe[2]);
+            if (id_pipe[1] != 0 && valid_d_i)
+                $display("%s:S\t%0d\t%0d\t%s",
+                    LOG_PREFIX, id_pipe[1], 0, "D");
 
-            // ID moving from Memory (pipe[3]) -> Writeback (pipe[4]) -> Retire
-            if (id_pipe[3] != 0 && valid_w_i) 
-                $display("%s:O3PipeView:retire:%0t:store:%0t:%0d", LOG_PREFIX, $time, $time, id_pipe[3]);
+            if (id_pipe[2] != 0 && valid_e_i)
+                $display("%s:S\t%0d\t%0d\t%s",
+                    LOG_PREFIX, id_pipe[2], 0, "E");
+
+            if (id_pipe[3] != 0 && valid_m_i)
+                $display("%s:S\t%0d\t%0d\t%s",
+                    LOG_PREFIX, id_pipe[3], 0, "M");
+
+            if (id_pipe[4] != 0 && valid_w_i) begin
+                $display("%s:S\t%0d\t%0d\t%s",
+                    LOG_PREFIX, id_pipe[4], 0, "W");
+                $display("%s:R\t%0d\t%0d\t%s",
+                    LOG_PREFIX, id_pipe[4], 0, 0);
+            end
+
         end
     end
 
