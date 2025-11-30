@@ -6,127 +6,113 @@ module konata_tracer #(
     input logic reset_n,
     input logic stall_i,
 
-    // HARDWARE HOOKS
-    // we look at the VALID bits coming out of each pipeline register.
-    // if the hardware says valid=1, we track it. If valid=0, it's a bubble.
+    // hooks
     input logic valid_f_i, // !noop
     input logic valid_d_i, // s_1f_q.valid
     input logic valid_e_i, // s_2d_q.valid
     input logic valid_m_i, // s_3e_q.valid
     input logic valid_w_i, // s_4m_q.valid
 
-    // we need the fetch info to describe the instruction
+    // fetch info
     input logic [XLEN-1:0] fetch_pc_i,
     input logic [31:0]     fetch_ins_i
 );
 
-    longint unsigned id_counter = 1;
+    // Serial id counter
+    longint unsigned id_counter;
 
-    // a simple shift register to carry IDs down the pipeline
     // id_pipe[0] corresponds to Fetch
     // id_pipe[1] corresponds to Decode
     // id_pipe[2] corresponds to Execute
     // id_pipe[3] corresponds to Memory
     // id_pipe[4] corresponds to Writeback
-    // id_pipe[5] is used to flag the cycle in which the ins is retired
-    longint unsigned id_pipe [5:0];
+    // id_pipe[5] is used to flag the cycle in which the ins was retired
+    longint unsigned id_pipe[6];
 
-    // track the previous valid instruction to calculate retirement latency
-    longint unsigned last_retired_id;
+    // Iterable stage names
+    const string stage_names[5] = {"F","D","E","M","W"};
+
+    // Iterable stage valids
+    logic [4:0] stage_valids;
+    assign stage_valids[0] = valid_f_i;
+    assign stage_valids[1] = valid_d_i;
+    assign stage_valids[2] = valid_e_i;
+    assign stage_valids[3] = valid_m_i;
+    assign stage_valids[4] = valid_w_i;
 
     // Init kanata format
     //   - Header
-    //   - Location of first instruction
+    //   - Current cycle
     initial begin
         $display("%s:Kanata\t0004", LOG_PREFIX);
         $display("%s:C=\t0", LOG_PREFIX);
     end
 
+    // Main process (id_pipe[] control)
     always @(posedge clk) begin
+        // Advance 1 cycle
         $display("%s:C\t1", LOG_PREFIX);
         if (!reset_n) begin
             id_pipe <= '{default:0};
-            id_counter <= 1;
-        end else if (!stall_i) begin
-            // 1. Shift the IDs down the pipe (Synchronous with HW pipeline regs)
-            id_pipe[5] <= (valid_w_i) ? id_pipe[4] : 0;
-            id_pipe[4] <= (valid_m_i) ? id_pipe[3] : 0;
-            id_pipe[3] <= (valid_e_i) ? id_pipe[2] : 0;
-            id_pipe[2] <= (valid_d_i) ? id_pipe[1] : 0;
-            id_pipe[1] <= (valid_f_i) ? id_pipe[0] : 0;
-
-            // 2. Insert new ID at Fetch if valid
-            // If the processor is flushing (valid_f_i is low), we insert a 0 (bubble)
-            if (valid_f_i) begin
-                id_pipe[0] <= id_counter;
-
-                $display("%s:I\t%0d\t%0t\t%0d",
-                    LOG_PREFIX, id_counter, fetch_pc_i, 0);
-                $display("%s:L\t%0d\t%0d\t%s",
-                    LOG_PREFIX, id_counter, 0, disassemble_rv32i(fetch_ins_i));
-
-                id_counter++;
+            id_counter = 1;
+        end else begin
+            // Shift register
+            if (!stall_i) begin
+                id_pipe[5] <= (valid_w_i) ? id_pipe[4] : 0;
+                id_pipe[4] <= (valid_m_i) ? id_pipe[3] : 0;
+                id_pipe[3] <= (valid_e_i) ? id_pipe[2] : 0;
+                id_pipe[2] <= (valid_d_i) ? id_pipe[1] : 0;
+                id_pipe[1] <= (valid_f_i) ? id_pipe[0] : 0;
             end else begin
-                id_pipe[0] <= 0; // Bubble
+                id_pipe[5] <= (valid_w_i) ? id_pipe[4] : 0;
+                id_pipe[4] <= (valid_m_i) ? id_pipe[3] : 0;
+                id_pipe[3] <= (valid_e_i) ? id_pipe[2] : 0;
+                id_pipe[2] <= 0;
+            end
+            // If not stalled, "issue" new instruction
+            if (!stall_i) begin
+                if (valid_f_i) begin
+                    $display("%s:I\t%0d\t%0t\t%0d",
+                        LOG_PREFIX, id_counter, fetch_pc_i, 0);
+                    $display("%s:L\t%0d\t%0d\t%s",
+                        LOG_PREFIX, id_counter, 0, disassemble_rv32i(fetch_ins_i));
+                    id_pipe[0] <= id_counter;
+                    id_counter++;
+                end else begin
+                    id_pipe[0] <= 0; // Bubble
+                end
             end
         end
     end
 
+    // Control instruction's stage and retire
     always @(posedge clk) begin
-        if (reset_n && !stall_i) begin
-
-            if (id_pipe[0] != 0) begin
-                $display("%s:S\t%0d\t%0d\t%s",
-                    LOG_PREFIX, id_pipe[0], 0, "F");
-                if (!valid_f_i)
-                    $display("%s:R\t%0d\t%0d\t%0d",
-                        LOG_PREFIX, id_pipe[0], 0, 1);
+        if (reset_n) begin
+            for (int i = 0; i < 5; ++i) begin
+                if (id_pipe[i] != 0) begin
+                    if (stage_valids[i])
+                        $display(konata_stage(id_pipe[i], 0, stage_names[i]));
+                    else
+                        $display(konata_retire(id_pipe[i], 0, 1));
+                end
             end
 
-            if (id_pipe[1] != 0) begin
-                if (valid_d_i)
-                    $display("%s:S\t%0d\t%0d\t%s",
-                        LOG_PREFIX, id_pipe[1], 0, "D");
-                else
-                    $display("%s:R\t%0d\t%0d\t%0d",
-                        LOG_PREFIX, id_pipe[1], 0, 1);
-            end
-
-            if (id_pipe[2] != 0) begin
-                if (valid_e_i)
-                    $display("%s:S\t%0d\t%0d\t%s",
-                        LOG_PREFIX, id_pipe[2], 0, "E");
-                else
-                    $display("%s:R\t%0d\t%0d\t%0d",
-                        LOG_PREFIX, id_pipe[2], 0, 1);
-            end
-
-            if (id_pipe[3] != 0) begin
-                if (valid_m_i)
-                    $display("%s:S\t%0d\t%0d\t%s",
-                        LOG_PREFIX, id_pipe[3], 0, "M");
-                else
-                    $display("%s:R\t%0d\t%0d\t%0d",
-                        LOG_PREFIX, id_pipe[3], 0, 1);
-            end
-
-            if (id_pipe[4] != 0) begin
-                if (valid_w_i)
-                    $display("%s:S\t%0d\t%0d\t%s",
-                        LOG_PREFIX, id_pipe[4], 0, "W");
-                else
-                    $display("%s:R\t%0d\t%0d\t%0d",
-                        LOG_PREFIX, id_pipe[4], 0, 1);
-            end
-
-            if (id_pipe[5] != 0)
-                $display("%s:R\t%0d\t%0d\t%0d",
-                    LOG_PREFIX, id_pipe[5], 0, 0);
-
+            if (id_pipe[5] != 0) $display(konata_retire(id_pipe[5], 0, 0));
         end
     end
 
-    // Helper to convert register number → name (x0 → zero, x1 → ra, etc.)
+    // Helpers for konata logs
+    function konata_stage(longint id, int thread, string stage);
+        $display("%s:S\t%0d\t%0d\t%s",
+            LOG_PREFIX, id, thread, stage);
+    endfunction
+
+    function konata_retire(longint id, int retire_id, int retire_type);
+            $display("%s:R\t%0d\t%0d\t%0d",
+                LOG_PREFIX, id, retire_id, retire_type);
+    endfunction
+
+    // Helpers for instruction disassembly
     function automatic string regname(input [4:0] r);
         if (r == 0) return "zero";
         else if (r == 1) return "ra";
@@ -138,7 +124,6 @@ module konata_tracer #(
         else if (r >= 16 && r <= 27) return $sformatf("a%0d", r-10);
         else                         return $sformatf("t%0d", r-28);
     endfunction
-
 
     function automatic string disassemble_rv32i(logic [31:0] instr);
         string s;
