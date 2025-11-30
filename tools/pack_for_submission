@@ -55,7 +55,7 @@ if [[ $1 == "test" ]]; then
   source set_env.sh
   ./tools/regression --sim vsim
   ./tools/regression --sim verilator
-  ./tools/regression --sim iverilog
+  # ./tools/regression --sim iverilog
   sudo rm -rf "$TOP_LEVEL_DIR"
 else
   echo ""

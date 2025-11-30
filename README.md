@@ -176,6 +176,11 @@ new component in the testbench: `konata_tracer`. The state of the Konata logs
 is unreliable at the moment, but useful for debugging nonetheless
 (improvements coming in rv_a2).
 
+Support for iVerilog has been dropped. Too many of the language features we were
+using (supported in both other sims) were not supported by iVerilog, which was
+pulling us back, by forcing us to refactor those unsupported features. We opted
+to stop using it altogether, and rely on Verilator and Modelsim.
+
 
 ## RISC-V Processor Architecture assignment 3 (rv_pa3)
 ### 1.1 ISA
