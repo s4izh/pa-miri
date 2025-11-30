@@ -49,21 +49,19 @@ module konata_tracer #(
             id_counter <= 1;
         end else if (!stall_i) begin
             // 1. Shift the IDs down the pipe (Synchronous with HW pipeline regs)
-            id_pipe[5] <= id_pipe[4];
-            id_pipe[4] <= id_pipe[3];
-            id_pipe[3] <= id_pipe[2];
-            id_pipe[2] <= id_pipe[1];
-            id_pipe[1] <= id_pipe[0];
+            id_pipe[5] <= (valid_w_i) ? id_pipe[4] : 0;
+            id_pipe[4] <= (valid_m_i) ? id_pipe[3] : 0;
+            id_pipe[3] <= (valid_e_i) ? id_pipe[2] : 0;
+            id_pipe[2] <= (valid_d_i) ? id_pipe[1] : 0;
+            id_pipe[1] <= (valid_f_i) ? id_pipe[0] : 0;
 
             // 2. Insert new ID at Fetch if valid
             // If the processor is flushing (valid_f_i is low), we insert a 0 (bubble)
             if (valid_f_i) begin
                 id_pipe[0] <= id_counter;
 
-                // Log the creation of this instruction immediately
-                // fetch : time : pc : global_id : 0 : asm
-                $display("%s:I\t%0d\t%0t\t0",
-                    LOG_PREFIX, id_counter, fetch_pc_i);
+                $display("%s:I\t%0d\t%0t\t%0d",
+                    LOG_PREFIX, id_counter, fetch_pc_i, 0);
                 $display("%s:L\t%0d\t%0d\t%s",
                     LOG_PREFIX, id_counter, 0, disassemble_rv32i(fetch_ins_i));
 
@@ -74,31 +72,53 @@ module konata_tracer #(
         end
     end
 
-    // 3. Log Stage Transitions
-    // We look at the ID that IS ENTERING the stage on this clock edge.
-    // Since we use non-blocking assignments above, we check the OLD value of the previous stage.
     always @(posedge clk) begin
         if (reset_n && !stall_i) begin
 
-            if (id_pipe[0] != 0)
+            if (id_pipe[0] != 0) begin
                 $display("%s:S\t%0d\t%0d\t%s",
                     LOG_PREFIX, id_pipe[0], 0, "F");
+                if (!valid_f_i)
+                    $display("%s:R\t%0d\t%0d\t%0d",
+                        LOG_PREFIX, id_pipe[0], 0, 1);
+                end
+            end
 
-            if (id_pipe[1] != 0 && valid_d_i)
-                $display("%s:S\t%0d\t%0d\t%s",
-                    LOG_PREFIX, id_pipe[1], 0, "D");
+            if (id_pipe[1] != 0) begin
+                if (valid_d_i)
+                    $display("%s:S\t%0d\t%0d\t%s",
+                        LOG_PREFIX, id_pipe[1], 0, "D");
+                else
+                    $display("%s:R\t%0d\t%0d\t%0d",
+                        LOG_PREFIX, id_pipe[1], 0, 1);
+            end
 
-            if (id_pipe[2] != 0 && valid_e_i)
-                $display("%s:S\t%0d\t%0d\t%s",
-                    LOG_PREFIX, id_pipe[2], 0, "E");
+            if (id_pipe[2] != 0) begin
+                if (valid_e_i)
+                    $display("%s:S\t%0d\t%0d\t%s",
+                        LOG_PREFIX, id_pipe[2], 0, "E");
+                else
+                    $display("%s:R\t%0d\t%0d\t%0d",
+                        LOG_PREFIX, id_pipe[2], 0, 1);
+            end
 
-            if (id_pipe[3] != 0 && valid_m_i)
-                $display("%s:S\t%0d\t%0d\t%s",
-                    LOG_PREFIX, id_pipe[3], 0, "M");
+            if (id_pipe[3] != 0) begin
+                if (valid_m_i)
+                    $display("%s:S\t%0d\t%0d\t%s",
+                        LOG_PREFIX, id_pipe[3], 0, "M");
+                else
+                    $display("%s:R\t%0d\t%0d\t%0d",
+                        LOG_PREFIX, id_pipe[3], 0, 1);
+            end
 
-            if (id_pipe[4] != 0 && valid_w_i)
-                $display("%s:S\t%0d\t%0d\t%s",
-                    LOG_PREFIX, id_pipe[4], 0, "W");
+            if (id_pipe[4] != 0) begin
+                if (valid_w_i)
+                    $display("%s:S\t%0d\t%0d\t%s",
+                        LOG_PREFIX, id_pipe[4], 0, "W");
+                else
+                    $display("%s:R\t%0d\t%0d\t%0d",
+                        LOG_PREFIX, id_pipe[4], 0, 1);
+            end
 
             if (id_pipe[5] != 0)
                 $display("%s:R\t%0d\t%0d\t%0d",
