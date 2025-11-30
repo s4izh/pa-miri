@@ -81,7 +81,6 @@ module konata_tracer #(
                 if (!valid_f_i)
                     $display("%s:R\t%0d\t%0d\t%0d",
                         LOG_PREFIX, id_pipe[0], 0, 1);
-                end
             end
 
             if (id_pipe[1] != 0) begin
