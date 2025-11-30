@@ -71,16 +71,12 @@ module konata_tracer #(
             end
             // If not stalled, "issue" new instruction
             if (!stall_i) begin
-                if (valid_f_i) begin
-                    $display("%s:I\t%0d\t%0t\t%0d",
-                        LOG_PREFIX, id_counter, fetch_pc_i, 0);
-                    $display("%s:L\t%0d\t%0d\t%s",
-                        LOG_PREFIX, id_counter, 0, disassemble_rv32i(fetch_ins_i));
-                    id_pipe[0] <= id_counter;
-                    id_counter++;
-                end else begin
-                    id_pipe[0] <= 0; // Bubble
-                end
+                $display("%s:I\t%0d\t%0t\t%0d",
+                    LOG_PREFIX, id_counter, fetch_pc_i, 0);
+                $display("%s:L\t%0d\t%0d\t%s",
+                    LOG_PREFIX, id_counter, 0, disassemble_rv32i(fetch_ins_i));
+                id_pipe[0] <= id_counter;
+                id_counter++;
             end
         end
     end
