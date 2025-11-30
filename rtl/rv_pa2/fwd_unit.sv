@@ -5,6 +5,7 @@ module fwd_unit #(
     input  logic [4:0] rs2_2d_i,
     input  logic       rs1_valid_2d_i,
     input  logic       rs2_valid_2d_i,
+    input  logic       is_st_2d_i,
 
     // stage 3e inputs
     input  logic [4:0]      rd_3e_i,
@@ -26,6 +27,7 @@ module fwd_unit #(
     output logic            bypass_rs2_2d_sel_o,
     output logic [XLEN-1:0] bypass_rs1_2d_data_o,
     output logic [XLEN-1:0] bypass_rs2_2d_data_o,
+    output logic            bypass_4m_3e_sel_o,
     output logic            fwd_unit_hazard
 );
 
@@ -39,12 +41,17 @@ module fwd_unit #(
 
     always_comb begin
         hazard_ld = 1'b0;
+        bypass_4m_3e_sel_o = 1'b0;
         if (is_ld_3e_i && rd_3e_not_zero) begin
-            if (rs1_valid_2d_i && (rs1_2d_i == rd_3e_i)) begin
-                hazard_ld = 1'b1;
-            end
-            if (rs2_valid_2d_i && (rs2_2d_i == rd_3e_i)) begin
-                hazard_ld = 1'b1;
+            if (is_st_2d_i && (rd_3e_i == rs2_2d_i)) begin
+                bypass_4m_3e_sel_o = 1'b1;
+            end else begin
+                if (rs1_valid_2d_i && (rs1_2d_i == rd_3e_i)) begin
+                    hazard_ld = 1'b1;
+                end
+                if (rs2_valid_2d_i && (rs2_2d_i == rd_3e_i)) begin
+                    hazard_ld = 1'b1;
+                end
             end
         end
     end

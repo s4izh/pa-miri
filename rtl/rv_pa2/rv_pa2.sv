@@ -53,6 +53,7 @@ module rv_pa2# (
     // Bypass control
     logic bypass_rs1_2d_sel, bypass_rs2_2d_sel;
     logic [XLEN-1:0] bypass_rs1_2d_data, bypass_rs2_2d_data;
+    logic bypass_4m_3e_sel;
 
     // local assigns
     // assign trap_valid =
@@ -160,6 +161,7 @@ module rv_pa2# (
         .bypass_rs2_sel_i(bypass_rs2_2d_sel),
         .bypass_rs1_data_i(bypass_rs1_2d_data),
         .bypass_rs2_data_i(bypass_rs2_2d_data),
+        .bypass_4m_3e_sel_i(bypass_4m_3e_sel),
         .rs1_addr_o(rs1_addr),
         .rs1_valid_o(rs1_valid),
         .rs2_addr_o(rs2_addr),
@@ -189,7 +191,9 @@ module rv_pa2# (
         ._o(s_3e_d),
         // Next pc selection
         .pc_sel_o(pc_sel),
-        .taken_branch_o(taken_branch)
+        .taken_branch_o(taken_branch),
+        // Bypass
+        .bypass_4m_3e_data_i(s_4m_d.mem_result)
     );
 
     decoupling_reg #(
@@ -270,6 +274,7 @@ module rv_pa2# (
         .stall_o(stall)
     );
 
+
     fwd_unit #(
         .XLEN(XLEN)
     ) fwd_unit_inst (
@@ -277,28 +282,26 @@ module rv_pa2# (
         .rs2_2d_i(rs2_addr),
         .rs1_valid_2d_i(rs1_valid),
         .rs2_valid_2d_i(rs2_valid),
-        
+        .is_st_2d_i(s_2d_d.is_st),
         // stage 3 inputs
         .rd_3e_i(s_3e_d.rd_addr),
         .rd_is_wb_3e_i(s_3e_d.is_wb),
         .is_ld_3e_i(s_3e_d.is_ld),
         .data_3e_i(s_3e_d.alu_result), // I think that if 3E is PC_NEXT (JAL), this is wrong
-        
         // stage 4 inputs
         .rd_4m_i(s_4m_d.rd_addr),
         .rd_is_wb_4m_i(s_4m_d.is_wb),
         .data_4m_i(fwd_data_4m), // TODO: proper mux this in stage 4
-        
         // stage 5 inputs
         .rd_5w_i(s_5w_d.rd_addr),
         .rd_is_wb_5w_i(s_5w_d.is_wb),
         .data_5w_i(s_5w_d.rd_data),
-        
         // outputs
         .bypass_rs1_2d_sel_o(bypass_rs1_2d_sel),
         .bypass_rs2_2d_sel_o(bypass_rs2_2d_sel),
         .bypass_rs1_2d_data_o(bypass_rs1_2d_data),
         .bypass_rs2_2d_data_o(bypass_rs2_2d_data),
+        .bypass_4m_3e_sel_o(bypass_4m_3e_sel),
         .fwd_unit_hazard(data_hazard)
     );
 

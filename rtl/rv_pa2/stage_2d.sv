@@ -22,6 +22,7 @@ module stage_2d #(
     input  logic                    bypass_rs2_sel_i,
     input  logic [XLEN-1:0]         bypass_rs1_data_i,
     input  logic [XLEN-1:0]         bypass_rs2_data_i,
+    input  logic                    bypass_4m_3e_sel_i,
     output logic [$clog2(NREG)-1:0] rs1_addr_o,
     output logic                    rs1_valid_o,
     output logic [$clog2(NREG)-1:0] rs2_addr_o,
@@ -43,6 +44,8 @@ module stage_2d #(
 
     assign _o.rs1_data = (bypass_rs1_sel_i == '1) ? bypass_rs1_data_i : rf_rs1_data;
     assign _o.rs2_data = (bypass_rs2_sel_i == '1) ? bypass_rs2_data_i : rf_rs2_data;
+
+    assign _o.bypass_4m_3e_sel = bypass_4m_3e_sel_i;
 
     always_comb begin
         if (noop_i || stall_i) begin
