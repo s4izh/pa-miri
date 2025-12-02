@@ -34,7 +34,6 @@ module rv_pa2# (
     logic taken_branch;
     // mux selectors
     mux_pc_sel_e pc_sel;
-    mux_wb_sel_e wb_sel;
     // pipeline stages data
     signals_fetch_t     s_1f_d, s_1f_q;
     signals_decode_t    s_2d_d, s_2d_q;
@@ -302,7 +301,7 @@ module rv_pa2# (
         .bypass_rs1_2d_data_o(bypass_rs1_2d_data),
         .bypass_rs2_2d_data_o(bypass_rs2_2d_data),
         .bypass_4m_3e_sel_o(bypass_4m_3e_sel),
-        .fwd_unit_hazard(data_hazard)
+        .fwd_unit_hazard_o(data_hazard)
     );
 
 endmodule
