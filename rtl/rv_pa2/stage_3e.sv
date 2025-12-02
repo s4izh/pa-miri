@@ -10,7 +10,9 @@ module stage_3e #(
     output signals_execute_t _o,
     // Next pc selection
     output mux_pc_sel_e     pc_sel_o,
-    output logic            taken_branch_o
+    output logic            taken_branch_o,
+    // Bypass
+    input logic [XLEN-1:0]  bypass_4m_3e_data_i
 );
     `define PROPAGATE(signal) assign _o.signal = _i.signal
 
@@ -27,9 +29,11 @@ module stage_3e #(
 
     `PROPAGATE(is_ld);
     `PROPAGATE(is_st);
-    `PROPAGATE(rs2_data);
+    // `PROPAGATE(rs2_data);
     `PROPAGATE(memop_width);
     `PROPAGATE(ld_unsigned);
+
+    assign _o.rs2_data = (_i.bypass_4m_3e_sel) ? bypass_4m_3e_data_i : _i.rs2_data;
 
     // Outputs
     assign pc_sel_o = (_i.valid == 1) ? _i.pc_sel : MUX_PC_NEXT;

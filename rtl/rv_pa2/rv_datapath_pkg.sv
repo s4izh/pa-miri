@@ -66,6 +66,9 @@ package rv_datapath_pkg;
         memop_width_e     memop_width;
         logic             ld_unsigned;
 
+        // bypasses
+        logic             bypass_4m_3e_sel;
+
         logic [`XLEN-1:0] pc;
     } signals_decode_t;
 
