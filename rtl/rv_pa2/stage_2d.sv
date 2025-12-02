@@ -26,7 +26,8 @@ module stage_2d #(
     output logic [$clog2(NREG)-1:0] rs1_addr_o,
     output logic                    rs1_valid_o,
     output logic [$clog2(NREG)-1:0] rs2_addr_o,
-    output logic                    rs2_valid_o
+    output logic                    rs2_valid_o,
+    output logic                    is_st_o
 );
     `define PROPAGATE(signal) assign _o.signal = _i.signal
 
@@ -46,6 +47,8 @@ module stage_2d #(
     assign _o.rs2_data = (bypass_rs2_sel_i == '1) ? bypass_rs2_data_i : rf_rs2_data;
 
     assign _o.bypass_4m_3e_sel = bypass_4m_3e_sel_i;
+
+    assign is_st_o = is_st;
 
     always_comb begin
         if (noop_i || stall_i) begin

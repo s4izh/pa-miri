@@ -49,6 +49,8 @@ module rv_pa2# (
     logic [$clog2(N_PHY_REG)-1:0] rs1_addr, rs2_addr;
     logic noop, stall;
     logic data_hazard;
+    // Signals from 2d to forwarding unit (to avoid UNOPTFLAT)
+    logic is_st_2d;
     // Bypass control
     logic bypass_rs1_2d_sel, bypass_rs2_2d_sel;
     logic [XLEN-1:0] bypass_rs1_2d_data, bypass_rs2_2d_data;
@@ -164,7 +166,8 @@ module rv_pa2# (
         .rs1_addr_o(rs1_addr),
         .rs1_valid_o(rs1_valid),
         .rs2_addr_o(rs2_addr),
-        .rs2_valid_o(rs2_valid)
+        .rs2_valid_o(rs2_valid),
+        .is_st_o(is_st_2d)
     );
 
     decoupling_reg #(
@@ -281,7 +284,7 @@ module rv_pa2# (
         .rs2_2d_i(rs2_addr),
         .rs1_valid_2d_i(rs1_valid),
         .rs2_valid_2d_i(rs2_valid),
-        .is_st_2d_i(s_2d_d.is_st),
+        .is_st_2d_i(is_st_2d),
         // stage 3 inputs
         .rd_3e_i(s_3e_d.rd_addr),
         .rd_is_wb_3e_i(s_3e_d.is_wb),
