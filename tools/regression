@@ -17,7 +17,6 @@ except KeyError:
 PROGRAMS_DIR = PROJ_DIR / "programs"
 PROGRAMS_BUILD_DIR = PROJ_DIR / "build" / "programs"
 TOHOST_TESTS_DIR = PROGRAMS_DIR / "tohost_tests"
-ORCHESTRATOR_TEST = "rv_pa2.anyrom"
 
 SIM_ROOT = PROJ_DIR / "sim"
 SIM_COMMON = SIM_ROOT / "common"
@@ -31,30 +30,43 @@ class TColors:
     BOLD = '\033[1m'
 
 class TestRequest:
-    def __init__(self, name, simulator):
+    def __init__(self, name, simulator, testbench):
         self.name = name
         self.simulator = simulator
+        self.testbench = testbench
+
+def list_testbenches():
+    """
+    A valid test is any directory under sim/ that contains a filelist.f.
+    """
+    tests = []
+    for filelist_path in SIM_ROOT.rglob("filelist.f"):
+        test_dir = filelist_path.parent
+        relative_path = test_dir.relative_to(SIM_ROOT)
+        test_name = ".".join(relative_path.parts)
+        tests.append(test_name)
+    return sorted(tests)
 
 def find_tests():
     """Finds all .s files recursively and returns their target names."""
     if not TOHOST_TESTS_DIR.is_dir():
         print(f"{TColors.FAIL}[ERROR] Test directory not found: {TOHOST_TESTS_DIR}{TColors.ENDC}")
         sys.exit(1)
-    
+
     test_files = sorted(list(TOHOST_TESTS_DIR.rglob("*.s")))
     return [str(f.relative_to(PROGRAMS_DIR)).replace(".s", "") for f in test_files]
 
 def compile_all_tests():
     """Generates the ninja file and runs ninja to compile all assembly tests."""
     print(f"{TColors.HEADER}{'='*60}\nSOFTWARE COMPILATION PHASE\n{'='*60}{TColors.ENDC}")
-    
+
     try:
         print(">> Regenerating build.ninja...")
         subprocess.run(["lua", "build.lua"], cwd=PROJ_DIR, check=True, capture_output=True)
 
         print(">> Running ninja to compile assembly tests...")
         subprocess.run(["ninja", "-C", str(PROJ_DIR)], check=True)
-        
+
         print(f"\n{TColors.OKGREEN}>> All assembly tests compiled successfully.{TColors.ENDC}")
 
     except subprocess.CalledProcessError as e:
@@ -68,10 +80,11 @@ def run_single_test(test_request):
     """Runs a single simulation and returns a result dictionary."""
     test_target = test_request.name
     simulator = test_request.simulator
+    testbench = test_request.testbench
 
     rom_file = PROGRAMS_BUILD_DIR / f"{test_target}.rom.hex"
     sram_file = PROGRAMS_BUILD_DIR / f"{test_target}.sram.hex"
-    
+
     print(f">> [RUNNING] Test: {test_target}")
 
     if not rom_file.exists():
@@ -83,13 +96,13 @@ def run_single_test(test_request):
 
     cmd = [
         "./tools/orchestrator", "simulate",
-        "--test", ORCHESTRATOR_TEST,
+        "--test", testbench,
         "--sim", simulator,
         "--rom_file", str(rom_file),
         "--sram_file", str(sram_file),
         "--verbose"
     ]
-    
+
     result = subprocess.run(cmd, capture_output=True, text=True)
     combined_output = result.stdout + result.stderr
 
@@ -105,19 +118,19 @@ def run_single_test(test_request):
         print(f">> {TColors.FAIL}[FAIL]{TColors.ENDC} Test: {test_target}")
         return {"name": test_target, "status": "FAIL", "reason": reason}
 
-def run_all_tests_parallel(test_list, jobs, simulator):
+def run_all_tests_parallel(test_list, jobs, simulator, testbench):
     """Runs all simulations in parallel using a process pool."""
     print(f"\n{TColors.HEADER}{'='*60}\nSIMULATION PHASE (running up to {jobs} parallel jobs)\n{'='*60}{TColors.ENDC}")
 
-    test_requests = [TestRequest(name, simulator) for name in test_list]
+    test_requests = [TestRequest(name, simulator, testbench) for name in test_list]
 
     with Pool(processes=jobs) as pool:
         results = pool.map(run_single_test, test_requests)
-    
+
     print(f"\n{TColors.HEADER}{'-'*60}\n>> All simulations finished. Processing results...\n{'-'*60}{TColors.ENDC}")
     return results
 
-def print_reports(results, simulator):
+def print_reports(results, simulator, testbench):
     """Prints the detailed failure and summary reports."""
     failures = [r for r in results if r["status"] == "FAIL"]
 
@@ -125,8 +138,8 @@ def print_reports(results, simulator):
         print(f"\n{TColors.FAIL}{'='*60}\nDetailed Failure Report\n{'='*60}{TColors.ENDC}")
         for result in failures:
             test_name = result["name"]
-            wave_cmd = f'./tools/orchestrator waves --test "{ORCHESTRATOR_TEST}" --sim "{simulator}" --rom_file "{PROGRAMS_BUILD_DIR / test_name}.rom.hex" --sram_file "{PROGRAMS_BUILD_DIR / test_name}.sram.hex"'
-            
+            wave_cmd = f'./tools/orchestrator waves --test "{testbench}" --sim "{simulator}" --rom_file "{PROGRAMS_BUILD_DIR / test_name}.rom.hex" --sram_file "{PROGRAMS_BUILD_DIR / test_name}.sram.hex"'
+
             print(f"Test: {TColors.BOLD}{test_name}{TColors.ENDC} {TColors.FAIL}[FAIL]{TColors.ENDC}")
             print(f"  - Reason: {result['reason']}")
             print(f"  - To view waves, run:")
@@ -134,9 +147,9 @@ def print_reports(results, simulator):
             print(f"{'-'*60}")
 
     print(f"\n{TColors.HEADER}{'='*60}\nRegression Summary\n{'='*60}{TColors.ENDC}")
-    
+
     max_len = max(len(r['name']) for r in results) if results else 0
-    
+
     for result in results:
         status_color = TColors.OKGREEN if result["status"] == "PASS" else TColors.FAIL
         padding = " " * (max_len - len(result['name']))
@@ -161,7 +174,7 @@ def list_simulators():
 
 def main():
     parser = argparse.ArgumentParser(description="RISC-V Processor Regression Suite", formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument("action", nargs='?', default="all", 
+    parser.add_argument("action", nargs='?', default="all",
                         choices=["compile", "run", "clean", "all"],
                         help="Action to perform:\n"
                              "  compile: Compile all software and the HDL design.\n"
@@ -172,7 +185,9 @@ def main():
                         help=f"Number of parallel simulation jobs to run (default: {cpu_count()})")
 
     sims = list_simulators()
+    testbenches = list_testbenches()
     parser.add_argument("--sim", choices=sims, default="vsim", help="Simulator (default: vsim).")
+    parser.add_argument("--testbench", choices=testbenches, help="Specific test-bench name")
 
     args = parser.parse_args()
 
@@ -187,13 +202,13 @@ def main():
 
     if args.action in ["compile", "all"]:
         compile_all_tests()
-        
+
         print(f"\n{TColors.HEADER}{'='*60}\nHARDWARE COMPILATION PHASE\n{'='*60}{TColors.ENDC}")
         try:
-            print(f">> Compiling HDL design for '{ORCHESTRATOR_TEST}' with simulator '{args.sim}'...")
+            print(f">> Compiling HDL design for '{args.testbench}' with simulator '{args.sim}'...")
             hdl_compile_cmd = [
                 "./tools/orchestrator", "compile",
-                "--test", ORCHESTRATOR_TEST,
+                "--test", args.testbench,
                 "--sim", args.sim
             ]
             subprocess.run(hdl_compile_cmd, check=True)
@@ -207,8 +222,8 @@ def main():
             sys.exit(1)
 
     if args.action in ["run", "all"]:
-        results = run_all_tests_parallel(test_list, args.jobs, args.sim)
-        print_reports(results, args.sim)
+        results = run_all_tests_parallel(test_list, args.jobs, args.sim, args.testbench)
+        print_reports(results, args.sim, args.testbench)
 
 if __name__ == "__main__":
     main()
