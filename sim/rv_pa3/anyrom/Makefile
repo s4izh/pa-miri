@@ -1,0 +1,8 @@
+ROM_FILE ?=
+SRAM_FILE ?=
+TIMEOUT ?=
+
+TARGET := anyrom
+FILELIST := $(PROJ_DIR)/sim/rv_pa3/$(TARGET)/filelist.f
+PLUSARGS := +ROM_FILE=$(ROM_FILE) +SRAM_FILE=$(SRAM_FILE) +TIMEOUT_CYCLES=$(TIMEOUT)
+include $(PROJ_DIR)/Makefile.in
