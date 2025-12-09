@@ -153,4 +153,17 @@ module icache #(
         end
     end
 
+    // Data alignment
+    // always_comb begin
+    //     int selected_way = 0;
+    //     logic [(_CACHELINE_BYTES*8)-1:0] selected_data;
+    //     for (int i = 0; i < WAYS; ++i) begin
+    //         if (hits[i]) begin
+    //             selected_way = i;
+    //         end
+    //     end
+    //     selected_data = lines[dreq_addr_line_id].ways[selected_way].data;
+    //     drsp_data_o = selected_data[((dreq_addr_offset[3:2]+1)*XLEN)-1 -: XLEN];
+    // end
+
 endmodule

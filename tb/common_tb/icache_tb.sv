@@ -39,8 +39,13 @@ module tb (
         .addr_i(freq_addr_o[ROM_ADDR_WIDTH-1:0]),
         .data_o(frsp_data_i)
     );
+    initial begin
+        for (int i = 0; i < 2**ROM_ADDR_WIDTH; ++i) begin
+            rom_inst.mem[i] = {$urandom(), $urandom(), $urandom(), $urandom()};
+        end
+    end
 
-    // TODO: test delays here
+
     logic [3:0] valid_queue;
     logic prev_valid;
     always @(posedge clk) begin
@@ -79,7 +84,7 @@ module tb (
 
     task test_directed();
         for (int k = 0; k < 2; ++k) begin
-            for (logic[XLEN-1:0] i = 0; i < 12; ++i) begin
+            for (logic[XLEN-1:0] i = 0; i < 20; ++i) begin
                 while (!dreq_ready_o) @(posedge clk)
                 dreq_valid_i = 1;
                 dreq_addr_i  = 0'h100+4*i;
