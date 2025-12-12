@@ -4,6 +4,7 @@
 -f $(PROJ_DIR)/rtl/common/alu.f
 -f $(PROJ_DIR)/rtl/common/sign_extender.f
 -f $(PROJ_DIR)/rtl/common/decoupling_reg.f
+-f $(PROJ_DIR)/rtl/common/icache.f
 -f $(PROJ_DIR)/rtl/rv_pa3/rv_decoder.f
 -f $(PROJ_DIR)/rtl/rv_pa3/rv_datapath_pkg.f
 $(PROJ_DIR)/rtl/rv_pa3/stage_2d.sv

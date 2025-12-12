@@ -6,13 +6,16 @@ import rv_isa_pkg::*;
 
 module rv_pa3# (
     parameter int XLEN = 32,
+    parameter int IMEM_DLEN = 128,
     parameter int N_PHY_REG = 32
 )(
     input  logic clk,
     input  logic reset_n,
 
+    output logic            imem_valid_o,
     output logic[XLEN-1:0]  imem_addr_o,
-    input  logic[XLEN-1:0]  imem_data_i,
+    input  logic            imem_valid_i,
+    input  logic[IMEM_DLEN-1:0]  imem_data_i,
     input  trap_t           imem_trap_i,
 
     output memop_width_e    dmem_width_o,
@@ -23,8 +26,6 @@ module rv_pa3# (
     input  logic[XLEN-1:0]  dmem_data_i,
     input  trap_t           dmem_trap_i
 );
-
-    localparam int RALEN = $clog2(N_PHY_REG);
 
     // pc
     logic [XLEN-1:0] pc;
@@ -104,7 +105,7 @@ module rv_pa3# (
             if (trap_valid) begin
                 pc <= 'h2000;
             end else begin
-                if (!stall) begin
+                if (!stall & icache_drsp_hit) begin
                     case (pc_sel)
                         MUX_PC_NEXT:
                             pc <= pc + 4;
@@ -123,17 +124,47 @@ module rv_pa3# (
         end
     end
 
-    // external interface
-    assign imem_addr_o = pc;
+    localparam int ICACHE_WAYS = 4;
+    localparam int ICACHE_LINES = 4;
+    localparam int ICACHE_BITS_CACHELINE = 128;
+
+    logic icache_dreq_ready;
+    logic icache_drsp_hit, icache_drsp_xcpt;
+    logic [XLEN-1:0] icache_drsp_data;
+
+    icache #(
+        .XLEN(XLEN),
+        .WAYS(ICACHE_WAYS),
+        .LINES(ICACHE_LINES),
+        .BITS_CACHELINE(ICACHE_BITS_CACHELINE)
+    ) icache_inst (
+        .clk,
+        .reset_n,
+        // Data req
+        .dreq_valid_i(reset_n),
+        .dreq_ready_o(icache_dreq_ready),
+        .dreq_addr_i(pc),
+        // Data rsp
+        .drsp_hit_o(icache_drsp_hit),
+        .drsp_data_o(icache_drsp_data),
+        .drsp_xcpt_o(icache_drsp_xcpt),
+        // Fill req
+        .freq_valid_o(imem_valid_o),
+        .freq_addr_o(imem_addr_o),
+        // Fill rsp
+        .frsp_valid_i(imem_valid_i),
+        .frsp_data_i(imem_data_i)
+        // MISSING: imem_trap_i
+    );
 
     // pipeline
-    assign s_1f_d.valid = reset_n;
+    assign s_1f_d.valid = icache_drsp_hit;
     assign s_1f_d.pc = pc;
     always_comb begin
-        if (noop_1f) begin
+        if (noop_1f | !(icache_drsp_hit)) begin
             s_1f_d.ins = 32'h00000033; // noop (add x0, x0, x0)
         end else begin
-            s_1f_d.ins = imem_data_i;
+            s_1f_d.ins = icache_drsp_data;
         end
     end
 

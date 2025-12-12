@@ -3,8 +3,8 @@ module icache #(
     parameter int WAYS = 4,
 
     // Non-modifiable (slides specify them)
-    parameter int _LINES = 4,
-    parameter int _BITS_CACHELINE = 128
+    parameter int LINES = 4,
+    parameter int BITS_CACHELINE = 128
 ) (
     input logic clk,
     input logic reset_n,
@@ -15,23 +15,20 @@ module icache #(
     output logic            dreq_ready_o,
     input  logic [XLEN-1:0] dreq_addr_i,
     // Response
+    output logic            drsp_hit_o,
     output logic [XLEN-1:0] drsp_data_o,
     output logic            drsp_xcpt_o,
-    // ^^^^
-    // No need for drsp_valid_o signal. Since we don't support outstanding
-    // requests, we can know if the output is valid by using (~dreq_ready_o).
-
     // Interface with memory (f for fill)
     // Request to memory
     output logic            freq_valid_o,
     output logic [XLEN-1:0] freq_addr_o,
     // Response from memory
     input  logic                            frsp_valid_i,
-    input  logic [_BITS_CACHELINE-1:0] frsp_data_i
+    input  logic [BITS_CACHELINE-1:0] frsp_data_i
 );
-    localparam BITS_OFFSET_ELEMENT = $clog2(_BITS_CACHELINE/XLEN); // Element offset size
-    localparam BITS_OFFSET  = $clog2(_BITS_CACHELINE/8); // Byte offset size
-    localparam BITS_LINE    = $clog2(_LINES);
+    localparam BITS_OFFSET_ELEMENT = $clog2(BITS_CACHELINE/XLEN); // Element offset size
+    localparam BITS_OFFSET  = $clog2(BITS_CACHELINE/8); // Byte offset size
+    localparam BITS_LINE    = $clog2(LINES);
     localparam BITS_TAG     = XLEN - BITS_LINE - BITS_OFFSET;
 
     logic [BITS_OFFSET-1:0] dreq_addr_offset;
@@ -45,7 +42,7 @@ module icache #(
     typedef struct {
         logic                       valid;
         logic [BITS_TAG-1:0]        tag;
-        logic [_BITS_CACHELINE-1:0] data;
+        logic [BITS_CACHELINE-1:0] data;
     } way_t;
 
     typedef struct {
@@ -59,7 +56,7 @@ module icache #(
     } fsm_e;
 
     fsm_e fsm_state;
-    line_t lines [_LINES];
+    line_t lines[LINES];
     logic [WAYS-1:0] hits;
 
     // Next state logic
@@ -93,7 +90,7 @@ module icache #(
         freq_addr  = freq_addr_o;
 
         if (!reset_n) begin
-            for (int l = 0; l < _LINES; ++l) begin
+            for (int l = 0; l < LINES; ++l) begin
                 for (int w = 0; w < WAYS; ++w) begin
                     lines[l].ways[w].valid <= 0;
                     lines[l].replace_idx   <= '0;
@@ -151,10 +148,12 @@ module icache #(
         end
     end
 
+    assign drsp_hit_o = dreq_valid_i & (|hits);
+
     // Data alignment
     logic [BITS_OFFSET_ELEMENT-1:0] data_o_idx;
     assign data_o_idx = dreq_addr_offset[BITS_OFFSET-1 -: BITS_OFFSET_ELEMENT];
-    logic [_BITS_CACHELINE-1:0] data_o_tmp;
+    logic [BITS_CACHELINE-1:0] data_o_tmp;
     assign data_o_tmp = lines[dreq_addr_line_id].ways[$clog2(hits)].data;
     assign drsp_data_o = data_o_tmp[(XLEN*(int'(data_o_idx)+1))-1 -: XLEN];
 

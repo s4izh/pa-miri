@@ -6,8 +6,8 @@ module tb (
     // Parameters
     localparam int XLEN = 32;
     localparam int WAYS = 4;
-    localparam int _LINES = 4;
-    localparam int _BITS_CACHELINE = 128;
+    localparam int LINES = 4;
+    localparam int BITS_CACHELINE = 128;
     localparam int ROM_ADDR_WIDTH = 5;
 
     // DUT signals
@@ -21,22 +21,22 @@ module tb (
     logic                       freq_valid_o;
     logic [XLEN-1:0]            freq_addr_o;
     logic                       frsp_valid_i;
-    logic [_BITS_CACHELINE-1:0] frsp_data_i;
+    logic [BITS_CACHELINE-1:0] frsp_data_i;
 
     // Instantiate the DUT
     icache #(
         .XLEN(XLEN),
         .WAYS(WAYS),
-        ._LINES(_LINES),
-        ._BITS_CACHELINE(_BITS_CACHELINE)
+        .LINES(LINES),
+        .BITS_CACHELINE(BITS_CACHELINE)
     ) dut (.*);
 
     // Other instances
     rom #(
-        .DATA_WIDTH(_BITS_CACHELINE),
+        .DATA_WIDTH(BITS_CACHELINE),
         .ADDR_WIDTH(ROM_ADDR_WIDTH)
     ) rom_inst (
-        .addr_i(freq_addr_o[ROM_ADDR_WIDTH+$clog2(_BITS_CACHELINE/XLEN)-1 -: ROM_ADDR_WIDTH]),
+        .addr_i(freq_addr_o[ROM_ADDR_WIDTH+$clog2(BITS_CACHELINE/XLEN)-1 -: ROM_ADDR_WIDTH]),
         .data_o(frsp_data_i)
     );
     initial begin
