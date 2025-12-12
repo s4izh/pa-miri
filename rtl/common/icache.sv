@@ -133,7 +133,7 @@ module icache #(
                         // freq_valid = 0;
                         // TODO remove this next two lines and use the previous one
                         freq_valid = 1;
-                        freq_addr  = dreq_addr_i;
+                        freq_addr  = { dreq_addr_tag, dreq_addr_line_id, {BITS_OFFSET{1'b0}} };
                         dreq_ready = 0;
                     end
                 end

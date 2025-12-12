@@ -36,7 +36,7 @@ module tb (
         .DATA_WIDTH(_CACHELINE_BYTES*8),
         .ADDR_WIDTH(ROM_ADDR_WIDTH)
     ) rom_inst (
-        .addr_i(freq_addr_o[ROM_ADDR_WIDTH-1:0]),
+        .addr_i(freq_addr_o[ROM_ADDR_WIDTH+$clog2(_CACHELINE_BYTES)-1:$clog2(_CACHELINE_BYTES)]),
         .data_o(frsp_data_i)
     );
     initial begin
@@ -87,7 +87,7 @@ module tb (
             for (logic[XLEN-1:0] i = 0; i < 20; ++i) begin
                 while (!dreq_ready_o) @(posedge clk)
                 dreq_valid_i = 1;
-                dreq_addr_i  = 0'h100+4*i;
+                dreq_addr_i  = 0'h1AA+4*i;
                 @(posedge clk);
                 while (!dreq_ready_o) @(posedge clk)
                 $display("%0t icache response! %x", $time, drsp_data_o);
