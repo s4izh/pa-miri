@@ -49,7 +49,8 @@ module icache #(
     } way_t;
 
     typedef struct {
-        way_t ways[WAYS];
+        logic [$clog2(WAYS)-1:0] replace_idx;
+        way_t                    ways[WAYS];
     } line_t;
 
     typedef enum {
@@ -65,11 +66,6 @@ module icache #(
     always @(posedge clk) begin
         if (!reset_n) begin
             fsm_state <= FSM_IDLE;
-            for (int l = 0; l < _LINES; ++l) begin
-                for (int w = 0; w < WAYS; ++w) begin
-                    lines[l].ways[w].valid <= 0;
-                end
-            end
         end else begin
             case (fsm_state)
                 FSM_IDLE: begin
@@ -100,6 +96,7 @@ module icache #(
             for (int l = 0; l < _LINES; ++l) begin
                 for (int w = 0; w < WAYS; ++w) begin
                     lines[l].ways[w].valid <= 0;
+                    lines[l].replace_idx   <= '0;
                 end
             end
             freq_valid = 0;
@@ -122,15 +119,17 @@ module icache #(
                 FSM_WAIT_FRSP: begin
                     if (frsp_valid_i) begin
                         // change
+                        logic [$clog2(WAYS)-1:0] replace_idx_tmp;
                         freq_valid = 0;
-                        lines[dreq_addr_line_id].ways[0].valid <= 1;
-                        lines[dreq_addr_line_id].ways[0].tag   <= dreq_addr_tag;
-                        lines[dreq_addr_line_id].ways[0].data  <= frsp_data_i;
+                        replace_idx_tmp = lines[dreq_addr_line_id].replace_idx;
+                        lines[dreq_addr_line_id].replace_idx                 <= replace_idx_tmp + 1;
+                        lines[dreq_addr_line_id].ways[replace_idx_tmp].valid <= 1;
+                        lines[dreq_addr_line_id].ways[replace_idx_tmp].tag   <= dreq_addr_tag;
+                        lines[dreq_addr_line_id].ways[replace_idx_tmp].data  <= frsp_data_i;
                         dreq_ready = 1;
                     end else begin
                         // no change
-                        // freq_valid = 0;
-                        // TODO remove this next two lines and use the previous one
+                        // keep signals high
                         freq_valid = 1;
                         freq_addr  = { dreq_addr_tag, dreq_addr_line_id, {BITS_OFFSET{1'b0}} };
                         dreq_ready = 0;
