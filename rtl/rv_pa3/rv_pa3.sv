@@ -97,6 +97,12 @@ module rv_pa3# (
     // =========================================================================
     // = Stage 1: Fetch
     // =========================================================================
+    localparam int ICACHE_WAYS = 4;
+    localparam int ICACHE_LINES = 4;
+    localparam int ICACHE_BITS_CACHELINE = 128;
+    logic icache_dreq_ready;
+    logic icache_drsp_hit, icache_drsp_xcpt;
+    logic [XLEN-1:0] icache_drsp_data;
     // pc
     always @(posedge clk) begin
         if (!reset_n) begin
@@ -123,14 +129,6 @@ module rv_pa3# (
             end
         end
     end
-
-    localparam int ICACHE_WAYS = 4;
-    localparam int ICACHE_LINES = 4;
-    localparam int ICACHE_BITS_CACHELINE = 128;
-
-    logic icache_dreq_ready;
-    logic icache_drsp_hit, icache_drsp_xcpt;
-    logic [XLEN-1:0] icache_drsp_data;
 
     icache #(
         .XLEN(XLEN),
