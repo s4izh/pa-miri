@@ -7,7 +7,7 @@ module tb (
     localparam int XLEN = 32;
     localparam int WAYS = 4;
     localparam int _LINES = 4;
-    localparam int _CACHELINE_BYTES = 16;
+    localparam int _BITS_CACHELINE = 128;
     localparam int ROM_ADDR_WIDTH = 5;
 
     // DUT signals
@@ -18,30 +18,33 @@ module tb (
     logic [XLEN-1:0] drsp_data_o;
     logic            drsp_xcpt_o;
     // Interface with memory (f for fill)
-    logic                            freq_valid_o;
-    logic [XLEN-1:0]                 freq_addr_o;
-    logic                            frsp_valid_i;
-    logic [(_CACHELINE_BYTES*8)-1:0] frsp_data_i;
+    logic                       freq_valid_o;
+    logic [XLEN-1:0]            freq_addr_o;
+    logic                       frsp_valid_i;
+    logic [_BITS_CACHELINE-1:0] frsp_data_i;
 
     // Instantiate the DUT
     icache #(
         .XLEN(XLEN),
         .WAYS(WAYS),
         ._LINES(_LINES),
-        ._CACHELINE_BYTES(_CACHELINE_BYTES)
+        ._BITS_CACHELINE(_BITS_CACHELINE)
     ) dut (.*);
 
     // Other instances
     rom #(
-        .DATA_WIDTH(_CACHELINE_BYTES*8),
+        .DATA_WIDTH(_BITS_CACHELINE),
         .ADDR_WIDTH(ROM_ADDR_WIDTH)
     ) rom_inst (
-        .addr_i(freq_addr_o[ROM_ADDR_WIDTH+$clog2(_CACHELINE_BYTES)-1:$clog2(_CACHELINE_BYTES)]),
+        .addr_i(freq_addr_o[ROM_ADDR_WIDTH+$clog2(_BITS_CACHELINE/XLEN)-1 -: ROM_ADDR_WIDTH]),
         .data_o(frsp_data_i)
     );
     initial begin
         for (int i = 0; i < 2**ROM_ADDR_WIDTH; ++i) begin
-            rom_inst.mem[i] = {$urandom(), $urandom(), $urandom(), $urandom()};
+            rom_inst.mem[i] = {
+                  $urandom(), $urandom(), $urandom(), $urandom() // 128b
+                // , $urandom(), $urandom(), $urandom(), $urandom() // 128b
+            };
         end
     end
 
@@ -87,7 +90,7 @@ module tb (
             for (logic[XLEN-1:0] i = 0; i < 20; ++i) begin
                 while (!dreq_ready_o) @(posedge clk)
                 dreq_valid_i = 1;
-                dreq_addr_i  = 0'h1AA+4*i;
+                dreq_addr_i  = 0'h100+4*i;
                 @(posedge clk);
                 while (!dreq_ready_o) @(posedge clk)
                 $display("%0t icache response! %x", $time, drsp_data_o);

@@ -4,7 +4,7 @@ module icache #(
 
     // Non-modifiable (slides specify them)
     parameter int _LINES = 4,
-    parameter int _CACHELINE_BYTES = 16
+    parameter int _BITS_CACHELINE = 128
 ) (
     input logic clk,
     input logic reset_n,
@@ -27,11 +27,10 @@ module icache #(
     output logic [XLEN-1:0] freq_addr_o,
     // Response from memory
     input  logic                            frsp_valid_i,
-    input  logic [(_CACHELINE_BYTES*8)-1:0] frsp_data_i
+    input  logic [_BITS_CACHELINE-1:0] frsp_data_i
 );
-    localparam BITS_DATA    = _CACHELINE_BYTES*8;
-
-    localparam BITS_OFFSET  = $clog2(_CACHELINE_BYTES);
+    localparam BITS_OFFSET_ELEMENT = $clog2(_BITS_CACHELINE/XLEN); // Element offset size
+    localparam BITS_OFFSET  = $clog2(_BITS_CACHELINE/8); // Byte offset size
     localparam BITS_LINE    = $clog2(_LINES);
     localparam BITS_TAG     = XLEN - BITS_LINE - BITS_OFFSET;
 
@@ -44,9 +43,9 @@ module icache #(
     assign dreq_addr_tag     = dreq_addr_i[XLEN-1:BITS_LINE+BITS_OFFSET];
 
     typedef struct {
-        logic                 valid;
-        logic [BITS_TAG-1:0]  tag;
-        logic [BITS_DATA-1:0] data;
+        logic                       valid;
+        logic [BITS_TAG-1:0]        tag;
+        logic [_BITS_CACHELINE-1:0] data;
     } way_t;
 
     typedef struct {
@@ -147,23 +146,17 @@ module icache #(
 
     // Hit detection
     always_comb begin
+        `define way(i) lines[dreq_addr_line_id].ways[(i)]
         for (int w = 0; w < WAYS; ++w) begin
-            way_t way = lines[dreq_addr_line_id].ways[w];
-            assign hits[w] = (way.valid & (way.tag == dreq_addr_tag));
+            hits[w] = (`way(w).valid & (`way(w).tag == dreq_addr_tag));
         end
     end
 
     // Data alignment
-    // always_comb begin
-    //     int selected_way = 0;
-    //     logic [(_CACHELINE_BYTES*8)-1:0] selected_data;
-    //     for (int i = 0; i < WAYS; ++i) begin
-    //         if (hits[i]) begin
-    //             selected_way = i;
-    //         end
-    //     end
-    //     selected_data = lines[dreq_addr_line_id].ways[selected_way].data;
-    //     drsp_data_o = selected_data[((dreq_addr_offset[3:2]+1)*XLEN)-1 -: XLEN];
-    // end
+    logic [BITS_OFFSET_ELEMENT-1:0] data_o_idx;
+    assign data_o_idx = dreq_addr_offset[BITS_OFFSET-1 -: BITS_OFFSET_ELEMENT];
+    logic [_BITS_CACHELINE-1:0] data_o_tmp;
+    assign data_o_tmp = lines[dreq_addr_line_id].ways[$clog2(hits)].data;
+    assign drsp_data_o = data_o_tmp[(XLEN*(int'(data_o_idx)+1))-1 -: XLEN];
 
 endmodule
