@@ -1,7 +1,7 @@
 AR = ar
 CC = gcc
 ARFLAGS = rcs
-CCFLAGS = -L/path/to/verilator/lib -lverilator
+CCFLAGS =
 
 all: cosim_dpi.a cosim_dpi.so
 
