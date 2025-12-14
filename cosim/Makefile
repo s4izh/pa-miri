@@ -9,10 +9,7 @@ all: cosim_dpi.a
 cosim_dpi.a: cosim_dpi.o
 	$(AR) $(ARFLAGS) $@ $^
 
-cosim_dpi.so: cosim_dpi.o
-	$(CC) $(CFLAGS) -shared -Wl,-soname,lib$@ $^ -o $@
-
-cosim_dpi.o: cosim_dpi.cpp cosim_dpi.hpp
+cosim_dpi.o: c/cosim_dpi.cpp c/cosim_dpi.hpp
 	$(CC) $(CFLAGS) $< -c -o $@
 
 clean:

@@ -15,8 +15,13 @@ module test;
         int ret;
         ret = cosim_dpi_init("hola.rom.hex", "hola.sram.hex", 0'h00001000, 0'h00002000);
         case (ret)
-            -1: $fatal("Failed to init cosim_dpi");
-            default: $display("Correclty initialized cosim_dpi");
+            -1: begin
+                $display("Failed to init cosim_dpi");
+                $fatal();
+            end
+            default: begin
+                $display("Correclty initialized cosim_dpi");
+            end
         endcase
         cycle_cnt = 0;
     end
