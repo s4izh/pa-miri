@@ -1,0 +1,14 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/g++",
+      "-c",
+      "-o",
+      "cosim_dpi.o",
+      "cosim_dpi.cpp"
+    ],
+    "directory": "/home/eloi/uni/miri/q1/pa-miri/cosim/c",
+    "file": "/home/eloi/uni/miri/q1/pa-miri/cosim/c/cosim_dpi.cpp",
+    "output": "/home/eloi/uni/miri/q1/pa-miri/cosim/c/cosim_dpi.o"
+  }
+]
