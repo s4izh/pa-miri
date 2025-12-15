@@ -1,18 +1,17 @@
 AR = ar
 CC = g++
 ARFLAGS = rcs
-CFLAGS = -Irve/include
+CFLAGS = -Irve/include -Icosim
 
 BUILD_DIR = build
 
-DPI_SOURCES = $(wildcard dpi/*.cpp)
-# RVE_SOURCES = $(wildcard rve/src/*.c)
+COSIM_SOURCES = $(wildcard cosim/*.cpp)
 RVE_SOURCES = rve/src/decoder.c
 
-DPI_TARGETS = $(patsubst %.cpp,${BUILD_DIR}/%.o,${DPI_SOURCES})
+COSIM_TARGETS = $(patsubst %.cpp,${BUILD_DIR}/%.o,${COSIM_SOURCES})
 RVE_TARGETS = $(patsubst %.c,${BUILD_DIR}/%.o,${RVE_SOURCES})
 
-TARGETS = ${DPI_TARGETS} ${RVE_TARGETS}
+TARGETS = ${RVE_TARGETS} ${COSIM_TARGETS}
 
 
 # all: cosim_dpi.a cosim_dpi.so

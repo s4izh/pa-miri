@@ -32,7 +32,7 @@ module test;
         int active = cosim_dpi_step(pc, ins);
         $display("Executed:\n\t- iss: {pc: 0x%08x, ins: 0x%08x}\n\t", pc, ins);
         cycle_cnt += 1;
-        if (cycle_cnt >= 30) begin
+        if (cycle_cnt >= 100) begin
             $finish("Ok!");
         end
     end
