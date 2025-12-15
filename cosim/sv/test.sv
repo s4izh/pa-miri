@@ -1,7 +1,8 @@
 module test;
 
     import "DPI-C" function int cosim_dpi_init(string rom_path, string sram_path, int pc_reset, int pc_xcpt);
-    import "DPI-C" function int cosim_dpi_step();
+    import "DPI-C" function int cosim_dpi_step(output int unsigned pc, output int unsigned ins);
+
 
     logic clk;
 
@@ -27,8 +28,9 @@ module test;
     end
 
     always @(posedge clk) begin
-        int pc_exec = cosim_dpi_step();
-        $display("Executed pc: 0x%x", pc_exec);
+        int unsigned pc, ins;
+        int active = cosim_dpi_step(pc, ins);
+        $display("Executed:\n\t- iss: {pc: 0x%08x, ins: 0x%08x}\n\t", pc, ins);
         cycle_cnt += 1;
         if (cycle_cnt >= 30) begin
             $finish("Ok!");

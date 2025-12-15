@@ -4,7 +4,7 @@ module tb (
 );
 
     import "DPI-C" function int cosim_dpi_init(string rom_path, string sram_path, int pc_reset, int pc_xcpt);
-    import "DPI-C" function int cosim_dpi_step();
+    import "DPI-C" function int cosim_dpi_step(output int unsigned pc, output int unsigned ins);
 
     parameter int DEFAULT_TIMEOUT_CYCLES = 1000;
 
@@ -138,9 +138,11 @@ module tb (
     always @(posedge clk) begin
         if (reset_n) begin
             if (dut.hart0_inst.s_4m_q.valid) begin
-                int pc_exec = cosim_dpi_step();
-                $display("Executed pc : {iss: 0x%x, dut: 0x%x}", pc_exec, dut.hart0_inst.s_4m_q.pc);
-                $display("Executed ins: {iss: 0x%x, dut: 0x%x}", 0, dut.hart0_inst.s_4m_q.ins);
+                int unsigned pc, ins;
+                int active;
+                active = cosim_dpi_step(pc, ins);
+                $display("Writeback : \n\t - iss: {pc: 0x%08x, ins: 0x%08x}\n\t - dut: {pc: 0x%08x, ins: 0x%08x}",
+                    pc, ins, dut.hart0_inst.s_4m_q.pc, dut.hart0_inst.s_4m_q.ins);
             end
 
             // $display("--------------------------------------------------------------------------------");
