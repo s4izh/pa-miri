@@ -9,6 +9,10 @@
 
 
 extern "C" int cosim_dpi_init(char *rom_path, char *sram_path, uint32_t pc_reset, uint32_t pc_xcpt);
-extern "C" int cosim_dpi_step(unsigned int *pc, unsigned int *ins);
+extern "C" unsigned int cosim_dpi_step(
+        unsigned int *pc,
+        unsigned int *ins,
+        unsigned int *rd
+);
 
 #endif

@@ -8,7 +8,12 @@
 // Global instance
 static cosim_t g_cosim;
 
-extern "C" int cosim_dpi_init(char *rom_path, char *sram_path, uint32_t pc_reset, uint32_t pc_xcpt) {
+extern "C" int cosim_dpi_init(
+        char *rom_path,
+        char *sram_path,
+        uint32_t pc_reset,
+        uint32_t pc_xcpt
+) {
     FILE *rom_fd, *sram_fd;
 
     // Set struct things
@@ -38,13 +43,17 @@ extern "C" int cosim_dpi_init(char *rom_path, char *sram_path, uint32_t pc_reset
     return 0;
 }
 
-extern "C" int cosim_dpi_step(unsigned int *pc, unsigned int *ins) {
+extern "C" unsigned int cosim_dpi_step(
+        unsigned int *pc,
+        unsigned int *ins,
+        unsigned int *rd
+) {
     decoded_instruction_t di;
     int pc_now;
-    char buff[100];
     *pc = g_cosim.hart.pc;
     *ins = g_cosim.imem[(*pc)>>2];
     di = rve_decode_instruction(*ins);
     trap_t trap = cosim_execute(&g_cosim, &di);
-    return 1; // FIXME
+    *rd = g_cosim.hart.gpr[di.rd];
+    return g_cosim.hart.pc;
 }

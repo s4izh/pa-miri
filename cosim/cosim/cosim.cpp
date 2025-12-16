@@ -72,7 +72,7 @@ trap_t cosim_execute(cosim_t *soc, decoded_instruction_t *di) {
 			break;
 		case INSTRUCTION_OP_JAL:
 			soc->hart.gpr[di->rd] = soc->hart.pc + 4;
-			soc->hart.pc = sext(di->imm, 21);
+			soc->hart.pc += sext(di->imm, 21);
             update_pc = false;
 			break;
 		case INSTRUCTION_OP_JALR:

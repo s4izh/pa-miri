@@ -4,7 +4,7 @@ module tb (
 );
 
     import "DPI-C" function int cosim_dpi_init(string rom_path, string sram_path, int pc_reset, int pc_xcpt);
-    import "DPI-C" function int cosim_dpi_step(output int unsigned pc, output int unsigned ins);
+    import "DPI-C" function int unsigned cosim_dpi_step(output int unsigned pc, output int unsigned ins, output int unsigned rd);
 
     parameter int DEFAULT_TIMEOUT_CYCLES = 1000;
 
@@ -137,53 +137,40 @@ module tb (
 
     always @(posedge clk) begin
         if (reset_n) begin
-            if (dut.hart0_inst.s_4m_q.valid) begin
-                int unsigned pc, ins;
-                int active;
-                active = cosim_dpi_step(pc, ins);
-                $display("Writeback : \n\t - iss: {pc: 0x%08x, ins: 0x%08x}\n\t - dut: {pc: 0x%08x, ins: 0x%08x}",
-                    pc, ins, dut.hart0_inst.s_4m_q.pc, dut.hart0_inst.s_4m_q.ins);
-            end
+            if (dut.hart0_inst.s_4m_q.valid && dut.hart0_inst.s_4m_q.ins != 0'h00000033) begin
+                int unsigned pc, ins, rd, next_pc;
+                string disasm;
+                int errors;
 
-            // $display("--------------------------------------------------------------------------------");
-            // $display("TIME: %0t", $time);
-            // $display("=============================[ FETCH ]==============================");
-            // $display("PC          : 0x%h", dut.hart0_inst.pc);
-            // $display("Instruction : 0x%h", dut.hart0_inst.imem_data_i);
-            // $display("=============================[ DECODE ]=============================");
-            // $display("rd          : x%0d (reg %0d)", dut.hart0_inst.rd_addr, dut.hart0_inst.rd_addr);
-            // $display("rs1         : x%0d (reg %0d)", dut.hart0_inst.rs1_addr, dut.hart0_inst.rs1_addr);
-            // $display("rs2         : x%0d (reg %0d)", dut.hart0_inst.rs2_addr, dut.hart0_inst.rs2_addr);
-            // $display("Immediate   : 0x%h (%d)", dut.hart0_inst.immed, dut.hart0_inst.immed);
-            // $display("=============================[ EXECUTE ]============================");
-            // $display("rs1_data    : 0x%h", dut.hart0_inst.rs1_data);
-            // $display("rs2_data    : 0x%h", dut.hart0_inst.rs2_data);
-            // // $display("ALU Op1     : 0x%h (%s)", dut.hart0_inst.alu_op1, dut.hart0_inst.alu_op1_sel.name());
-            // // $display("ALU Op2     : 0x%h (%s)", dut.hart0_inst.alu_op2, dut.hart0_inst.alu_op2_sel.name());
-            // // $display("ALU Op      : %s", dut.hart0_inst.alu_op.name());
-            // $display("ALU Result  : 0x%h", dut.hart0_inst.alu_result);
-            // // $display("Branch?     : %s, Taken?=%b", dut.hart0_inst.compare_op.name(), dut.hart0_inst.taken_branch);
-            // $display("=============================[ MEMORY ]=============================");
-            // if (dut.hart0_inst.is_ld || dut.hart0_inst.is_st) begin
-            //     $display("Memory Op   : %s", dut.hart0_inst.is_ld ? "LOAD" : "STORE");
-            //     $display("Mem Address : 0x%h", dmem_addr_o);
-            //     $display("Mem wr_en   : %b", dmem_we_o);
-            //     $display("Mem wr_data : 0x%h", dmem_data_o);
-            //     $display("Mem rd_data : 0x%h", dmem_data_i);
-            //     // $display("Mem width   : %s", dut.hart0_inst.dmem_width_o.name());
-            // end else begin
-            //     $display("Memory Op   : ---");
-            // end
-            // $display("=============================[ WRITEBACK ]==========================");
-            // $display("Writeback En: %b", dut.hart0_inst.is_wb);
-            // if (dut.hart0_inst.is_wb) begin
-            //     // $display("WB Data Src : %s", dut.hart0_inst.wb_sel.name());
-            //     $display("WB Data     : 0x%h", dut.hart0_inst.rd_data);
-            //     $display("WB Dest Reg : x%0d", dut.hart0_inst.rd_addr);
-            // end
-            // $display("=============================[ PC UPDATE ]==========================");
-            // // $display("PC Select   : %s", dut.hart0_inst.pc_sel.name());
-            // $display("--------------------------------------------------------------------------------\n");
+                next_pc = cosim_dpi_step(pc, ins, rd);
+
+                errors = 0;
+                if (pc != dut.hart0_inst.s_4m_q.pc) begin
+                    $display("ERROR - Different PC: {dut: 0x%08x, iss: 0x%08x}", dut.hart0_inst.s_4m_q.pc, pc);
+                    errors += 1;
+                end
+
+                if (ins != dut.hart0_inst.s_4m_q.ins) begin
+                    $display("ERROR - Different instruction: {dut: 0x%08x, iss: 0x%08x}", dut.hart0_inst.s_4m_q.ins, ins);
+                    errors += 1;
+                end
+
+                if (dut.hart0_inst.s_5w_d.is_wb
+                    && '0 != dut.hart0_inst.s_5w_d.rd_addr
+                    && rd != dut.hart0_inst.s_5w_d.rd_data) begin
+                    $display("ERROR - Different rd: {dut: 0x%08x, iss: 0x%08x}", dut.hart0_inst.s_5w_d.rd_data, rd);
+                    errors += 1;
+                end
+
+                // disasm_rv32i(data.hart0_inst.s_4m_q.ins);
+                disasm = rv32_util_pkg::disasm_rv32i(ins);
+                if (errors == 0) begin
+                    $display("CORRECT - 0x%08x: %s", pc, disasm);
+                end else begin
+                    $display("INCORRECT - 0x%08x: %s", pc, disasm);
+                    $fatal(1, "Test FAILED! Due to %0d errors.", errors);
+                end
+            end
         end
     end
 

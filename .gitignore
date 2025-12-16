@@ -47,6 +47,7 @@ tags
 *.bin
 *.hex
 *.map
+*.a
 
 build.ninja
 *.tar.gz
