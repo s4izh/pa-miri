@@ -174,7 +174,7 @@ trap_t cosim_execute(cosim_t *soc, decoded_instruction_t *di) {
 			soc->hart.gpr[di->rd] = soc->hart.gpr[di->rs1] + sext(di->imm, 12);
 			break;
 		case INSTRUCTION_OP_SLTI:
-			soc->hart.gpr[di->rd] = soc->hart.gpr[di->rs1] < sext(di->imm, 12);
+			soc->hart.gpr[di->rd] = (s_word)soc->hart.gpr[di->rs1] < (s_word)sext(di->imm, 12);
 			break;
 		case INSTRUCTION_OP_SLTIU:
 			soc->hart.gpr[di->rd] = soc->hart.gpr[di->rs1] < di->imm;
