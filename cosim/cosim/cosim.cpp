@@ -65,7 +65,7 @@ trap_t cosim_execute(cosim_t *soc, decoded_instruction_t *di) {
 
 	switch (di->op) {
 		case INSTRUCTION_OP_LUI:
-			soc->hart.gpr[di->rd] = (di->imm << 12) & 0x000;
+			soc->hart.gpr[di->rd] = di->imm; // di->imm already shifted <<12 by the decoder
 			break;
 		case INSTRUCTION_OP_AUIPC:
 			soc->hart.gpr[di->rd] = soc->hart.pc + ((di->imm << 12) & 0x000);
