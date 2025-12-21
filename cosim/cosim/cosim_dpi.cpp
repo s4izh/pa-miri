@@ -43,16 +43,44 @@ extern "C" int cosim_dpi_init(
     return 0;
 }
 
+void print_hart(const hart_t& hart) {
+    printf("PC: 0x%08X\n", hart.pc);
+    printf("GPRs:\n");
+    for (int i = 0; i < 32; ++i) {
+        printf("x%-2d: 0x%08X ", i, hart.gpr[i]);
+        // Print a newline every 4 registers for better readability
+        if ((i + 1) % 4 == 0) {
+            printf("\n");
+        }
+    }
+    printf("\n");
+}
+
 extern "C" unsigned int cosim_dpi_step(
         unsigned int *pc,
         unsigned int *ins,
         unsigned int *rd
 ) {
     decoded_instruction_t di;
+    char buffer[32];
     int pc_now;
     *pc = g_cosim.hart.pc;
     *ins = g_cosim.imem[(*pc)>>2];
     di = rve_decode_instruction(*ins);
+#if 0
+    if (di.valid) {
+        rve_decoded_format_to_buffer(&di, buffer, sizeof(buffer));
+        u32 column_width = 25;
+        printf("%-*s Decoded: %s, Format: %s, Imm: 0x%08X, Rd: %d, Rs1: %d, Rs2: %d\n",
+               column_width, buffer, rve_instruction_op_to_cstr(di.op),
+               rve_instruction_format_to_cstr(di.format), di.imm, di.rd,
+               di.rs1, di.rs2);
+        print_hart(g_cosim.hart);
+
+    } else {
+        printf("Invalid instruction: 0x%08X\n", *ins);
+    }
+#endif
     trap_t trap = cosim_execute(&g_cosim, &di);
     *rd = g_cosim.hart.gpr[di.rd];
     return g_cosim.hart.pc;

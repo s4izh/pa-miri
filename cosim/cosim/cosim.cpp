@@ -7,51 +7,56 @@ static inline word sext(word value, u32 size) {
 
 static bool cosim_dmem_read(cosim_t *soc, u32 addr, u8 len, word *value) {
     uint32_t v = soc->dmem[addr>>2];
+    uint32_t shift;
+    uint32_t mask;
     switch (len) {
         case 8:
-            *value = (0x000000ff << (len*(addr & 0b11))) & v;
-            *value = *value >> (len*(addr & 0b11));
+            shift = len*(addr & 0b11);
+            mask = 0xff;
             break;
         case 16:
             if (addr & 0b1) return false;
-            *value = (0x0000ffff << (len*(addr & (0b10 >> 1)))) & v;
-            *value = *value >> (len*(addr & (0b10 >> 1)));
+            shift = len*((addr >> 1) & 0b1);
+            mask = 0xffff;
             break;
         case 32:
             if (addr & 0b11) return false;
-            *value = v;
+            shift = 0;
+            mask = 0xffffffff;
             break;
         default:
             return false;
             break;
     };
+    *value = (v >> shift) & mask;
     return true;
 }
 
 static bool cosim_dmem_write(cosim_t *soc, u32 addr, u8 len, word value) {
     uint32_t mask;
-    uint32_t aligned_value;
+    uint32_t shift;
     uint32_t v = soc->dmem[addr>>2];
     switch (len) {
         case 8:
-            mask = 0x000000ff << (len*(addr & 0b11));
-            aligned_value = value << (len*(addr & 0b11));
+            shift = len*(addr & 0b11);
+            mask = 0xff;
             break;
         case 16:
             if (addr & 0b1) return false;
-            mask = 0x0000ffff << (len*(addr & (0b10 >> 1)));
-            aligned_value = value << (len*(addr & (0b10 >> 1)));
+            shift = len*((addr >> 1) & 0b1);
+            mask = 0xffff;
             break;
         case 32:
             if (addr & 0b11) return false;
+            shift = 0;
             mask = 0xffffffff;
-            aligned_value = value;
             break;
         default:
             return false;
             break;
     };
-    v = aligned_value & mask | v & ~mask;
+    mask <<= shift;
+    v = (value << shift) & mask | v & ~mask;
     soc->dmem[addr>>2] = v;
     return true;
 }
@@ -118,50 +123,50 @@ trap_t cosim_execute(cosim_t *soc, decoded_instruction_t *di) {
             }
 			break;
 		case INSTRUCTION_OP_LB:
-			if (!cosim_dmem_read(soc, di->rs1 + sext(di->imm, 12), 8, &read_value)) {
+			if (!cosim_dmem_read(soc, soc->hart.gpr[di->rs1] + sext(di->imm, 12), 8, &read_value)) {
 				trap = TRAP_ERR;
 			}
-			soc->hart.gpr[di->rd] = sext(value, 8);
+			soc->hart.gpr[di->rd] = sext(read_value, 8);
 			break;
 		case INSTRUCTION_OP_LH:
-			if (!cosim_dmem_read(soc, di->rs1 + sext(di->imm, 12), 16, &read_value)) {
+			if (!cosim_dmem_read(soc, soc->hart.gpr[di->rs1] + sext(di->imm, 12), 16, &read_value)) {
 				trap = TRAP_ERR;
 			}
-			soc->hart.gpr[di->rd] = sext(value, 16);
+			soc->hart.gpr[di->rd] = sext(read_value, 16);
 			break;
 		case INSTRUCTION_OP_LW:
-			if (!cosim_dmem_read(soc, di->rs1 + sext(di->imm, 12), 32, &read_value)) {
+			if (!cosim_dmem_read(soc, soc->hart.gpr[di->rs1] + sext(di->imm, 12), 32, &read_value)) {
 				trap = TRAP_ERR;
 			}
-			soc->hart.gpr[di->rd] = sext(value, 32);
+			soc->hart.gpr[di->rd] = sext(read_value, 32);
 			break;
 		case INSTRUCTION_OP_LBU:
-			if (!cosim_dmem_read(soc, di->rs1 + sext(di->imm, 12), 8, &read_value)) {
+			if (!cosim_dmem_read(soc, soc->hart.gpr[di->rs1] + sext(di->imm, 12), 8, &read_value)) {
 				trap = TRAP_ERR;
 			}
-			soc->hart.gpr[di->rd] = value;
+			soc->hart.gpr[di->rd] = read_value;
 			break;
 		case INSTRUCTION_OP_LHU:
-			if (!cosim_dmem_read(soc, di->rs1 + sext(di->imm, 12), 16, &read_value)) {
+			if (!cosim_dmem_read(soc, soc->hart.gpr[di->rs1] + sext(di->imm, 12), 16, &read_value)) {
 				trap = TRAP_ERR;
 			}
-			soc->hart.gpr[di->rd] = value;
+			soc->hart.gpr[di->rd] = read_value;
 			break;
 		case INSTRUCTION_OP_SB:
-			value = di->rs2 & 0xFF;
-			if (!cosim_dmem_write(soc, di->rs1 + sext(di->imm, 7), 8, value)) {
+			value = soc->hart.gpr[di->rs2] & 0xFF;
+			if (!cosim_dmem_write(soc, soc->hart.gpr[di->rs1] + sext(di->imm, 7), 8, value)) {
 				trap = TRAP_ERR;
 			}
 			break;
 		case INSTRUCTION_OP_SH:
-			value = di->rs2 & 0xFFFF;
-			if (!cosim_dmem_write(soc, di->rs1 + sext(di->imm, 7), 16, value)) {
+			value = soc->hart.gpr[di->rs2] & 0xFFFF;
+			if (!cosim_dmem_write(soc, soc->hart.gpr[di->rs1] + sext(di->imm, 7), 16, value)) {
 				trap = TRAP_ERR;
 			}
 			break;
 		case INSTRUCTION_OP_SW:
-			value = di->rs2;
-			if (!cosim_dmem_write(soc, di->rs1 + sext(di->imm, 7), 32, value)) {
+			value = soc->hart.gpr[di->rs2];
+			if (!cosim_dmem_write(soc, soc->hart.gpr[di->rs1] + sext(di->imm, 7), 32, value)) {
 				trap = TRAP_ERR;
 			}
 			break;
