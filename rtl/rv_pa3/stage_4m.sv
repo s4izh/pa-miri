@@ -10,18 +10,28 @@ module stage_4m #(
     output signals_memory_t  _o,
     // Interface with dmem
     output dmem_if_out_t dmem_o,
-    input dmem_if_in_t   dmem_i
+    input dmem_if_in_t   dmem_i,
+    // Trap
+    input logic          noop_i
 
 );
     `define PROPAGATE(signal) assign _o.signal = _i.signal
 
     logic [XLEN-1:0] dmem_data_sign_extended;
 
-    `PROPAGATE(valid);
+    always_comb begin
+        if (noop_i) begin
+            _o.valid  = 0;
+            _o.is_wb  = 0;
+        end else begin
+            _o.valid  = _i.valid;
+            _o.is_wb  = _i.is_wb;
+        end
+    end
+
     `PROPAGATE(ins);
     `PROPAGATE(pc);
 
-    `PROPAGATE(is_wb);
     `PROPAGATE(wb_sel);
     `PROPAGATE(rd_addr);
 

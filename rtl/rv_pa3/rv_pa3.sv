@@ -47,7 +47,7 @@ module rv_pa3# (
     // Hazard control
     logic rs1_valid, rs2_valid;
     logic [$clog2(N_PHY_REG)-1:0] rs1_addr, rs2_addr;
-    logic noop, stall;
+    logic noop_1f, noop_2d, noop_3e, noop_4m, stall;
     logic data_hazard;
     // Signals from 2d to forwarding unit (to avoid UNOPTFLAT)
     logic is_st_2d;
@@ -69,11 +69,21 @@ module rv_pa3# (
     // use s_1f_q.valid (input to decode) instead of s_2d_d.valid (output of decode)
     // this avoids the circular loop where trap -> noop -> s_2d_d.valid=0 -> trap=0
     // we must manually mask with jump_or_branch_3e because a branch should kill the trap
-    assign trap_valid =
-        imem_trap_i.valid |
-        (dmem_trap_i.valid & s_4m_d.valid) |
-        (xcpt_illegal_ins & s_1f_q.valid & ~jump_or_branch_3e);
+    logic trap_valid_1f, trap_valid_2d, trap_valid_4m;
 
+    assign trap_valid_1f = imem_trap_i.valid & s_1f_d.valid & ~jump_or_branch_3e;
+    assign trap_valid_2d = xcpt_illegal_ins & s_1f_q.valid & ~jump_or_branch_3e;
+    assign trap_valid_4m = dmem_trap_i.valid & s_3e_q.valid;
+
+    assign trap_valid = trap_valid_1f | trap_valid_2d | trap_valid_4m ;
+
+    assign noop_1f  = jump_or_branch_3e | trap_valid;
+    assign noop_2d  = jump_or_branch_3e | trap_valid;
+    assign noop_3e  = trap_valid_4m;
+    assign noop_4m  = trap_valid_4m;
+    assign stall = data_hazard;
+
+    // dmem if
     assign dmem_if_in.data = dmem_data_i;
     assign dmem_if_in.trap = dmem_trap_i;
 
@@ -120,7 +130,7 @@ module rv_pa3# (
     assign s_1f_d.valid = reset_n;
     assign s_1f_d.pc = pc;
     always_comb begin
-        if (noop) begin
+        if (noop_1f) begin
             s_1f_d.ins = 32'h00000033; // noop (add x0, x0, x0)
         end else begin
             s_1f_d.ins = imem_data_i;
@@ -156,7 +166,7 @@ module rv_pa3# (
         // Exceptions
         .xcpt_illegal_ins_o(xcpt_illegal_ins),
         // Hazard detection
-        .noop_i(noop),
+        .noop_i(noop_2d),
         .stall_i(stall),
         .bypass_rs1_sel_i(bypass_rs1_2d_sel),
         .bypass_rs2_sel_i(bypass_rs2_2d_sel),
@@ -195,7 +205,9 @@ module rv_pa3# (
         .pc_sel_o(pc_sel),
         .taken_branch_o(taken_branch),
         // Bypass
-        .bypass_4m_3e_data_i(s_4m_d.mem_result)
+        .bypass_4m_3e_data_i(s_4m_d.mem_result),
+        // Trap
+        .noop_i(noop_3e)
     );
 
     decoupling_reg #(
@@ -221,7 +233,9 @@ module rv_pa3# (
         ._o(s_4m_d),
         // Interface with dmem
         .dmem_o(dmem_if_out),
-        .dmem_i(dmem_if_in)
+        .dmem_i(dmem_if_in),
+        // Trap
+        .noop_i(noop_4m)
     );
 
     decoupling_reg #(
@@ -268,13 +282,13 @@ module rv_pa3# (
         end
     end
 
-    hazard_unit hazard_unit_inst (
-        .jump_or_branch_3e_i(jump_or_branch_3e),
-        .trap_i(trap_valid),
-        .data_hazard_i(data_hazard),
-        .noop_o(noop),
-        .stall_o(stall)
-    );
+    // hazard_unit hazard_unit_inst (
+    //     .jump_or_branch_3e_i(jump_or_branch_3e),
+    //     .trap_i(trap_valid),
+    //     .data_hazard_i(data_hazard),
+    //     .noop_o(noop),
+    //     .stall_o(stall)
+    // );
 
 
     fwd_unit #(

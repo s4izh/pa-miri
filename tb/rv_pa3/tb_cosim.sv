@@ -57,7 +57,7 @@ module tb (
         .stall_i(dut.hart0_inst.stall),
 
         // Fetch is valid if we are not inserting a bubble (noop)
-        .valid_f_i(!dut.hart0_inst.noop),
+        .valid_f_i(!dut.hart0_inst.noop_1f),
         .fetch_pc_i(dut.hart0_inst.pc),
         .fetch_ins_i(dut.hart0_inst.imem_data_i),
 
