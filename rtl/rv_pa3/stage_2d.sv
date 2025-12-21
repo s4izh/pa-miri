@@ -34,10 +34,21 @@ module stage_2d #(
     logic [$clog2(NREG)-1:0] rs1_addr, rs2_addr;
     logic is_wb, is_st;
     mux_pc_sel_e pc_sel;
-
     logic [XLEN-1:0] rf_rs1_data, rf_rs2_data;
+    logic noop_q;
 
-    `PROPAGATE(ins);
+    always_ff @(posedge clk) begin
+        if (!reset_n) begin
+            noop_q <= 0;
+        end else begin
+            if (stall_i) begin
+                noop_q <= noop_i;
+            end else begin
+                noop_q <= '0;
+            end
+        end
+    end
+
     `PROPAGATE(pc);
 
     assign rs1_addr_o = rs1_addr;
@@ -51,18 +62,18 @@ module stage_2d #(
     assign is_st_o = is_st;
 
     always_comb begin
-        if (noop_i || stall_i) begin
+        if (noop_i || noop_q || stall_i) begin
             _o.valid  = 0;
             _o.is_wb  = 0;
             _o.is_st  = 0;
             _o.pc_sel = MUX_PC_NEXT;
-            // _o.ins = 32'h00000033; // noop (add x0, x0, x0)
+            _o.ins = 32'h00000033; // noop (add x0, x0, x0)
         end else begin
             _o.valid  = _i.valid;
             _o.is_wb  = is_wb;
             _o.is_st  = is_st;
             _o.pc_sel = pc_sel;
-            // _o.ins    = _i.ins;
+            _o.ins    = _i.ins;
         end
     end
 

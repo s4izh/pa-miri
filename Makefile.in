@@ -6,6 +6,7 @@ $(foreach var,$(REQUIRED_VARS),\
 SV_FILES := $(shell python3 $(PROJ_DIR)/tools/parse_filelist.py $(FILELIST))
 
 BUILD_DIR ?= $(PROJ_DIR)/build/$(TARGET)/$(SIM)
+BUILD_DIR ?= $(PROJ_DIR)/cosim
 
 include $(PROJ_DIR)/sim/scripts/$(SIM).mk
 
@@ -30,9 +31,14 @@ $(info --- END DEBUG ---)
 WAVE_VIEWER ?= gtkwave
 SAVE_FILE   ?= $(PROJ_DIR)/savefile.gtkw
 
+COMPILED_COSIM  ?= $(PROJ_DIR)/cosim/cosim_dpi.a
+
 all: simulate
 
-compile: $(COMPILED_FILE)
+compile: $(COMPILED_COSIM) $(COMPILED_FILE)
+
+$(COMPILED_COSIM): $(SV_FILES)
+	make -C $(PROJ_DIR)/cosim
 
 $(COMPILED_FILE): $(SV_FILES)
 	@echo "[COMPILE]"

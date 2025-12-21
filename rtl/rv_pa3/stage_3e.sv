@@ -12,23 +12,34 @@ module stage_3e #(
     output mux_pc_sel_e     pc_sel_o,
     output logic            taken_branch_o,
     // Bypass
-    input logic [XLEN-1:0]  bypass_4m_3e_data_i
+    input logic [XLEN-1:0]  bypass_4m_3e_data_i,
+    // Trap
+    input logic             noop_i
 );
     `define PROPAGATE(signal) assign _o.signal = _i.signal
 
     logic [XLEN-1:0] alu_op1, alu_op2;
 
+    always_comb begin
+        if (noop_i) begin
+            _o.valid  = 0;
+            _o.is_wb  = 0;
+            _o.is_st  = 0;
+        end else begin
+            _o.valid  = _i.valid;
+            _o.is_wb  = _i.is_wb;
+            _o.is_st  = _i.is_st;
+        end
+    end
+
     // Propagated signals
-    `PROPAGATE(valid);
     `PROPAGATE(ins);
     `PROPAGATE(pc);
 
-    `PROPAGATE(is_wb);
     `PROPAGATE(wb_sel);
     `PROPAGATE(rd_addr);
 
     `PROPAGATE(is_ld);
-    `PROPAGATE(is_st);
     // `PROPAGATE(rs2_data);
     `PROPAGATE(memop_width);
     `PROPAGATE(ld_unsigned);

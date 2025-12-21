@@ -187,7 +187,7 @@ def main():
     sims = list_simulators()
     testbenches = list_testbenches()
     parser.add_argument("--sim", choices=sims, default="vsim", help="Simulator (default: vsim).")
-    parser.add_argument("--testbench", choices=testbenches, help="Specific test-bench name")
+    parser.add_argument("--testbench", choices=testbenches, default="rv_pa3.anyrom", help="Specific test-bench name")
 
     args = parser.parse_args()
 
