@@ -138,11 +138,16 @@ module tb (
     always @(posedge clk) begin
         if (reset_n) begin
             if (dut.hart0_inst.s_4m_q.valid && dut.hart0_inst.s_4m_q.ins != 0'h00000033) begin
-                int unsigned pc, ins, rd, next_pc;
+                int unsigned pc, ins, rd, trap;
                 string disasm;
                 int errors;
 
-                next_pc = cosim_dpi_step(pc, ins, rd);
+                trap = cosim_dpi_step(pc, ins, rd);
+
+                if (trap == 1) begin
+                    $display("TRAP in cosim: pc: 0x%08x", pc);
+                    trap = cosim_dpi_step(pc, ins, rd);
+                end
 
                 errors = 0;
                 if (pc != dut.hart0_inst.s_4m_q.pc) begin

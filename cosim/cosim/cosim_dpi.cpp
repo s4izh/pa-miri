@@ -83,5 +83,5 @@ extern "C" unsigned int cosim_dpi_step(
 #endif
     trap_t trap = cosim_execute(&g_cosim, &di);
     *rd = g_cosim.hart.gpr[di.rd];
-    return g_cosim.hart.pc;
+    return (trap == TRAP_ERR) ? 1 : 0;
 }
