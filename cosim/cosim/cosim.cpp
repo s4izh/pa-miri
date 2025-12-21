@@ -81,11 +81,11 @@ trap_t cosim_execute(cosim_t *soc, decoded_instruction_t *di) {
             update_pc = false;
 			break;
 		case INSTRUCTION_OP_JALR:
-			value = soc->hart.pc + 4;
-			soc->hart.pc = (di->rs1 + sext(di->imm, 12)) & ~(word)1;
-			soc->hart.gpr[di->rd] = value;
+            value = soc->hart.pc + 4;
+            soc->hart.pc = (soc->hart.gpr[di->rs1] + sext(di->imm, 12)) & ~(word)1;
+            soc->hart.gpr[di->rd] = value;
             update_pc = false;
-			break;
+            break;
 		case INSTRUCTION_OP_BEQ:
 			if (soc->hart.gpr[di->rs1] == soc->hart.gpr[di->rs2]) {
 				soc->hart.pc += sext(di->imm, 13);
@@ -252,6 +252,7 @@ trap_t cosim_execute(cosim_t *soc, decoded_instruction_t *di) {
         if (update_pc)
             soc->hart.pc += 4;
     } else {
+        soc->hart.csr.mepc = soc->hart.pc;
         soc->hart.pc = soc->hart.csr.mtvec;
     }
 

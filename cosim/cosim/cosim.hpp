@@ -6,6 +6,7 @@
 
 typedef struct {
     uint32_t mtvec;
+    uint32_t mepc;
 } csr_t;
 
 typedef struct {
