@@ -3,7 +3,7 @@ module icache #(
     parameter int WAYS = 4,
 
     // Non-modifiable (slides specify them)
-    parameter int LINES = 4,
+    parameter int SETS = 4,
     parameter int BITS_CACHELINE = 128
 ) (
     input logic clk,
@@ -23,12 +23,12 @@ module icache #(
     output logic            freq_valid_o,
     output logic [XLEN-1:0] freq_addr_o,
     // Response from memory
-    input  logic                            frsp_valid_i,
+    input  logic                      frsp_valid_i,
     input  logic [BITS_CACHELINE-1:0] frsp_data_i
 );
     localparam BITS_OFFSET_ELEMENT = $clog2(BITS_CACHELINE/XLEN); // Element offset size
     localparam BITS_OFFSET  = $clog2(BITS_CACHELINE/8); // Byte offset size
-    localparam BITS_LINE    = $clog2(LINES);
+    localparam BITS_LINE    = $clog2(SETS);
     localparam BITS_TAG     = XLEN - BITS_LINE - BITS_OFFSET;
 
     logic [BITS_OFFSET-1:0] dreq_addr_offset;
@@ -48,7 +48,7 @@ module icache #(
     typedef struct {
         logic [$clog2(WAYS)-1:0] replace_idx;
         way_t                    ways[WAYS];
-    } line_t;
+    } set_t;
 
     typedef enum {
         FSM_IDLE,
@@ -56,7 +56,7 @@ module icache #(
     } fsm_e;
 
     fsm_e fsm_state;
-    line_t lines[LINES];
+    set_t sets[SETS];
     logic [WAYS-1:0] hits;
 
     // Next state logic
@@ -90,10 +90,10 @@ module icache #(
         freq_addr  = freq_addr_o;
 
         if (!reset_n) begin
-            for (int l = 0; l < LINES; ++l) begin
+            for (int l = 0; l < SETS; ++l) begin
                 for (int w = 0; w < WAYS; ++w) begin
-                    lines[l].ways[w].valid <= 0;
-                    lines[l].replace_idx   <= '0;
+                    sets[l].ways[w].valid <= 0;
+                    sets[l].replace_idx   <= '0;
                 end
             end
             freq_valid = 0;
@@ -118,11 +118,11 @@ module icache #(
                         // change
                         logic [$clog2(WAYS)-1:0] replace_idx_tmp;
                         freq_valid = 0;
-                        replace_idx_tmp = lines[dreq_addr_line_id].replace_idx;
-                        lines[dreq_addr_line_id].replace_idx                 <= replace_idx_tmp + 1;
-                        lines[dreq_addr_line_id].ways[replace_idx_tmp].valid <= 1;
-                        lines[dreq_addr_line_id].ways[replace_idx_tmp].tag   <= dreq_addr_tag;
-                        lines[dreq_addr_line_id].ways[replace_idx_tmp].data  <= frsp_data_i;
+                        replace_idx_tmp = sets[dreq_addr_line_id].replace_idx;
+                        sets[dreq_addr_line_id].replace_idx                 <= replace_idx_tmp + 1;
+                        sets[dreq_addr_line_id].ways[replace_idx_tmp].valid <= 1;
+                        sets[dreq_addr_line_id].ways[replace_idx_tmp].tag   <= dreq_addr_tag;
+                        sets[dreq_addr_line_id].ways[replace_idx_tmp].data  <= frsp_data_i;
                         dreq_ready = 1;
                     end else begin
                         // no change
@@ -142,7 +142,7 @@ module icache #(
 
     // Hit detection
     always_comb begin
-        `define way(i) lines[dreq_addr_line_id].ways[(i)]
+        `define way(i) sets[dreq_addr_line_id].ways[(i)]
         for (int w = 0; w < WAYS; ++w) begin
             hits[w] = (`way(w).valid & (`way(w).tag == dreq_addr_tag));
         end
@@ -154,7 +154,7 @@ module icache #(
     logic [BITS_OFFSET_ELEMENT-1:0] data_o_idx;
     assign data_o_idx = dreq_addr_offset[BITS_OFFSET-1 -: BITS_OFFSET_ELEMENT];
     logic [BITS_CACHELINE-1:0] data_o_tmp;
-    assign data_o_tmp = lines[dreq_addr_line_id].ways[$clog2(hits)].data;
+    assign data_o_tmp = sets[dreq_addr_line_id].ways[$clog2(hits)].data;
     assign drsp_data_o = data_o_tmp[(XLEN*(int'(data_o_idx)+1))-1 -: XLEN];
 
 endmodule

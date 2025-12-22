@@ -37,7 +37,7 @@ module stage_4m #(
 
     `PROPAGATE(alu_result);
 
-    assign dmem_o.valid = _i.is_ld || _i.is_st;
+    assign dmem_o.valid = (_i.is_ld | _i.is_st) & _i.valid;
     assign dmem_o.we    = _i.is_st;
     assign dmem_o.addr  = _i.alu_result;
     assign dmem_o.data  = _i.rs2_data;
