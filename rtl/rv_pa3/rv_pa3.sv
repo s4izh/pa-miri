@@ -144,7 +144,7 @@ module rv_pa3# (
         .clk,
         .reset_n,
         // Data req
-        .dreq_valid_i(reset_n),
+        .dreq_valid_i(reset_n & !(trap_valid_2d | trap_valid_4m)),
         .dreq_ready_o(icache_dreq_ready),
         .dreq_addr_i(pc),
         // Data rsp
@@ -164,7 +164,7 @@ module rv_pa3# (
     assign s_1f_d.valid = icache_drsp_hit;
     assign s_1f_d.pc = pc;
     always_comb begin
-        if (noop_1f | !(icache_drsp_hit)) begin
+        if (noop_1f | stall_1f | !(icache_drsp_hit)) begin
             s_1f_d.ins = 32'h00000033; // noop (add x0, x0, x0)
         end else begin
             s_1f_d.ins = icache_drsp_data;

@@ -23,13 +23,14 @@ module stage_4m #(
         if (noop_i) begin
             _o.valid  = 0;
             _o.is_wb  = 0;
+            _o.ins    = 0'h00000033;
         end else begin
             _o.valid  = _i.valid;
             _o.is_wb  = _i.is_wb;
+            _o.ins    = _i.ins;
         end
     end
 
-    `PROPAGATE(ins);
     `PROPAGATE(pc);
 
     `PROPAGATE(wb_sel);
