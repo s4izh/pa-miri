@@ -22,5 +22,4 @@ fail_loop:
 .global _trap_handler
 .section .text._trap_handler
 _trap_handler:
-    li a0, 1
     j pass_loop

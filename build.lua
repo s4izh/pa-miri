@@ -134,7 +134,7 @@ for _, src_path in ipairs(benchmark_files) do
     local sram_file = build_prefix .. ".sram.hex"
 
     build(obj_file, "compile_c", src_path)
-    build(elf_file, "link_elf", {obj_file, crt_obj})
+    build(elf_file, "link_elf", {crt_obj, obj_file})
     build(rom_file, "create_rom", elf_file)
     build(sram_file, "create_sram", elf_file)
 

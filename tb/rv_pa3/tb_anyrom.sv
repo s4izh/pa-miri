@@ -8,27 +8,29 @@ module tb (
     parameter int XLEN = 32;
     parameter int IALEN = 12;
     parameter int DALEN = 12;
-    parameter int MEM_DLEN = 32;
+    parameter int IMEM_DLEN = 128;
+    parameter int DMEM_DLEN = 32;
 
     logic [IALEN-1:0]        imem_addr_o;
-    logic [MEM_DLEN-1:0]     imem_data_i;
+    logic [IMEM_DLEN-1:0]    imem_data_i;
 
     logic [DALEN-1:0]        dmem_addr_o;
-    logic [MEM_DLEN-1:0]     dmem_data_o;
-    logic [MEM_DLEN/8-1:0]   dmem_byte_en_o;
+    logic [DMEM_DLEN-1:0]    dmem_data_o;
+    logic [DMEM_DLEN/8-1:0]  dmem_byte_en_o;
     logic                    dmem_we_o;
-    logic [MEM_DLEN-1:0]     dmem_data_i;
+    logic [DMEM_DLEN-1:0]    dmem_data_i;
 
     soc #(
         .XLEN(XLEN),
         .IALEN(IALEN),
         .DALEN(DALEN),
-        .MEM_DLEN(MEM_DLEN)
+        .IMEM_DLEN(IMEM_DLEN),
+        .DMEM_DLEN(DMEM_DLEN)
     ) dut (.*);
 
-    rom #(
-        .DATA_WIDTH(XLEN),
-        .ADDR_WIDTH(IALEN)
+    romX4 #(
+        // .DATA_WIDTH(IMEM_DLEN),
+        // .ADDR_WIDTH(IALEN)
     ) imem (
         .addr_i(imem_addr_o),
         .data_o(imem_data_i)
@@ -51,12 +53,12 @@ module tb (
     ) tracer (
         .clk(clk),
         .reset_n(reset_n),
-        .stall_i(dut.hart0_inst.stall),
+        .stall_i(dut.hart0_inst.stall_2d),
 
         // Fetch is valid if we are not inserting a bubble (noop)
-        .valid_f_i(!dut.hart0_inst.noop),
+        .valid_f_i(!dut.hart0_inst.noop_1f),
         .fetch_pc_i(dut.hart0_inst.pc),
-        .fetch_ins_i(dut.hart0_inst.imem_data_i),
+        .fetch_ins_i(dut.hart0_inst.s_1f_d.ins),
 
         // For other stages, we trust the valid bit of the pipeline register
         // "If s_1f_q.valid is high, then there is a real instruction in Decode"
@@ -73,6 +75,7 @@ module tb (
         // Load rom
         if ($value$plusargs("ROM_FILE=%s", rom_file)) begin
             $readmemh(rom_file, imem.mem);
+            $display("Loaded instruction memory from '%s'", rom_file);
         end else begin
             $error("No ROM_FILE specified. Empty instruction memory");
         end
@@ -100,7 +103,7 @@ module tb (
     assign tohost_value = dmem_data_o;
 
     logic [XLEN-1:0] ins;
-    assign ins = dut.hart0_inst.imem_data_i;
+    assign ins = dut.hart0_inst.s_1f_d.ins;
 
     int cycle_count = 0;
     always @(posedge clk) begin
@@ -125,7 +128,7 @@ module tb (
             $display("TIME: %0t", $time);
             $display("=============================[ FETCH ]==============================");
             $display("PC          : 0x%h", dut.hart0_inst.pc);
-            $display("Instruction : 0x%h", dut.hart0_inst.imem_data_i);
+            $display("Instruction : 0x%h", dut.hart0_inst.s_1f_d.ins);
             // $display("=============================[ DECODE ]=============================");
             // $display("rd          : x%0d (reg %0d)", dut.hart0_inst.rd_addr, dut.hart0_inst.rd_addr);
             // $display("rs1         : x%0d (reg %0d)", dut.hart0_inst.rs1_addr, dut.hart0_inst.rs1_addr);

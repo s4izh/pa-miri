@@ -6,13 +6,16 @@ import rv_isa_pkg::*;
 
 module rv_pa3# (
     parameter int XLEN = 32,
+    parameter int IMEM_DLEN = 128,
     parameter int N_PHY_REG = 32
 )(
     input  logic clk,
     input  logic reset_n,
 
+    output logic            imem_valid_o,
     output logic[XLEN-1:0]  imem_addr_o,
-    input  logic[XLEN-1:0]  imem_data_i,
+    input  logic            imem_valid_i,
+    input  logic[IMEM_DLEN-1:0]  imem_data_i,
     input  trap_t           imem_trap_i,
 
     output memop_width_e    dmem_width_o,
@@ -23,8 +26,6 @@ module rv_pa3# (
     input  logic[XLEN-1:0]  dmem_data_i,
     input  trap_t           dmem_trap_i
 );
-
-    localparam int RALEN = $clog2(N_PHY_REG);
 
     // pc
     logic [XLEN-1:0] pc;
@@ -47,7 +48,8 @@ module rv_pa3# (
     // Hazard control
     logic rs1_valid, rs2_valid;
     logic [$clog2(N_PHY_REG)-1:0] rs1_addr, rs2_addr;
-    logic noop_1f, noop_2d, noop_3e, noop_4m, stall;
+    logic noop_1f, noop_2d, noop_3e, noop_4m;
+    logic stall_1f, stall_2d, stall_3e, stall_4m;
     logic data_hazard;
     // Signals from 2d to forwarding unit (to avoid UNOPTFLAT)
     logic is_st_2d;
@@ -64,7 +66,7 @@ module rv_pa3# (
 
     // are we jumping or branching in the execute stage?
     logic jump_or_branch_3e;
-    assign jump_or_branch_3e = (taken_branch || pc_sel[1]) && s_3e_d.valid;
+    assign jump_or_branch_3e = (taken_branch || pc_sel[1]) && s_2d_q.valid;
 
     // use s_1f_q.valid (input to decode) instead of s_2d_d.valid (output of decode)
     // this avoids the circular loop where trap -> noop -> s_2d_d.valid=0 -> trap=0
@@ -81,7 +83,11 @@ module rv_pa3# (
     assign noop_2d  = jump_or_branch_3e | trap_valid;
     assign noop_3e  = trap_valid_4m;
     assign noop_4m  = trap_valid_4m;
-    assign stall = data_hazard;
+
+    assign stall_1f = data_hazard | !icache_drsp_hit;
+    assign stall_2d = data_hazard | !icache_drsp_hit;
+    assign stall_3e = (!icache_drsp_hit & jump_or_branch_3e);
+    assign stall_4m = '0;
 
     // dmem if
     assign dmem_if_in.data = dmem_data_i;
@@ -96,6 +102,12 @@ module rv_pa3# (
     // =========================================================================
     // = Stage 1: Fetch
     // =========================================================================
+    localparam int ICACHE_WAYS = 4;
+    localparam int ICACHE_SETS = 4;
+    localparam int ICACHE_BITS_CACHELINE = 128;
+    logic icache_dreq_ready;
+    logic icache_drsp_hit, icache_drsp_xcpt;
+    logic [XLEN-1:0] icache_drsp_data;
     // pc
     always @(posedge clk) begin
         if (!reset_n) begin
@@ -104,7 +116,7 @@ module rv_pa3# (
             if (trap_valid) begin
                 pc <= 'h2000;
             end else begin
-                if (!stall) begin
+                if (!stall_1f) begin
                     case (pc_sel)
                         MUX_PC_NEXT:
                             pc <= pc + 4;
@@ -123,17 +135,39 @@ module rv_pa3# (
         end
     end
 
-    // external interface
-    assign imem_addr_o = pc;
+    icache #(
+        .XLEN(XLEN),
+        .WAYS(ICACHE_WAYS),
+        .SETS(ICACHE_SETS),
+        .BITS_CACHELINE(ICACHE_BITS_CACHELINE)
+    ) icache_inst (
+        .clk,
+        .reset_n,
+        // Data req
+        .dreq_valid_i(reset_n & !(trap_valid_2d | trap_valid_4m)),
+        .dreq_ready_o(icache_dreq_ready),
+        .dreq_addr_i(pc),
+        // Data rsp
+        .drsp_hit_o(icache_drsp_hit),
+        .drsp_data_o(icache_drsp_data),
+        .drsp_xcpt_o(icache_drsp_xcpt),
+        // Fill req
+        .freq_valid_o(imem_valid_o),
+        .freq_addr_o(imem_addr_o),
+        // Fill rsp
+        .frsp_valid_i(imem_valid_i),
+        .frsp_data_i(imem_data_i)
+        // MISSING: imem_trap_i
+    );
 
     // pipeline
-    assign s_1f_d.valid = reset_n;
+    assign s_1f_d.valid = icache_drsp_hit;
     assign s_1f_d.pc = pc;
     always_comb begin
-        if (noop_1f) begin
+        if (noop_1f | stall_1f | !(icache_drsp_hit)) begin
             s_1f_d.ins = 32'h00000033; // noop (add x0, x0, x0)
         end else begin
-            s_1f_d.ins = imem_data_i;
+            s_1f_d.ins = icache_drsp_data;
         end
     end
 
@@ -142,7 +176,7 @@ module rv_pa3# (
     ) decoupling_reg_1f_2d_inst (
         .clk,
         .reset_n,
-        .stall_i(stall),
+        .stall_i(stall_2d),
         .d_i(s_1f_d),
         .q_o(s_1f_q)
     );
@@ -167,7 +201,7 @@ module rv_pa3# (
         .xcpt_illegal_ins_o(xcpt_illegal_ins),
         // Hazard detection
         .noop_i(noop_2d),
-        .stall_i(stall),
+        .stall_i(stall_2d),
         .bypass_rs1_sel_i(bypass_rs1_2d_sel),
         .bypass_rs2_sel_i(bypass_rs2_2d_sel),
         .bypass_rs1_data_i(bypass_rs1_2d_data),
@@ -185,7 +219,7 @@ module rv_pa3# (
     ) decoupling_reg_2d_3e_inst (
         .clk,
         .reset_n,
-        .stall_i('0),
+        .stall_i(stall_3e),
         .d_i(s_2d_d),
         .q_o(s_2d_q)
     );
@@ -207,7 +241,8 @@ module rv_pa3# (
         // Bypass
         .bypass_4m_3e_data_i(s_4m_d.mem_result),
         // Trap
-        .noop_i(noop_3e)
+        .noop_i(noop_3e),
+        .stall_i(stall_3e)
     );
 
     decoupling_reg #(
@@ -215,7 +250,7 @@ module rv_pa3# (
     ) decoupling_reg_3e_4m_inst (
         .clk,
         .reset_n,
-        .stall_i('0),
+        .stall_i(stall_4m),
         .d_i(s_3e_d),
         .q_o(s_3e_q)
     );

@@ -14,26 +14,41 @@ module stage_3e #(
     // Bypass
     input logic [XLEN-1:0]  bypass_4m_3e_data_i,
     // Trap
-    input logic             noop_i
+    input logic             noop_i,
+    input logic             stall_i
 );
     `define PROPAGATE(signal) assign _o.signal = _i.signal
 
     logic [XLEN-1:0] alu_op1, alu_op2;
+    logic noop_q;
+
+    always_ff @(posedge clk) begin
+        if (!reset_n) begin
+            noop_q <= 0;
+        end else begin
+            if (stall_i) begin
+                noop_q <= noop_i;
+            end else begin
+                noop_q <= '0;
+            end
+        end
+    end
 
     always_comb begin
-        if (noop_i) begin
+        if (noop_i | noop_q | stall_i) begin
             _o.valid  = 0;
             _o.is_wb  = 0;
             _o.is_st  = 0;
+            _o.ins = 32'h00000033; // noop (add x0, x0, x0)
         end else begin
             _o.valid  = _i.valid;
             _o.is_wb  = _i.is_wb;
             _o.is_st  = _i.is_st;
+            _o.ins    = _i.ins;
         end
     end
 
     // Propagated signals
-    `PROPAGATE(ins);
     `PROPAGATE(pc);
 
     `PROPAGATE(wb_sel);

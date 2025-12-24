@@ -41,9 +41,9 @@ module stage_2d #(
         if (!reset_n) begin
             noop_q <= 0;
         end else begin
-            if (stall_i) begin
-                noop_q <= noop_i;
-            end else begin
+            if (stall_i && noop_i) begin
+                noop_q <= '1;
+            end else if (!stall_i) begin
                 noop_q <= '0;
             end
         end
@@ -62,7 +62,7 @@ module stage_2d #(
     assign is_st_o = is_st;
 
     always_comb begin
-        if (noop_i || noop_q || stall_i) begin
+        if (noop_i | noop_q | stall_i) begin
             _o.valid  = 0;
             _o.is_wb  = 0;
             _o.is_st  = 0;

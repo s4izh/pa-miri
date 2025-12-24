@@ -48,7 +48,7 @@ def run_simulation_with_orchestrator(sim, rom_path, sram_path, timeout, verbose)
     program_name = rom_path.relative_to(PROJ_DIR / "build")
     print(f"Simulating: {program_name}")
 
-    test_harness = "rv_pa1.anyrom"
+    test_harness = "rv_pa3.cosim"
 
     cmd = [
         "./tools/orchestrator", "simulate",
