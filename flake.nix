@@ -87,6 +87,8 @@
         runScript = "${konata-bin}/opt/konata/konata-linux-x64/konata";
       };
 
+      riscv-pkgs = pkgs.pkgsCross.riscv32-embedded.buildPackages;
+
     in rec {
       devShell = pkgs.mkShell {
         buildInputs = with pkgs; [
@@ -106,7 +108,17 @@
 
           konata
           izumi.packages.${system}.default
+
+          cargo
+          rustc
+
+          riscv-pkgs.gcc
         ];
+        shellHook = ''
+          source set_env.sh
+          alias harness-dev="cd $PROJ_DIR/harness && cargo build && cd .. && ./harness/target/debug/harness"
+          alias harness="cd $PROJ_DIR && ./harness/target/debug/harness"
+        '';
       };
     }
   );
