@@ -65,53 +65,22 @@ module dcache #(
     set_t sets[SETS];
     logic [WAYS-1:0] hits;
 
-    // Next state logic
-    always @(posedge clk) begin
-        if (!reset_n) begin
-            fsm_state <= FSM_IDLE;
-        end else begin
-            case (fsm_state)
-                FSM_IDLE: begin
-                    if (dreq_valid_i & ~(|hits)) begin
-                        if (dreq_we_i) begin
-                            fsm_state <= FSM_WAIT_READ;
-                        end else begin
-                            fsm_state <= FSM_WAIT_READ4WRITE;
-                        end
-                    end else if (dreq_valid_i & dreq_we_i & (|hits)) begin
-                        fsm_state <= FSM_WAIT_WRITE;
-                    end
-                end
-                FSM_WAIT_READ: begin
-                    if (frsp_valid_i) begin
-                        fsm_state <= FSM_IDLE;
-                    end
-                end
-                FSM_WAIT_READ4WRITE: begin
-                    if (frsp_valid_i) begin
-                        fsm_state <= FSM_WAIT_WRITE;
-                    end
-                end
-                FSM_WAIT_WRITE: begin
-                    if (frsp_valid_i) begin
-                        fsm_state <= FSM_IDLE;
-                    end
-                end
-            endcase
-        end
-    end
-
-    // Actuation for FSM
+    // FSM
     always @(posedge clk) begin
         logic            dreq_ready;
         logic            freq_valid;
+        logic            freq_we;
+        logic [BITS_CACHELINE-1:0] freq_data;
         logic [XLEN-1:0] freq_addr;
 
         dreq_ready = dreq_ready_o;
         freq_valid = freq_valid_o;
+        freq_we    = freq_we_o;
         freq_addr  = freq_addr_o;
+        freq_data  = freq_data_o;
 
         if (!reset_n) begin
+            fsm_state <= FSM_IDLE;
             for (int l = 0; l < SETS; ++l) begin
                 for (int w = 0; w < WAYS; ++w) begin
                     sets[l].ways[w].valid <= 0;
@@ -125,10 +94,17 @@ module dcache #(
             case (fsm_state)
                 FSM_IDLE: begin
                     if (dreq_valid_i & ~(|hits)) begin
-                        // change
+                        if (dreq_we_i) begin
+                            fsm_state <= FSM_WAIT_READ4WRITE;
+                        end else begin
+                            fsm_state <= FSM_WAIT_READ;
+                        end
                         freq_valid = 1;
+                        freq_we    = 0;
                         freq_addr  = { dreq_addr_tag, dreq_addr_line_id, {BITS_OFFSET{1'b0}} };
                         dreq_ready = 0;
+                    end else if (dreq_valid_i & dreq_we_i & (|hits)) begin
+                        fsm_state <= FSM_WAIT_WRITE;
                     end else begin
                         // no change
                         freq_valid = 0;
@@ -137,8 +113,9 @@ module dcache #(
                 end
                 FSM_WAIT_READ: begin
                     if (frsp_valid_i) begin
-                        // change
                         logic [$clog2(WAYS)-1:0] replace_idx_tmp;
+                        // change
+                        fsm_state <= FSM_IDLE;
                         freq_valid = 0;
                         replace_idx_tmp = sets[dreq_addr_line_id].replace_idx;
                         sets[dreq_addr_line_id].replace_idx                 <= replace_idx_tmp + 1;
@@ -146,22 +123,27 @@ module dcache #(
                         sets[dreq_addr_line_id].ways[replace_idx_tmp].tag   <= dreq_addr_tag;
                         sets[dreq_addr_line_id].ways[replace_idx_tmp].data  <= frsp_data_i;
                         dreq_ready = 1;
-                    end else begin
-                        // no change
-                        // keep signals high
-                        freq_valid = 1;
-                        freq_addr  = { dreq_addr_tag, dreq_addr_line_id, {BITS_OFFSET{1'b0}} };
-                        dreq_ready = 0;
+                    end
+                    // no change
+                end
+                FSM_WAIT_READ4WRITE: begin
+                    if (frsp_valid_i) begin
+                        fsm_state <= FSM_WAIT_WRITE;
                     end
                 end
-                FSM_WAIT_READ4WRITE, FSM_WAIT_WRITE: begin
-                    // TODO
+                FSM_WAIT_WRITE: begin
+                    if (frsp_valid_i) begin
+                        fsm_state <= FSM_IDLE;
+                    end
                 end
             endcase
         end
+
         dreq_ready_o <= dreq_ready;
         freq_valid_o <= freq_valid;
+        freq_we_o    <= freq_we;
         freq_addr_o  <= freq_addr;
+        freq_data_o  <= freq_data;
     end
 
     // Hit detection
