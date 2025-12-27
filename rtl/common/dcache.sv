@@ -56,7 +56,9 @@ module dcache #(
 
     typedef enum {
         FSM_IDLE,
-        FSM_WAIT_FRSP
+        FSM_WAIT_READ,
+        FSM_WAIT_READ4WRITE,
+        FSM_WAIT_WRITE
     } fsm_e;
 
     fsm_e fsm_state;
@@ -71,10 +73,26 @@ module dcache #(
             case (fsm_state)
                 FSM_IDLE: begin
                     if (dreq_valid_i & ~(|hits)) begin
-                        fsm_state <= FSM_WAIT_FRSP;
+                        if (dreq_we_i) begin
+                            fsm_state <= FSM_WAIT_READ;
+                        end else begin
+                            fsm_state <= FSM_WAIT_READ4WRITE;
+                        end
+                    end else if (dreq_valid_i & dreq_we_i & (|hits)) begin
+                        fsm_state <= FSM_WAIT_WRITE;
                     end
                 end
-                FSM_WAIT_FRSP: begin
+                FSM_WAIT_READ: begin
+                    if (frsp_valid_i) begin
+                        fsm_state <= FSM_IDLE;
+                    end
+                end
+                FSM_WAIT_READ4WRITE: begin
+                    if (frsp_valid_i) begin
+                        fsm_state <= FSM_WAIT_WRITE;
+                    end
+                end
+                FSM_WAIT_WRITE: begin
                     if (frsp_valid_i) begin
                         fsm_state <= FSM_IDLE;
                     end
@@ -117,7 +135,7 @@ module dcache #(
                         dreq_ready = 1;
                     end
                 end
-                FSM_WAIT_FRSP: begin
+                FSM_WAIT_READ: begin
                     if (frsp_valid_i) begin
                         // change
                         logic [$clog2(WAYS)-1:0] replace_idx_tmp;
@@ -136,9 +154,11 @@ module dcache #(
                         dreq_ready = 0;
                     end
                 end
+                FSM_WAIT_READ4WRITE, FSM_WAIT_WRITE: begin
+                    // TODO
+                end
             endcase
         end
-
         dreq_ready_o <= dreq_ready;
         freq_valid_o <= freq_valid;
         freq_addr_o  <= freq_addr;
