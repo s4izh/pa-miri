@@ -88,13 +88,13 @@ module tb (
 
     // Test sequence
     initial begin
-        noop(dreq_valid_i, dreq_we_i);
+        noop();
         @(posedge reset_n);
         @(posedge clk);
 
         test_directed();
 
-        noop(dreq_valid_i, dreq_we_i);
+        noop();
         @(posedge clk);
         $finish;
     end
@@ -102,22 +102,48 @@ module tb (
     task test_directed();
         for (int k = 0; k < 2; ++k) begin
             for (logic[XLEN-1:0] i = 0; i < 20; ++i) begin
-                while (!dreq_ready_o) @(posedge clk)
-                dreq_valid_i = 1;
-                dreq_addr_i  = 0'h100+4*i;
+                while (!dreq_ready_o)
+                    @(posedge clk)
+
+                // read(0'h100+4*i, MEMOP_WIDTH_32);
+
+                write((0'h100), MEMOP_WIDTH_32, 32'hcafecafe);
+
                 @(posedge clk);
-                while (!dreq_ready_o) @(posedge clk)
+                while (!dreq_ready_o)
+                    @(posedge clk)
+                noop();
                 $display("%0t icache response! %x", $time, drsp_data_o);
             end
         end
     endtask
 
-    task noop (
-        output logic dreq_valid_i,
-        output logic dreq_we_i,
-    );
+    task noop ();
         dreq_valid_i = 0;
-        dreq_we_i = 0;
+        dreq_we_i    = 0;
+    endtask
+
+    task read (
+        input logic[XLEN-1:0] addr,
+        input memop_width_e   width,
+    );
+        dreq_valid_i = 1;
+        dreq_we_i    = 0;
+        dreq_addr_i  = addr;
+        dreq_width_i = width;
+        dreq_data_i  = '0;
+    endtask
+
+    task write (
+        input logic[XLEN-1:0] addr,
+        input memop_width_e   width,
+        input logic[XLEN-1:0] data,
+    );
+        dreq_valid_i = 1;
+        dreq_we_i    = 1;
+        dreq_addr_i  = addr;
+        dreq_width_i = width;
+        dreq_data_i  = data;
     endtask
 
 endmodule
