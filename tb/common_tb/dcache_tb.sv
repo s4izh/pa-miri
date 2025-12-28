@@ -63,17 +63,20 @@ module tb (
     end
 
 
-    logic [3:0] valid_queue;
+    localparam MEM_DELAY = 5;
+    logic [MEM_DELAY-1:0] valid_queue;
     always @(posedge clk) begin
-        valid_queue[3] <= valid_queue[2];
-        valid_queue[2] <= valid_queue[1];
-        valid_queue[1] <= valid_queue[0];
+        // Propagate
+        for (int i = 1; i < MEM_DELAY; ++i) begin
+            valid_queue[i] <= valid_queue[i-1];
+        end
+        // Insert at the bottom
         if (!(|valid_queue))
             valid_queue[0] <= freq_valid_o;
         else
             valid_queue[0] <= 0;
     end
-    assign frsp_valid_i = valid_queue[3];
+    assign frsp_valid_i = valid_queue[MEM_DELAY-1];
 
     initial begin
         int to = 1000;
