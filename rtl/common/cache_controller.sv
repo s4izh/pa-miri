@@ -42,7 +42,7 @@ module cache_controller #(
 
     assign creq_valid_o = dreq_valid_i & ~xcpt_misaligned;
     assign creq_we_o    = dreq_valid_i & dreq_we_i;
-    assign creq_addr_o  = {dreq_addr_i[XLEN-1:OFFSET_BYTES],2'b00};
+    assign creq_addr_o  = {dreq_addr_i[XLEN-1:OFFSET_BYTES+OFFSET_WORDS],4'b0000};
     assign drsp_xcpt_o  = dreq_valid_i & xcpt_misaligned;
 
 

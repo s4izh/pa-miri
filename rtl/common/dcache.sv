@@ -106,7 +106,8 @@ module dcache #(
                         freq_valid = 1;
                         freq_we    = 1;
                         freq_addr  = dreq_addr_i;
-                        freq_data  = drsp_data_o;
+                        freq_data  = drsp_data_o & ~dreq_data_mask_i | dreq_data_i & dreq_data_mask_i;
+                        sets[dreq_addr_set_id].ways[$clog2(hits)].data <= freq_data;
                     end else begin
                         // no change
                         dreq_ready = 1;

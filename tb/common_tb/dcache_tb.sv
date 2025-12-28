@@ -33,6 +33,8 @@ module tb (
     logic                               frsp_valid_i;
     logic [BITS_CACHELINE-1:0]          frsp_data_i;
 
+    logic [XLEN-1:0]                    addr;
+
     // Instantiate the DUT
     dcache_wrapper #(
         .XLEN(XLEN),
@@ -41,13 +43,15 @@ module tb (
         .BITS_CACHELINE(BITS_CACHELINE)
     ) dut (.*);
 
+    assign addr = (freq_addr_o >> $clog2(BITS_CACHELINE/8));
+
     // Other instances
     sram #(
         .DATA_WIDTH(BITS_CACHELINE),
         .ADDR_WIDTH(SRAM_ADDR_WIDTH)
     ) sram_inst (
         .clk,
-        .addr_i(freq_addr_o[SRAM_ADDR_WIDTH+$clog2(BITS_CACHELINE/XLEN)-1 -: SRAM_ADDR_WIDTH]),
+        .addr_i( { addr[SRAM_ADDR_WIDTH-1:0] } ),
         .we_i(freq_we_o),
         .byte_en_i('1),
         .data_i(freq_data_o),
