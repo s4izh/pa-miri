@@ -1,153 +1,157 @@
 mod core;
+mod sw;
 mod ninja;
 mod silo;
+mod hw;
+mod sim;
 
 use crate::core::*;
-use anyhow::Context;
-use std::collections::{BTreeMap, HashMap};
-use std::fs;
+use std::collections::{HashMap,BTreeMap};
+use std::path::PathBuf;
 
-const RESET: &str = "\x1b[0m";
-const BOLD: &str = "\x1b[1m";
-const CYAN: &str = "\x1b[36m";
-const GREEN: &str = "\x1b[32m";
-const DIM: &str = "\x1b[2m";
+fn setup_config() -> anyhow::Result<(Config, silo::SiloResolver)> {
+    let mut config = Config::new();
 
-fn main() -> anyhow::Result<()> {
-    let verilator = Simulator {
-        name: "verilator".into(),
-        compile_rule: "verilator --cc --binary --build -O3 --trace-fst --trace-structs --timing -j $$(nproc) -f $filelist --top-module $top_module --Mdir $out_dir -o Vtop".into(),
-        run_rule: "./Vtop".into(),
-        param_prefix: "-G".into(),
-    };
-
-    let gcc = Builder {
+    let riscv_gcc = Tool {
         name: "riscv_gcc".into(),
         actions: vec![
             Action {
                 name: "compile".into(),
-                command: "riscv32-none-elf-gcc $flags -Iprograms -c $in -o $out_dir/prog.o".into(),
+                command: "riscv32-none-elf-gcc $flags -Iprograms -c $in -o $obj".into(),
                 inputs: vec![],
-                outputs: vec!["prog.o".into()]
+                outputs: vec![Artifact { 
+                    name: "obj".into(), filename: "prog.o".into(), kind: ArtifactKind::Object
+                }],
             },
             Action {
                 name: "link".into(),
-                command: "riscv32-none-elf-gcc $flags -T $ld -nostdlib -Wl,-Map,$out_dir/prog.map $in -o $out_dir/prog.elf".into(),
-                inputs: vec!["prog.o".into()], outputs: vec!["prog.elf".into()]
+                command: "riscv32-none-elf-gcc $flags -T $ld -nostdlib -Wl,-Map,$map $obj -o $elf".into(),
+                inputs: vec!["obj".into()],
+                outputs: vec![
+                    Artifact { name: "elf".into(), filename: "prog.elf".into(), kind: ArtifactKind::Elf },
+                    Artifact { name: "map".into(), filename: "prog.map".into(), kind: ArtifactKind::Map }
+                ],
             },
             Action {
                 name: "rom".into(),
-                command: "riscv32-none-elf-objcopy -O verilog --verilog-data-width 4 --only-section=.text* $out_dir/prog.elf $out_dir/rom.tmp && \
-                    cat $out_dir/rom.tmp | tr -s ' ' '\\n' | tr -d '\\r' > $out_dir/rom.hex && \
+                command: "riscv32-none-elf-objcopy -O verilog --verilog-data-width 4 --only-section=.text* $elf $out_dir/rom.tmp && \
+                    cat $out_dir/rom.tmp | tr -s ' ' '\\n' | tr -d '\\r' > $rom && \
                     rm $out_dir/rom.tmp".into(),
-                inputs: vec!["prog.elf".into()],
-                outputs: vec!["rom.hex".into()]
+                inputs: vec!["elf".into()],
+                outputs: vec![ Artifact { name: "rom".into(), filename: "rom.hex".into(), kind: ArtifactKind::MemoryHexIns } ],
             },
             Action {
                 name: "sram".into(),
-                command: "riscv32-none-elf-objcopy -O verilog --verilog-data-width 4 --only-section=.data* --only-section=.sdata* --only-section=.bss* --only-section=.sbss* $out_dir/prog.elf $out_dir/sram.tmp && \
-                    cat $out_dir/sram.tmp | tr -s ' ' '\\n' | tr -d '\\r' > $out_dir/sram.hex && \
+                command: "riscv32-none-elf-objcopy -O verilog --verilog-data-width 4 --only-section=.data* --only-section=.sdata* --only-section=.bss* --only-section=.sbss* $elf $out_dir/sram.tmp && \
+                    cat $out_dir/sram.tmp | tr -s ' ' '\\n' | tr -d '\\r' > $sram && \
                     rm $out_dir/sram.tmp".into(),
-                inputs: vec!["prog.elf".into()],
-                outputs: vec!["sram.hex".into()]
+                inputs: vec!["elf".into()],
+                outputs: vec![ Artifact { name: "sram".into(), filename: "sram.hex".into(), kind: ArtifactKind::MemoryHexData } ],
             },
         ],
     };
 
-    let pa3 = Generator {
+    config.tools.insert("riscv_gcc".into(), riscv_gcc);
+
+    config.suites.insert("tohost_tests".into(), Suite {
+        name: "isa".into(),
+        base_dir: PathBuf::from("programs/tohost_tests"),
+        pattern: "**/*.s".into(),
+        tool: "riscv_gcc".into(),
+        plusargs: Vec::new(),
+        default_vars: HashMap::from([
+            ("flags".into(), "-march=rv32i -mabi=ilp32".into()),
+            ("ld".into(), "programs/link.ld".into()),
+        ]),
+        program_overrides: HashMap::new(),
+    });
+
+    config.simulators.insert("verilator".into(), Simulator {
+        name: "verilator".into(),
+        compile_rule: "verilator -j 8 --cc --binary --build -O3 --trace-fst --trace-structs --timing -f $filelist --top-module top_tb_wrapper --Mdir $out_dir -o Vtop".into(),
+        outputs: vec![Artifact { name: "bin".into(), filename: "Vtop".into(), kind: ArtifactKind::Executable }],
+        default_run_rule: "$bin $plusargs".into(),
+    });
+
+    let mut rv_pa3 = Processor {
         name: "rv_pa3".into(),
-        rtl_filelist: "rtl/rv_pa3/rv_pa3.f".into(),
-        base_params: BTreeMap::from([("XLEN".into(), "32".into())]),
-        variants: BTreeMap::from([
-            (
-                "base".into(),
-                BTreeMap::from([("CACHE".into(), "0".into())]),
-            ),
-            (
-                "cached".into(),
-                BTreeMap::from([("CACHE".into(), "1".into()), ("SIZE".into(), "4096".into())]),
-            ),
+        rtl_filelist: PathBuf::from("rtl/rv_pa3/rv_pa3.f"),
+        base_params: BTreeMap::new(),
+        variants: HashMap::new(),
+        plusargs: vec![],
+        sim_templates: HashMap::from([
+            ("verilator".into(), "$bin $plusargs +ROM_FILE=$rom +SRAM_FILE=$sram".into())
         ]),
     };
 
-    let anyrom = Testbench {
-        name: "cosim".into(),
-        top_file: "sim/rv_pa3/cosim/filelist.f".into(),
-        top_module: "top_tb_wrapper".into(),
-    };
+    rv_pa3.variants.insert("base".into(), Variant {
+        params: BTreeMap::from([("UNIFIED".into(), "0".into())]),
+        plusargs: vec![],
+        sim_templates: HashMap::new(), // Inherits "+ROM_FILE=$rom +SRAM_FILE=$sram"
+    });
 
-    let isa_suite = Suite {
+    // rv_pa3.variants.insert("unified_mem".into(), Variant {
+    //     params: BTreeMap::from([("UNIFIED".into(), "1".into())]),
+    //     plusargs: vec![],
+    //     sim_templates: HashMap::from([
+    //         ("verilator".into(), "$bin $plusargs +UNIFIED_IMG=$rom".into())
+    //     ]),
+    // });
+
+    config.testbenches.insert("anyrom".into(), Testbench {
+        name: "anyrom".into(),
+        filelist: PathBuf::from("tb/rv_pa3/tb_anyrom.f"),
+    });
+
+    config.suites.insert("isa".into(), Suite {
         name: "isa".into(),
-        base_dir: "programs/tohost_tests".into(),
+        base_dir: PathBuf::from("programs/tohost_tests"),
         pattern: "**/*.s".into(),
-        builder: gcc,
-    };
+        tool: "riscv_gcc".into(),
+        default_vars: HashMap::from([
+            ("flags".into(), "-march=rv32i -mabi=ilp32".into()),
+            ("ld".into(), "programs/link.ld".into()),
+        ]),
+        plusargs: vec!["+TIMEOUT=20000".into()],
+        program_overrides: HashMap::new(),
+    });
 
-    let mut jobs = vec![];
-    let resolver = silo::SiloResolver::new();
-    let pattern = isa_suite.base_dir.join(&isa_suite.pattern);
-    let entries = glob::glob(pattern.to_str().unwrap())?;
+    config.bindings.push(Binding {
+        name: "smoke_regression".into(),
+        processors: vec!["rv_pa3".into()],
+        variants: vec!["base".into()],
+        suites: vec!["isa".into()],
+        testbenches: vec!["anyrom".into()],
+        simulators: vec!["verilator".into()],
+    });
 
-    for entry in entries.flatten() {
-        let rel_to_base = entry.strip_prefix(&isa_suite.base_dir)?;
-        let prog_name = rel_to_base
-            .file_stem()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string();
-        let rel_dir = rel_to_base.parent().unwrap().to_path_buf();
+    config.processors.insert("rv_pa3".into(), rv_pa3);
 
-        let program = Program {
-            name: prog_name,
-            rel_dir,
-            source: entry.clone(),
-            suite_name: isa_suite.name.clone(),
-        };
+    Ok((config, silo::SiloResolver::new("build_test".into())))
+}
 
-        for (v_name, v_params) in &pa3.variants {
-            let mut final_params = pa3.base_params.clone();
-            final_params.extend(v_params.clone());
+fn main() -> anyhow::Result<()> {
+    let mut all_hw = Vec::new();
+    let mut all_sw = Vec::new();
+    let mut all_sim = Vec::new();
 
-            let mut vars = HashMap::new();
-            vars.insert("flags".into(), "-march=rv32i -mabi=ilp32 -nostdlib".into());
-            vars.insert("ld".into(), "programs/link.ld".into());
+    let (config, silo) = setup_config()?;
 
-            let job = Job {
-                generator: pa3.clone(),
-                variant_name: v_name.clone(),
-                tb: anyrom.clone(),
-                sim: verilator.clone(),
-                program: program.clone(),
-                builder: isa_suite.builder.clone(),
-                final_params,
-                variables: vars,
-            };
-
-            let hw_dir = resolver.hw_dir(&job);
-            fs::create_dir_all(&hw_dir)?;
-            let mut vh = String::new();
-            for (k, v) in &job.final_params {
-                vh.push_str(&format!("`define {} {}\n", k, v));
-            }
-            fs::write(hw_dir.join("params.vh"), vh)?;
-            let top_f = format!(
-                "./params.vh\n-f {}\n",
-                job.tb.top_file.canonicalize()?.display()
-            );
-            fs::write(hw_dir.join("top.f"), top_f)?;
-
-            jobs.push(job);
-        }
+    for bind in &config.bindings {
+        let hw = hw::resolve_hardware(&config, bind, &silo)?;
+        let mut sw = Vec::new();
+        for s_name in &bind.suites { sw.extend(sw::resolve_suite(&config, s_name, &silo)?); }
+        let sim = sim::resolve_simulations(&config, bind, &hw, &sw, &silo)?;
+        
+        all_hw.extend(hw);
+        all_sw.extend(sw);
+        all_sim.extend(sim);
     }
 
-    println!(
-        "{BOLD}{GREEN}Forge Matrix Expanded: {} Jobs created.{RESET}",
-        jobs.len()
-    );
-    let ninja_filename = "build2.ninja";
-    let file_contents = ninja::generate(&jobs)?;
-    fs::write(ninja_filename, file_contents)
-        .with_context(|| format!("Failed to write to {}", ninja_filename))?;
+    let ninja_str = ninja::generate(&config, &all_hw, &all_sw, &all_sim);
+
+    std::fs::write("build.ninja", ninja_str).expect("Failed to write ninja file");
+    println!("Software build graph generated in build.ninja");
+
     Ok(())
 }

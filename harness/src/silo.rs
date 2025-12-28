@@ -1,33 +1,47 @@
-use std::path::PathBuf;
-use crate::core::Job;
+use std::path::{Path, PathBuf};
 
 pub struct SiloResolver {
     pub root: PathBuf,
 }
 
 impl SiloResolver {
-    pub fn new() -> Self {
-        Self { root: PathBuf::from("build_silo") }
+    pub fn new(root: PathBuf) -> Self {
+        Self { root }
     }
 
-    /// HW: build_silo/hw/<gen>/<var>/<tb>/<sim>/
-    pub fn hw_dir(&self, j: &Job) -> PathBuf {
-        self.root.join("hw").join(&j.generator.name).join(&j.variant_name).join(&j.tb.name).join(&j.sim.name)
+    /// HW: build/hw/<processor>/<variant>/<testbench>/<simulator>/
+    pub fn hw_dir(&self, proc: &str, variant: &str, tb: &str, sim: &str) -> PathBuf {
+        self.root
+            .join("hw")
+            .join(proc)
+            .join(variant)
+            .join(tb)
+            .join(sim)
     }
 
-    pub fn hw_bin(&self, j: &Job) -> PathBuf {
-        self.hw_dir(j).join("Vtop")
+    /// SW: build/sw/<suite>/<rel_path_to_prog>/
+    pub fn sw_dir(&self, suite: &str, rel_path: &Path) -> PathBuf {
+        self.root.join("sw").join(suite).join(rel_path)
     }
 
-    /// SW: build_silo/sw/<suite>/<rel_dir>/<prog>/
-    pub fn sw_dir(&self, j: &Job) -> PathBuf {
-        self.root.join("sw").join(&j.program.suite_name).join(&j.program.rel_dir).join(&j.program.name)
-    }
-
-    /// SIM: build_silo/sim/<gen>/<var>/<tb>/<sim>/<suite>/<rel_dir>/<prog>/
-    pub fn sim_dir(&self, j: &Job) -> PathBuf {
-        self.root.join("sim")
-            .join(&j.generator.name).join(&j.variant_name).join(&j.tb.name).join(&j.sim.name)
-            .join(&j.program.suite_name).join(&j.program.rel_dir).join(&j.program.name)
+    /// SIM: build/sim/<binding>/<proc>_<var>/<tb>/<sim>/<suite>/<prog_path>/
+    pub fn sim_dir(
+        &self,
+        binding: &str,
+        proc: &str,
+        variant: &str,
+        tb: &str,
+        sim: &str,
+        suite: &str,
+        rel_path: &Path,
+    ) -> PathBuf {
+        self.root
+            .join("sim")
+            .join(binding)
+            .join(format!("{}_{}", proc, variant))
+            .join(tb)
+            .join(sim)
+            .join(suite)
+            .join(rel_path)
     }
 }

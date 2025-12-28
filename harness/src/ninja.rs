@@ -1,119 +1,127 @@
-use crate::{core::Job, silo::SiloResolver};
-use ninja_writer::{Ninja, BuildVariables, Variables, RuleRef};
-use std::collections::{HashMap, HashSet};
+// harness/src/ninja.rs
+use crate::core::*;
+use crate::hw::HardwareJob;
+use crate::sim::SimJob;
+use crate::sw::SoftwareJob;
+use std::collections::HashSet;
 
-pub fn generate(jobs: &[Job]) -> anyhow::Result<String> {
-    let writer = Ninja::new(); 
-    let res = SiloResolver::new();
-    let root = std::env::current_dir()?;
+pub fn generate(
+    config: &Config,
+    hw_jobs: &[HardwareJob],
+    sw_jobs: &[SoftwareJob],
+    sim_jobs: &[SimJob],
+) -> String {
+    let mut n = String::new();
+    let mut seen_rules = HashSet::new();
 
-    let mut defined_hw = HashSet::new();
-    let mut defined_sw = HashSet::new();
-    let mut defined_tools = HashSet::new();
+    n.push_str("# ==========================================\n# RULES\n# ==========================================\n\n");
 
-    let mut dynamic_rules: HashMap<String, RuleRef> = HashMap::new();
-
-    let make_rule = writer.rule("external_make", "make -C $dir");
-
-    let run_sim_rule = writer.rule("run_sim", 
-        "mkdir -p $silo && cd $silo && echo '$bin_abs +ROM_FILE=$rom_abs +SRAM_FILE=$sram_abs +VCD_FILE=waveform.fst' > cmdline && $bin_abs +ROM_FILE=$rom_abs +SRAM_FILE=$sram_abs +VCD_FILE=waveform.fst > sim.log 2>&1"
-    );
-
-    for j in jobs {
-        let mut extra_ld_flags = String::new();
-        let mut hw_deps = vec![res.hw_dir(j).join("top.f").to_str().unwrap().to_string()];
-
-        if j.tb.name == "cosim" {
-            let lib_path_rel = "cosim/cosim_dpi.a";
-            if !defined_tools.contains(lib_path_rel) {
-                make_rule.build([lib_path_rel])
-                    .variable("dir", "cosim");
-                defined_tools.insert(lib_path_rel.to_string());
-            }
-            hw_deps.push(lib_path_rel.to_string());
-            extra_ld_flags = format!("{}", root.join(lib_path_rel).display());
+    // HW Compiler Rules
+    for sim in config.simulators.values() {
+        let rule_name = format!("{}_compile", sim.name);
+        if seen_rules.insert(rule_name.clone()) {
+            n.push_str(&format!(
+                "rule {}\n  command = {}\n\n",
+                rule_name, sim.compile_rule
+            ));
         }
-
-        let hw_dir = res.hw_dir(j);
-        let hw_bin = res.hw_bin(j);
-        let hw_bin_str = hw_bin.to_str().unwrap();
-
-        if !defined_hw.contains(hw_bin_str) {
-            let sim_rule_name = format!("{}_compile", j.sim.name);
-            
-            if !dynamic_rules.contains_key(&sim_rule_name) {
-                let r = writer.rule(&sim_rule_name, &j.sim.compile_rule);
-                dynamic_rules.insert(sim_rule_name.clone(), r);
-            }
-
-            let mut p_flags = String::new();
-            for (k, v) in &j.final_params { 
-                p_flags.push_str(&format!("{}{}={} ", j.sim.param_prefix, k, v)); 
-            }
-
-            let rule_ref = dynamic_rules.get(&sim_rule_name).unwrap();
-            
-            rule_ref.build([hw_bin_str])
-                .with(hw_deps) 
-                .variable("params", p_flags)
-                .variable("filelist", hw_dir.join("top.f").to_str().unwrap())
-                .variable("top_module", &j.tb.top_module)
-                .variable("out_dir", hw_dir.to_str().unwrap())
-                .variable("ld_flags", extra_ld_flags);
-            
-            defined_hw.insert(hw_bin_str.to_string());
-        }
-
-        let sw_dir = res.sw_dir(j);
-        let sw_key = sw_dir.to_str().unwrap();
-
-        if !defined_sw.contains(sw_key) {
-            std::fs::create_dir_all(&sw_dir)?;
-
-            for action in &j.builder.actions {
-                let rule_name = format!("{}_{}", j.builder.name, action.name);
-                
-                if !dynamic_rules.contains_key(&rule_name) {
-                    let r = writer.rule(&rule_name, &action.command);
-                    dynamic_rules.insert(rule_name.clone(), r);
-                }
-
-                let inputs: Vec<String> = if action.inputs.is_empty() {
-                    vec![j.program.source.to_str().unwrap().to_string()]
-                } else {
-                    action.inputs.iter()
-                        .map(|f| sw_dir.join(f).to_str().unwrap().to_string())
-                        .collect()
-                };
-
-                let outputs: Vec<String> = action.outputs.iter()
-                    .map(|f| sw_dir.join(f).to_str().unwrap().to_string())
-                    .collect();
-
-                let rule_ref = dynamic_rules.get(&rule_name).unwrap();
-                
-                let mut build_edge = rule_ref.build(outputs)
-                    .with(inputs)
-                    .variable("out_dir", sw_key); 
-
-                for (var_k, var_v) in &j.variables {
-                    build_edge = build_edge.variable(var_k, var_v);
-                }
-            }
-            defined_sw.insert(sw_key.to_string());
-        }
-
-        let rom_hex = sw_dir.join("rom.hex");
-        let sram_hex = sw_dir.join("sram.hex");
-        let sim_dir = res.sim_dir(j);
-        
-        run_sim_rule.build([sim_dir.join("sim.log").to_str().unwrap()])
-            .with([hw_bin_str, rom_hex.to_str().unwrap(), sram_hex.to_str().unwrap()])
-            .variable("silo", sim_dir.to_str().unwrap())
-            .variable("bin_abs", root.join(&hw_bin).to_str().unwrap())
-            .variable("rom_abs", root.join(&rom_hex).to_str().unwrap())
-            .variable("sram_abs", root.join(&sram_hex).to_str().unwrap());
     }
 
-    Ok(writer.to_string())
+    // SW Tool Rules
+    for tool in config.tools.values() {
+        for action in &tool.actions {
+            let rule_name = format!("{}_{}", tool.name, action.name);
+            if seen_rules.insert(rule_name.clone()) {
+                n.push_str(&format!(
+                    "rule {}\n  command = {}\n\n",
+                    rule_name, action.command
+                ));
+            }
+        }
+    }
+
+    n.push_str("rule run_sim_script\n  command = cd $dir && chmod +x run.sh && ./run.sh > sim.log 2>&1\n\n");
+
+    n.push_str("# ==========================================\n# HARDWARE NODES\n# ==========================================\n\n");
+    for job in hw_jobs {
+        let outs = job
+            .artifact_paths
+            .values()
+            .map(|p| p.to_string_lossy())
+            .collect::<Vec<_>>()
+            .join(" ");
+        n.push_str(&format!(
+            "build {}: {}_compile {}/top.f\n",
+            outs,
+            job.simulator,
+            job.silo_dir.display()
+        ));
+        n.push_str(&format!("  filelist = {}/top.f\n", job.silo_dir.display()));
+        n.push_str(&format!("  out_dir = {}\n\n", job.silo_dir.display()));
+    }
+
+    n.push_str("# ==========================================\n# SOFTWARE NODES\n# ==========================================\n\n");
+    for job in sw_jobs {
+        n.push_str(&format!("# Program: {}\n", job.rel_path.display()));
+        for task in &job.actions {
+            let outs = task
+                .outputs
+                .iter()
+                .map(|p| p.to_string_lossy())
+                .collect::<Vec<_>>()
+                .join(" ");
+            let ins = task
+                .inputs
+                .iter()
+                .map(|p| p.to_string_lossy())
+                .collect::<Vec<_>>()
+                .join(" ");
+            n.push_str(&format!("build {}: {} {}\n", outs, task.rule_name, ins));
+            for (k, v) in &task.variables {
+                n.push_str(&format!("  {} = {}\n", k, v));
+            }
+            n.push_str("\n");
+        }
+    }
+
+    n.push_str("# ==========================================\n# SIMULATION NODES\n# ==========================================\n\n");
+    // for job in sim_jobs {
+    //     let log = job.silo_dir.join("sim.log");
+    //     let deps = job
+    //         .dependencies
+    //         .iter()
+    //         .map(|p| p.to_string_lossy())
+    //         .collect::<Vec<_>>()
+    //         .join(" ");
+    //     n.push_str(&format!(
+    //         "build {}: run_sim_script {}\n",
+    //         log.display(),
+    //         deps
+    //     ));
+    //     n.push_str(&format!("  dir = {}\n\n", job.silo_dir.display()));
+    // }
+
+    for job in sim_jobs {
+        let root = std::env::current_dir().unwrap();
+        let abs_sim_dir = root.join(&job.silo_dir);
+        let log = job.silo_dir.join("sim.log");
+
+        // Dependencies stay relative for Ninja (it handles them fine)
+        let deps = job
+            .dependencies
+            .iter()
+            .map(|p| p.to_string_lossy().to_string())
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        n.push_str(&format!(
+            "build {}: run_sim_script {}\n",
+            log.display(),
+            deps
+        ));
+        // Use absolute path for the directory context
+        n.push_str(&format!("  dir = {}\n\n", abs_sim_dir.display()));
+    }
+
+    n
 }
