@@ -103,17 +103,21 @@ module tb (
     task test_directed();
         for (int k = 0; k < 2; ++k) begin
             for (logic[XLEN-1:0] i = 0; i < 20; ++i) begin
-                while (!dreq_ready_o)
-                    @(posedge clk)
+                while (!dreq_ready_o) begin
+                    @(posedge clk);
+                end
 
-                // read(0'h100+4*i, MEMOP_WIDTH_32);
-
-                write((0'h100), MEMOP_WIDTH_32, 32'hcafecafe);
+                if ($urandom_range(1,100) < 50) begin
+                    read(0'h100+4*i, MEMOP_WIDTH_32);
+                end else begin
+                    write((0'h100+4*i), MEMOP_WIDTH_32, 32'hcafecafe);
+                end
 
                 @(posedge clk);
-                while (!dreq_ready_o)
-                    @(posedge clk)
-                noop();
+                while (!dreq_ready_o) begin
+                    @(posedge clk);
+                end
+                // noop();
                 $display("%0t icache response! %x", $time, drsp_data_o);
             end
         end
