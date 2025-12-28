@@ -1,4 +1,4 @@
--f $(PROJ_DIR)/rtl/common/memory_controller.f
+-f $(PROJ_DIR)/rtl/common/dcache_wrapper.f
 -f $(PROJ_DIR)/rtl/common/rv_regfile.f
 -f $(PROJ_DIR)/rtl/common/rv_branch_compare.f
 -f $(PROJ_DIR)/rtl/common/alu.f

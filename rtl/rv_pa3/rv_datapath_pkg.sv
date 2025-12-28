@@ -4,6 +4,7 @@
 package rv_datapath_pkg;
     `define INS_WIDTH 32
     `define XLEN 32
+    `define BITS_CACHELINE 128
     import rv_isa_pkg::*;
     import alu_pkg::*;
     import rv_branch_compare_pkg::*;
@@ -119,16 +120,15 @@ package rv_datapath_pkg;
 
     // Data memory interfacing structs
     typedef struct packed {
-        logic             valid;
-        logic             we;
-        logic [`XLEN-1:0] addr;
-        logic [`XLEN-1:0] data;
-        memop_width_e     width;
+        logic                       valid;
+        logic                       we;
+        logic [`XLEN-1:0]           addr;
+        logic [`BITS_CACHELINE-1:0] data;
     } dmem_if_out_t;
 
     typedef struct packed {
-        logic [`XLEN-1:0] data;
-        trap_t            trap;
+        logic                       valid;
+        logic [`BITS_CACHELINE-1:0] data;
     } dmem_if_in_t;
 
 endpackage

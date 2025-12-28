@@ -11,6 +11,11 @@ module tb (
     parameter int IMEM_DLEN = 128;
     parameter int DMEM_DLEN = 32;
 
+    localparam int WAYS = 4;
+    localparam int SETS = 4;
+    localparam int BITS_CACHELINE = 128;
+    localparam int SRAM_ADDR_WIDTH = 5;
+
     logic [IALEN-1:0]        imem_addr_o;
     logic [IMEM_DLEN-1:0]    imem_data_i;
 
@@ -26,6 +31,9 @@ module tb (
         .DALEN(DALEN),
         .IMEM_DLEN(IMEM_DLEN),
         .DMEM_DLEN(DMEM_DLEN)
+        .WAYS(WAYS),
+        .SETS(SETS),
+        .BITS_CACHELINE(BITS_CACHELINE)
     ) dut (.*);
 
     romX4 #(
@@ -36,14 +44,26 @@ module tb (
         .data_o(imem_data_i)
     );
 
+    // sram #(
+    //     .DATA_WIDTH(XLEN),
+    //     .ADDR_WIDTH(DALEN)
+    // ) dmem (
+    //     .clk,
+    //     .addr_i(dmem_addr_o),
+    //     .we_i(dmem_we_o),
+    //     .byte_en_i(dmem_byte_en_o),
+    //     .data_i(dmem_data_o),
+    //     .data_o(dmem_data_i)
+    // );
+
     sram #(
-        .DATA_WIDTH(XLEN),
-        .ADDR_WIDTH(DALEN)
-    ) dmem (
+        .DATA_WIDTH(BITS_CACHELINE),
+        .ADDR_WIDTH(SRAM_ADDR_WIDTH)
+    ) sram_inst (
         .clk,
         .addr_i(dmem_addr_o),
         .we_i(dmem_we_o),
-        .byte_en_i(dmem_byte_en_o),
+        .byte_en_i('1),
         .data_i(dmem_data_o),
         .data_o(dmem_data_i)
     );
