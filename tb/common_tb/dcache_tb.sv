@@ -64,16 +64,14 @@ module tb (
 
 
     logic [3:0] valid_queue;
-    logic prev_valid;
     always @(posedge clk) begin
         valid_queue[3] <= valid_queue[2];
         valid_queue[2] <= valid_queue[1];
         valid_queue[1] <= valid_queue[0];
-        if (!prev_valid)
+        if (!(|valid_queue))
             valid_queue[0] <= freq_valid_o;
         else
             valid_queue[0] <= 0;
-        prev_valid <= freq_valid_o;
     end
     assign frsp_valid_i = valid_queue[3];
 

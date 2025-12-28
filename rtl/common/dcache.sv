@@ -96,16 +96,21 @@ module dcache #(
                         end else begin
                             fsm_state <= FSM_WAIT_READ;
                         end
+                        dreq_ready = 0;
                         freq_valid = 1;
                         freq_we    = 0;
                         freq_addr  = dreq_addr_i;
-                        dreq_ready = 0;
                     end else if (dreq_valid_i & dreq_we_i & (|hits)) begin
                         fsm_state <= FSM_WAIT_WRITE;
+                        dreq_ready = 0;
+                        freq_valid = 1;
+                        freq_we    = 1;
+                        freq_addr  = dreq_addr_i;
+                        freq_data  = drsp_data_o;
                     end else begin
                         // no change
-                        freq_valid = 0;
                         dreq_ready = 1;
+                        freq_valid = 0;
                     end
                 end
                 FSM_WAIT_READ: begin
@@ -129,19 +134,28 @@ module dcache #(
                         logic [BITS_CACHELINE-1:0] merged_data_tmp;
                         // change
                         merged_data_tmp = frsp_data_i & ~dreq_data_mask_i | dreq_data_i & dreq_data_mask_i;
-                        fsm_state <= FSM_WAIT_WRITE;
-                        freq_valid = 0;
                         replace_idx_tmp = sets[dreq_addr_set_id].replace_idx;
                         sets[dreq_addr_set_id].replace_idx                 <= replace_idx_tmp + 1;
                         sets[dreq_addr_set_id].ways[replace_idx_tmp].valid <= 1;
                         sets[dreq_addr_set_id].ways[replace_idx_tmp].tag   <= dreq_addr_tag;
                         sets[dreq_addr_set_id].ways[replace_idx_tmp].data  <= merged_data_tmp;
-                        dreq_ready = 1;
+
+                        fsm_state <= FSM_WAIT_WRITE;
+                        dreq_ready = 0;
+                        freq_valid = 1;
+                        freq_we    = 1;
+                        freq_addr  = dreq_addr_i;
+                        freq_data  = merged_data_tmp;
                     end
                 end
                 FSM_WAIT_WRITE: begin
                     if (frsp_valid_i) begin
                         fsm_state <= FSM_IDLE;
+                        dreq_ready = 1;
+                        freq_valid = 0;
+                        freq_we    = 0;
+                        // freq_addr  = '0;
+                        // freq_data  = '0;
                     end
                 end
             endcase
