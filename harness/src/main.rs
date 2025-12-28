@@ -9,6 +9,32 @@ use crate::core::*;
 use std::collections::{HashMap,BTreeMap};
 use std::path::PathBuf;
 
+fn main() -> anyhow::Result<()> {
+    let mut all_hw = Vec::new();
+    let mut all_sw = Vec::new();
+    let mut all_sim = Vec::new();
+
+    let (config, silo) = setup_config()?;
+
+    for bind in &config.bindings {
+        let hw = hw::resolve_hardware(&config, bind, &silo)?;
+        let mut sw = Vec::new();
+        for s_name in &bind.suites { sw.extend(sw::resolve_suite(&config, s_name, &silo)?); }
+        let sim = sim::resolve_simulations(&config, bind, &hw, &sw, &silo)?;
+        
+        all_hw.extend(hw);
+        all_sw.extend(sw);
+        all_sim.extend(sim);
+    }
+
+    let ninja_str = ninja::generate(&config, &all_hw, &all_sw, &all_sim);
+
+    std::fs::write("build.ninja", ninja_str).expect("Failed to write ninja file");
+    println!("Software build graph generated in build.ninja");
+
+    Ok(())
+}
+
 fn setup_config() -> anyhow::Result<(Config, silo::SiloResolver)> {
     let mut config = Config::new();
 
@@ -90,6 +116,12 @@ fn setup_config() -> anyhow::Result<(Config, silo::SiloResolver)> {
         sim_templates: HashMap::new(), // Inherits "+ROM_FILE=$rom +SRAM_FILE=$sram"
     });
 
+    rv_pa3.variants.insert("base".into(), Variant {
+        params: BTreeMap::from([("UNIFIED".into(), "0".into())]),
+        plusargs: vec![],
+        sim_templates: HashMap::new(), // Inherits "+ROM_FILE=$rom +SRAM_FILE=$sram"
+    });
+
     // rv_pa3.variants.insert("unified_mem".into(), Variant {
     //     params: BTreeMap::from([("UNIFIED".into(), "1".into())]),
     //     plusargs: vec![],
@@ -130,28 +162,3 @@ fn setup_config() -> anyhow::Result<(Config, silo::SiloResolver)> {
     Ok((config, silo::SiloResolver::new("build_test".into())))
 }
 
-fn main() -> anyhow::Result<()> {
-    let mut all_hw = Vec::new();
-    let mut all_sw = Vec::new();
-    let mut all_sim = Vec::new();
-
-    let (config, silo) = setup_config()?;
-
-    for bind in &config.bindings {
-        let hw = hw::resolve_hardware(&config, bind, &silo)?;
-        let mut sw = Vec::new();
-        for s_name in &bind.suites { sw.extend(sw::resolve_suite(&config, s_name, &silo)?); }
-        let sim = sim::resolve_simulations(&config, bind, &hw, &sw, &silo)?;
-        
-        all_hw.extend(hw);
-        all_sw.extend(sw);
-        all_sim.extend(sim);
-    }
-
-    let ninja_str = ninja::generate(&config, &all_hw, &all_sw, &all_sim);
-
-    std::fs::write("build.ninja", ninja_str).expect("Failed to write ninja file");
-    println!("Software build graph generated in build.ninja");
-
-    Ok(())
-}
