@@ -146,6 +146,7 @@ module icache #(
         for (int w = 0; w < WAYS; ++w) begin
             hits[w] = (`way(w).valid & (`way(w).tag == dreq_addr_tag));
         end
+        `undef way
     end
 
     assign drsp_hit_o = dreq_valid_i & (|hits);

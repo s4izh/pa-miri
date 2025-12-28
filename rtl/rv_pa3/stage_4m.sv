@@ -19,7 +19,7 @@ module stage_4m #(
     input logic          noop_i,
 
     output logic         waiting_for_memory_o,
-    output logic         dcache_xcpt_o,
+    output logic         dcache_xcpt_o
 );
     `define PROPAGATE(signal) assign _o.signal = _i.signal
 
@@ -27,7 +27,7 @@ module stage_4m #(
     logic [XLEN-1:0] drsp_data;
     logic            dreq_ready;
 
-    assign waiting_for_memory_o = ~dreq_ready; 
+    assign waiting_for_memory_o = ~dreq_ready;
 
     always_comb begin
         if (noop_i | stall_i) begin
@@ -60,6 +60,9 @@ module stage_4m #(
         .SETS(SETS),
         .BITS_CACHELINE(BITS_CACHELINE)
     ) dcache_inst (
+        .clk,
+        .reset_n,
+
         .dreq_valid_i((_i.is_ld | _i.is_st) & _i.valid),
         .dreq_ready_o(dreq_ready),
         .dreq_addr_i(_i.alu_result),
@@ -67,7 +70,7 @@ module stage_4m #(
         .dreq_we_i(_i.is_st),
         .dreq_width_i(_i.memop_width),
 
-        .drsp_hit_o('0),
+        .drsp_hit_o(), // unconnected
         .drsp_data_o(drsp_data),
         .drsp_xcpt_o(dcache_xcpt_o),
 
@@ -75,7 +78,7 @@ module stage_4m #(
         .freq_we_o(dmem_o.we),
         .freq_data_o(dmem_o.data),
         .freq_addr_o(dmem_o.addr),
-        
+
         .frsp_valid_i(dmem_i.valid),
         .frsp_data_i(dmem_i.data)
     );

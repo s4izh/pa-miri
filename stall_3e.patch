@@ -1,0 +1,13 @@
+diff --git a/rtl/rv_pa3/rv_pa3.sv b/rtl/rv_pa3/rv_pa3.sv
+index 3244e56..22d4cad 100644
+--- a/rtl/rv_pa3/rv_pa3.sv
++++ b/rtl/rv_pa3/rv_pa3.sv
+@@ -86,7 +86,7 @@ module rv_pa3# (
+ 
+     assign stall_1f = data_hazard | !icache_drsp_hit;
+     assign stall_2d = data_hazard | !icache_drsp_hit;
+-    assign stall_3e = (!icache_drsp_hit & jump_or_branch_3e);
++    assign stall_3e = ~icache_drsp_hit;// & jump_or_branch_3e;
+     assign stall_4m = '0;
+ 
+     // dmem if
