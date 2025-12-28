@@ -3,17 +3,17 @@ use glob::glob;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ResolvedAction {
     pub rule_name: String,
-    pub inputs: Vec<PathBuf>,  // Physical files for Ninja graph (build line)
-    pub outputs: Vec<PathBuf>, // Physical files for Ninja graph (build line)
-    pub variables: HashMap<String, String>, // Variables to fill the rule template
+    pub inputs: Vec<PathBuf>,  // physical files for Ninja graph (build line)
+    pub outputs: Vec<PathBuf>, // physical files for Ninja graph (build line)
+    pub variables: HashMap<String, String>, // variables to fill the rule template
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SoftwareJob {
-    pub suite_name: String, // <--- Add this
+    pub suite_name: String,
     pub program_id: String,
     pub rel_path: PathBuf, // e.g., "rtype/add"
     pub actions: Vec<ResolvedAction>,
@@ -24,37 +24,37 @@ pub fn resolve_suite(
     suite_name: &str,
     silo: &crate::silo::SiloResolver,
 ) -> anyhow::Result<Vec<SoftwareJob>> {
-    let suite = &config.suites[suite_name];
+    let suite = &config.suites.get(suite_name).ok_or_else(|| anyhow::anyhow!("Suite name not found '{}'", suite_name))?;
     let tool = &config.tools[&suite.tool];
     let mut jobs = Vec::new();
 
-    // 1. Discover programs using the glob pattern (e.g., programs/tohost_tests/**/*.s)
+    // TODO: maybe something better?
+    // discover programs using the glob pattern programs/tohost_tests/**/*.s
     let pattern = suite.base_dir.join(&suite.pattern);
     let entries = glob(pattern.to_str().expect("Invalid glob pattern"))?;
 
     for entry in entries.flatten() {
         if entry.is_file() {
-            // 2. Calculate the relative path from the base_dir
-            // Example: programs/tohost_tests/rtype/add.s -> rtype/add.s
+            // calculate the relative path from the base_dir
+            // example: programs/tohost_tests/rtype/add.s -> rtype/add.s
             let rel_to_base = entry.strip_prefix(&suite.base_dir)?;
 
-            // Get the directory part and the name part
-            // Example: rtype/add.s -> rtype/
+            // get the directory part and the name part
+            // example: rtype/add.s -> rtype/
             let rel_dir = rel_to_base.parent().unwrap_or(Path::new(""));
             let file_stem = entry.file_stem().unwrap().to_str().unwrap();
 
-            // This is our unique program ID and its relative path in the build silo
+            // this is our unique program ID and its relative path in the build silo
             let program_id = file_stem.to_string();
             let rel_path_in_silo = rel_dir.join(&program_id);
 
             let rel_path = rel_to_base.with_extension("");
 
-            // 3. Resolve the Silo Directory (Maintaining the tree)
+            // resolve the silo directory
             let sw_dir = silo.sw_dir(suite_name, &rel_path);
 
-            // --- Rest of the resolver logic (Same as before) ---
             let mut context_vars = suite.default_vars.clone();
-            // Use program_id for overrides
+            // use program_id for overrides
             if let Some(ov) = suite.program_overrides.get(&program_id) {
                 context_vars.extend(ov.vars.clone());
             }
@@ -70,7 +70,6 @@ pub fn resolve_suite(
             for action in &tool.actions {
                 let mut n_vars = HashMap::new();
 
-                // Sparse variable resolution...
                 if action.command.contains("$out_dir") {
                     n_vars.insert("out_dir".into(), sw_dir.to_string_lossy().to_string());
                 }

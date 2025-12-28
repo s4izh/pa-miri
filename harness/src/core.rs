@@ -8,7 +8,7 @@ pub enum ArtifactKind {
     Map,
     MemoryHexIns,  // Instruction ROM
     MemoryHexData, // SRAM/Data
-    MemoryHexFull, // Merged images
+    MemoryHexFull,
     Executable,    // Compiled HW simulation binary
     Waveform,      // FST/VCD
     Log,           // sim.log
@@ -94,6 +94,14 @@ pub struct Binding {
 }
 
 #[derive(Clone, Debug)]
+pub struct StandaloneBinding {
+    pub name: String,
+    pub filelist: PathBuf,
+    pub simulator: String,
+    pub plusargs: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
 pub struct Config {
     pub processors: HashMap<String, Processor>,
     pub tools: HashMap<String, Tool>,
@@ -101,6 +109,7 @@ pub struct Config {
     pub suites: HashMap<String, Suite>,
     pub testbenches: HashMap<String, Testbench>,
     pub bindings: Vec<Binding>,
+    pub standalone_bindings: Vec<StandaloneBinding>,
 }
 
 impl Config {
@@ -112,6 +121,7 @@ impl Config {
             suites: HashMap::new(),
             testbenches: HashMap::new(),
             bindings: Vec::new(),
+            standalone_bindings: Vec::new(),
         }
     }
 }

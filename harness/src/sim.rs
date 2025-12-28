@@ -6,6 +6,12 @@ use crate::silo::SiloResolver;
 use std::fs;
 use std::path::PathBuf;
 
+pub struct SimJob {
+    pub silo_dir: PathBuf,
+    pub run_cmd: String,
+    pub dependencies: Vec<PathBuf>,
+}
+
 pub fn resolve_simulations(
     config: &Config,
     binding: &Binding,
@@ -38,14 +44,14 @@ pub fn resolve_simulations(
             let mut cmd = template.clone();
             let mut deps = Vec::new();
 
-            // 1. Resolve HW Artifacts using ABSOLUTE paths for the script
+            // resolve HW Artifacts using ABSOLUTE paths for the script
             for (logical, path) in &hw.artifact_paths {
                 let abs_path = root.join(path); 
                 cmd = cmd.replace(&format!("${}", logical), &abs_path.to_string_lossy());
                 deps.push(path.clone());
             }
 
-            // 2. Resolve SW Artifacts using ABSOLUTE paths for the script
+            // resolve SW Artifacts using ABSOLUTE paths for the script
             for action in &sw.actions {
                 for (logical, path_str) in &action.variables {
                     let placeholder = format!("${}", logical);
@@ -57,7 +63,7 @@ pub fn resolve_simulations(
                 }
             }
 
-            // 3. Aggregate Plusargs
+            // aggregate plusargs
             let mut pa = proc_spec.plusargs.clone();
             pa.extend(var_spec.plusargs.clone());
             pa.extend(suite.plusargs.clone());
@@ -66,7 +72,7 @@ pub fn resolve_simulations(
             }
             cmd = cmd.replace("$plusargs", &pa.join(" "));
 
-            // 4. Seed run.sh with Absolute Paths
+            // seed run.sh
             let script_path = sim_dir.join("run.sh");
             let abs_sim_dir = root.join(&sim_dir);
             let script_content = format!(
@@ -93,8 +99,40 @@ pub fn resolve_simulations(
     Ok(jobs)
 }
 
-pub struct SimJob {
-    pub silo_dir: PathBuf,
-    pub run_cmd: String,
-    pub dependencies: Vec<PathBuf>,
+
+pub fn resolve_standalone_sims(
+    hw_jobs: &[HardwareJob],
+    config: &Config,
+) -> anyhow::Result<Vec<SimJob>> {
+    let mut jobs = Vec::new();
+    let root = std::env::current_dir()?;
+
+    for hw in hw_jobs {
+        let unit_cfg = config.standalone_bindings.iter().find(|u| u.name == hw.testbench).unwrap();
+        let sim_spec = &config.simulators[&hw.simulator];
+
+        let mut cmd = sim_spec.default_run_rule.clone();
+        
+        for (logical, path) in &hw.artifact_paths {
+            cmd = cmd.replace(&format!("${}", logical), &root.join(path).to_string_lossy());
+        }
+
+        cmd = cmd.replace("$plusargs", &unit_cfg.plusargs.join(" "));
+
+        let script_path = hw.silo_dir.join("run.sh");
+        std::fs::write(&script_path, format!("#!/usr/bin/env bash\n{}\n", cmd))?;
+        
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&script_path, std::fs::Permissions::from_mode(0o755))?;
+        }
+
+        jobs.push(SimJob {
+            silo_dir: hw.silo_dir.clone(),
+            run_cmd: cmd,
+            dependencies: hw.artifact_paths.values().cloned().collect(),
+        });
+    }
+    Ok(jobs)
 }

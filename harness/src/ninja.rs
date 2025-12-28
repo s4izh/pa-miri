@@ -85,28 +85,12 @@ pub fn generate(
     }
 
     n.push_str("# ==========================================\n# SIMULATION NODES\n# ==========================================\n\n");
-    // for job in sim_jobs {
-    //     let log = job.silo_dir.join("sim.log");
-    //     let deps = job
-    //         .dependencies
-    //         .iter()
-    //         .map(|p| p.to_string_lossy())
-    //         .collect::<Vec<_>>()
-    //         .join(" ");
-    //     n.push_str(&format!(
-    //         "build {}: run_sim_script {}\n",
-    //         log.display(),
-    //         deps
-    //     ));
-    //     n.push_str(&format!("  dir = {}\n\n", job.silo_dir.display()));
-    // }
 
     for job in sim_jobs {
         let root = std::env::current_dir().unwrap();
         let abs_sim_dir = root.join(&job.silo_dir);
         let log = job.silo_dir.join("sim.log");
 
-        // Dependencies stay relative for Ninja (it handles them fine)
         let deps = job
             .dependencies
             .iter()
@@ -119,7 +103,7 @@ pub fn generate(
             log.display(),
             deps
         ));
-        // Use absolute path for the directory context
+        // use absolute path for the directory context
         n.push_str(&format!("  dir = {}\n\n", abs_sim_dir.display()));
     }
 

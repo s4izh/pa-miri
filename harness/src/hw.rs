@@ -4,7 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::collections::HashMap;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct HardwareJob {
     pub processor: String,
     pub variant: String,
@@ -75,6 +75,37 @@ pub fn resolve_hardware(
                 }
             }
         }
+    }
+    Ok(jobs)
+}
+
+pub fn resolve_standalone_hw(
+    config: &Config,
+    silo: &crate::silo::SiloResolver,
+) -> anyhow::Result<Vec<HardwareJob>> {
+    let mut jobs = Vec::new();
+
+    for unit in &config.standalone_bindings {
+        let sim = &config.simulators[&unit.simulator];
+        let silo_dir = silo.root.join("unit").join(&unit.name).join(&unit.simulator);
+        std::fs::create_dir_all(&silo_dir)?;
+
+        let top_f = format!("-f {}\n", unit.filelist.canonicalize()?.display());
+        std::fs::write(silo_dir.join("top.f"), top_f)?;
+
+        let mut artifact_paths = std::collections::HashMap::new();
+        for art in &sim.outputs {
+            artifact_paths.insert(art.name.clone(), silo_dir.join(&art.filename));
+        }
+
+        jobs.push(HardwareJob {
+            processor: "unit".into(),
+            variant: "none".into(),
+            testbench: unit.name.clone(),
+            simulator: unit.simulator.clone(),
+            silo_dir,
+            artifact_paths,
+        });
     }
     Ok(jobs)
 }
