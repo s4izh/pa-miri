@@ -1,6 +1,9 @@
 #include "cosim_dpi_util.hpp"
 
-uint8_t hex_to_int(char c) {
+static uint8_t hex_to_int(char c);
+static uint32_t hex_to_uint32(char *line);
+
+static uint8_t hex_to_int(char c) {
     uint8_t ret = 0;
     if (c >= '0' && c <= '9') {
         ret = c - '0';
@@ -13,16 +16,15 @@ uint8_t hex_to_int(char c) {
 }
 
 // pre: line is a \n terminated string
-uint32_t hex_to_int(char *line) {
+static uint32_t hex_to_uint32(char *line) {
     uint32_t ret = 0;
-    while (*line != '\n') {
-        ret = (ret << 4) + hex_to_int(*line);
-        ++line;
+    for (int i = 0; i < sizeof(uint32_t)*2; ++i) {
+        ret = (ret << 4) + hex_to_int(line[i]);
     }
     return ret;
 }
 
-int read_file_to_map(FILE *fd, std::map<uint32_t,uint32_t> *map) {
+int read_file_to_map(FILE *fd, std::map<uint32_t,uint32_t> *map, uint32_t cacheline_bytes) {
     size_t len;
     ssize_t read_len;
     uint32_t current_addr;
@@ -36,12 +38,19 @@ int read_file_to_map(FILE *fd, std::map<uint32_t,uint32_t> *map) {
         }
         if (line[0] == '@') {
             // Parse an address
-            current_addr = hex_to_int(line+1);
+            current_addr = hex_to_uint32(line+1) * (cacheline_bytes/4);
             continue;
         }
         // We parse data
-        map->insert({current_addr, hex_to_int(line)});
-        current_addr++;
+        for (int i = 0; i < cacheline_bytes/4; ++i) {
+            map->insert(
+                {
+                    current_addr+(cacheline_bytes/4)-1-i,
+                    hex_to_uint32(line+(i*8)) // sizeof(uint32_t)*2
+                }
+            );
+        }
+        current_addr += cacheline_bytes/4;
     }
     return 0; // all ok
 }

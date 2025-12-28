@@ -3,7 +3,7 @@ module tb (
     input logic reset_n
 );
 
-    import "DPI-C" function int cosim_dpi_init(string rom_path, string sram_path, int pc_reset, int pc_xcpt);
+    import "DPI-C" function int cosim_dpi_init(string rom_path, string sram_path, int unsigned pc_reset, int unsigned pc_xcpt, int unsigned mem_dlen);
     import "DPI-C" function int unsigned cosim_dpi_step(output int unsigned pc, output int unsigned ins, output int unsigned rd);
 
     parameter int DEFAULT_TIMEOUT_CYCLES = 1000;
@@ -50,7 +50,10 @@ module tb (
         .valid_o(dmem_valid_i)
     );
 
-    romX4 imem (
+    rom #(
+        .DATA_WIDTH(MEM_DLEN),
+        .ADDR_WIDTH(MEM_ALEN)
+    ) imem (
         .addr_i(imem_addr_o),
         .data_o(imem_data_i)
     );
@@ -95,6 +98,7 @@ module tb (
         // Load rom
         if ($value$plusargs("ROM_FILE=%s", rom_file)) begin
             $readmemh(rom_file, imem.mem);
+            $display("Loaded code memory from '%s'", rom_file);
         end else begin
             $error("No ROM_FILE specified. Empty instruction memory");
         end
@@ -108,7 +112,7 @@ module tb (
         end
 
         // Init DPI-C
-        ret = cosim_dpi_init(rom_file, sram_file, 0'h00001000, 0'h00002000);
+        ret = cosim_dpi_init(rom_file, sram_file, 0'h00001000, 0'h00002000, MEM_DLEN);
         case (ret)
             -1: begin
                 $error("Failed to init cosim_dpi");

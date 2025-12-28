@@ -12,7 +12,8 @@ extern "C" int cosim_dpi_init(
         char *rom_path,
         char *sram_path,
         uint32_t pc_reset,
-        uint32_t pc_xcpt
+        uint32_t pc_xcpt,
+        uint32_t mem_dlen
 ) {
     FILE *rom_fd, *sram_fd;
 
@@ -29,11 +30,11 @@ extern "C" int cosim_dpi_init(
         return -1;
     }
     // Read rom
-    if (read_file_to_map(rom_fd, &g_cosim.imem) != 0) {
+    if (read_file_to_map(rom_fd, &g_cosim.imem, mem_dlen/8) != 0) {
         return -1;
     }
     // Read sram
-    if (read_file_to_map(sram_fd, &g_cosim.dmem) != 0) {
+    if (read_file_to_map(sram_fd, &g_cosim.dmem, mem_dlen/8) != 0) {
         return -1;
     }
     // Close files

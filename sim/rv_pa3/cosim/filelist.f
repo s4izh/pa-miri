@@ -1,7 +1,7 @@
 -f $(PROJ_DIR)/rtl/rv_pa3/rv_pa3.f
 
 $(PROJ_DIR)/rtl/common/valid_delayer.sv
-$(PROJ_DIR)/rtl/common/romX4.sv
+$(PROJ_DIR)/rtl/common/rom.sv
 $(PROJ_DIR)/rtl/common/sram.sv
 $(PROJ_DIR)/cosim/cosim_dpi.a
 
