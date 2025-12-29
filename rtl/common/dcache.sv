@@ -64,13 +64,11 @@ module dcache #(
 
     // FSM
     always @(posedge clk) begin
-        logic            dreq_ready;
         logic            freq_valid;
         logic            freq_we;
         logic [BITS_CACHELINE-1:0] freq_data;
         logic [XLEN-1:0] freq_addr;
 
-        dreq_ready = dreq_ready_o;
         freq_valid = freq_valid_o;
         freq_we    = freq_we_o;
         freq_addr  = freq_addr_o;
@@ -86,7 +84,6 @@ module dcache #(
             end
             freq_valid = 0;
             freq_addr  = '0;
-            dreq_ready = 0;
         end else begin
             case (fsm_state)
                 FSM_IDLE: begin
@@ -96,13 +93,11 @@ module dcache #(
                         end else begin
                             fsm_state <= FSM_WAIT_READ;
                         end
-                        dreq_ready = 0;
                         freq_valid = 1;
                         freq_we    = 0;
                         freq_addr  = dreq_addr_i;
                     end else if (dreq_valid_i & dreq_we_i & (|hits)) begin
                         fsm_state <= FSM_WAIT_WRITE;
-                        dreq_ready = 0;
                         freq_valid = 1;
                         freq_we    = 1;
                         freq_addr  = dreq_addr_i;
@@ -110,7 +105,6 @@ module dcache #(
                         sets[dreq_addr_set_id].ways[$clog2(hits)].data <= freq_data;
                     end else begin
                         // no change
-                        dreq_ready = 1;
                         freq_valid = 0;
                     end
                 end
@@ -125,7 +119,6 @@ module dcache #(
                         sets[dreq_addr_set_id].ways[replace_idx_tmp].valid <= 1;
                         sets[dreq_addr_set_id].ways[replace_idx_tmp].tag   <= dreq_addr_tag;
                         sets[dreq_addr_set_id].ways[replace_idx_tmp].data  <= frsp_data_i;
-                        dreq_ready = 1;
                     end
                     // no change
                 end
@@ -142,7 +135,6 @@ module dcache #(
                         sets[dreq_addr_set_id].ways[replace_idx_tmp].data  <= merged_data_tmp;
 
                         fsm_state <= FSM_WAIT_WRITE;
-                        dreq_ready = 0;
                         freq_valid = 1;
                         freq_we    = 1;
                         freq_addr  = dreq_addr_i;
@@ -152,7 +144,6 @@ module dcache #(
                 FSM_WAIT_WRITE: begin
                     if (frsp_valid_i) begin
                         fsm_state <= FSM_IDLE;
-                        dreq_ready = 1;
                         freq_valid = 0;
                         freq_we    = 0;
                         // freq_addr  = '0;
@@ -162,12 +153,17 @@ module dcache #(
             endcase
         end
 
-        dreq_ready_o <= dreq_ready;
         freq_valid_o <= freq_valid;
         freq_we_o    <= freq_we;
         freq_addr_o  <= freq_addr;
         freq_data_o  <= freq_data;
     end
+
+    // Ready
+    assign dreq_ready_o =
+        (fsm_state == FSM_IDLE)
+        & ~(dreq_valid_i & ~(|hits))
+        & ~(dreq_valid_i & (|hits) & dreq_we_i);
 
     // Hit detection
     always_comb begin

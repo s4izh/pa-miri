@@ -86,9 +86,9 @@ module rv_pa3# (
     assign noop_3e  = trap_valid_4m;
     assign noop_4m  = trap_valid_4m;
 
-    assign stall_1f = data_hazard | !icache_drsp_hit;
-    assign stall_2d = data_hazard | !icache_drsp_hit;
-    assign stall_3e = ~icache_drsp_hit; // TODO: checkear esta mierda
+    assign stall_1f = waiting_for_memory_4m | ~icache_drsp_hit | data_hazard;
+    assign stall_2d = waiting_for_memory_4m | ~icache_drsp_hit | data_hazard;
+    assign stall_3e = waiting_for_memory_4m | ~icache_drsp_hit;
     assign stall_4m = waiting_for_memory_4m;
 
     // Data memory interface
