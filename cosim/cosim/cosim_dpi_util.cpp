@@ -18,7 +18,7 @@ static uint8_t hex_to_int(char c) {
 // pre: line is a \n terminated string
 static uint32_t hex_to_uint32(char *line) {
     uint32_t ret = 0;
-    for (int i = 0; i < sizeof(uint32_t)*2; ++i) {
+    for (int i = 0; i < sizeof(uint32_t)*2 || line[i] == '\n' || line[i] == '\0'; ++i) {
         ret = (ret << 4) + hex_to_int(line[i]);
     }
     return ret;
@@ -43,12 +43,10 @@ int read_file_to_map(FILE *fd, std::map<uint32_t,uint32_t> *map, uint32_t cachel
         }
         // We parse data
         for (int i = 0; i < cacheline_bytes/4; ++i) {
-            map->insert(
-                {
-                    current_addr+(cacheline_bytes/4)-1-i,
-                    hex_to_uint32(line+(i*8)) // sizeof(uint32_t)*2
-                }
-            );
+            uint32_t word_addr = current_addr+(cacheline_bytes/4)-1-i;
+            uint32_t word_data = hex_to_uint32(line+(i*8)); // 8 = sizeof(uint32_t)*2
+            map->insert( { word_addr, word_data } );
+            printf("Inserted word 0x%08x into address 0x%08x\n", word_data, word_addr<<2); // fixme
         }
         current_addr += cacheline_bytes/4;
     }
