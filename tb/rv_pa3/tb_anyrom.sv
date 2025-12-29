@@ -6,60 +6,59 @@ module tb (
     parameter int DEFAULT_TIMEOUT_CYCLES = 1000;
 
     parameter int XLEN = 32;
-    parameter int IALEN = 12;
-    parameter int DALEN = 12;
-    parameter int IMEM_DLEN = 128;
-    parameter int DMEM_DLEN = 32;
+    parameter int MEM_ALEN = 12;
+    parameter int MEM_DLEN = 128;
+    parameter int CACHE_WAYS = 4;
+    parameter int CACHE_SETS = 4;
 
-    localparam int WAYS = 4;
-    localparam int SETS = 4;
-    localparam int BITS_CACHELINE = 128;
-    localparam int SRAM_ADDR_WIDTH = 5;
+    logic                imem_valid_o;
+    logic [MEM_ALEN-1:0] imem_addr_o;
+    logic [MEM_DLEN-1:0] imem_data_i;
+    logic                imem_valid_i;
 
-    logic [IALEN-1:0]        imem_addr_o;
-    logic [IMEM_DLEN-1:0]    imem_data_i;
-
-    logic [DALEN-1:0]        dmem_addr_o;
-    logic [DMEM_DLEN-1:0]    dmem_data_o;
-    logic [DMEM_DLEN/8-1:0]  dmem_byte_en_o;
-    logic                    dmem_we_o;
-    logic [DMEM_DLEN-1:0]    dmem_data_i;
+    logic                dmem_valid_o;
+    logic [MEM_ALEN-1:0] dmem_addr_o;
+    logic [MEM_DLEN-1:0] dmem_data_o;
+    logic                dmem_we_o;
+    logic [MEM_DLEN-1:0] dmem_data_i;
+    logic                dmem_valid_i;
 
     soc #(
         .XLEN(XLEN),
-        .IALEN(IALEN),
-        .DALEN(DALEN),
-        .IMEM_DLEN(IMEM_DLEN),
-        .DMEM_DLEN(DMEM_DLEN)
-        .WAYS(WAYS),
-        .SETS(SETS),
-        .BITS_CACHELINE(BITS_CACHELINE)
+        .MEM_ALEN(MEM_ALEN),
+        .MEM_DLEN(MEM_DLEN),
+        .CACHE_WAYS(CACHE_WAYS),
+        .CACHE_SETS(CACHE_SETS)
     ) dut (.*);
 
-    romX4 #(
-        // .DATA_WIDTH(IMEM_DLEN),
-        // .ADDR_WIDTH(IALEN)
+    valid_delayer #(
+        .N(5)
+    ) valid_delayer_i_inst (
+        .clk,
+        .valid_i(imem_valid_o),
+        .valid_o(imem_valid_i)
+    );
+
+    valid_delayer #(
+        .N(5)
+    ) valid_delayer_d_inst (
+        .clk,
+        .valid_i(dmem_valid_o),
+        .valid_o(dmem_valid_i)
+    );
+
+    rom #(
+        .DATA_WIDTH(MEM_DLEN),
+        .ADDR_WIDTH(MEM_ALEN)
     ) imem (
         .addr_i(imem_addr_o),
         .data_o(imem_data_i)
     );
 
-    // sram #(
-    //     .DATA_WIDTH(XLEN),
-    //     .ADDR_WIDTH(DALEN)
-    // ) dmem (
-    //     .clk,
-    //     .addr_i(dmem_addr_o),
-    //     .we_i(dmem_we_o),
-    //     .byte_en_i(dmem_byte_en_o),
-    //     .data_i(dmem_data_o),
-    //     .data_o(dmem_data_i)
-    // );
-
     sram #(
-        .DATA_WIDTH(BITS_CACHELINE),
-        .ADDR_WIDTH(SRAM_ADDR_WIDTH)
-    ) sram_inst (
+        .DATA_WIDTH(MEM_DLEN),
+        .ADDR_WIDTH(MEM_ALEN)
+    ) dmem (
         .clk,
         .addr_i(dmem_addr_o),
         .we_i(dmem_we_o),
@@ -90,12 +89,13 @@ module tb (
 
     int TIMEOUT_CYCLES;
     initial begin
+        int ret;
         string rom_file, sram_file;
 
         // Load rom
         if ($value$plusargs("ROM_FILE=%s", rom_file)) begin
             $readmemh(rom_file, imem.mem);
-            $display("Loaded instruction memory from '%s'", rom_file);
+            $display("Loaded code memory from '%s'", rom_file);
         end else begin
             $error("No ROM_FILE specified. Empty instruction memory");
         end
@@ -117,10 +117,13 @@ module tb (
         end
     end
 
-    logic               tohost_written;
-    logic [XLEN-1:0]    tohost_value;
+
+    logic                tohost_written;
+    logic [MEM_DLEN-1:0] tohost_aligned_cacheline;
+    logic [XLEN-1:0]     tohost_value;
     assign tohost_written = &{dmem_addr_o, dmem_we_o}; // and reduction
-    assign tohost_value = dmem_data_o;
+    assign tohost_aligned_cacheline = dmem_data_o >> (((MEM_DLEN/XLEN)-1) * XLEN);
+    assign tohost_value = tohost_aligned_cacheline[XLEN-1:0];
 
     logic [XLEN-1:0] ins;
     assign ins = dut.hart0_inst.s_1f_d.ins;
@@ -144,45 +147,18 @@ module tb (
 
     always @(posedge clk) begin
         if (reset_n) begin
-            $display("--------------------------------------------------------------------------------");
-            $display("TIME: %0t", $time);
-            $display("=============================[ FETCH ]==============================");
-            $display("PC          : 0x%h", dut.hart0_inst.pc);
-            $display("Instruction : 0x%h", dut.hart0_inst.s_1f_d.ins);
-            // $display("=============================[ DECODE ]=============================");
-            // $display("rd          : x%0d (reg %0d)", dut.hart0_inst.rd_addr, dut.hart0_inst.rd_addr);
-            // $display("rs1         : x%0d (reg %0d)", dut.hart0_inst.rs1_addr, dut.hart0_inst.rs1_addr);
-            // $display("rs2         : x%0d (reg %0d)", dut.hart0_inst.rs2_addr, dut.hart0_inst.rs2_addr);
-            // $display("Immediate   : 0x%h (%d)", dut.hart0_inst.immed, dut.hart0_inst.immed);
-            // $display("=============================[ EXECUTE ]============================");
-            // $display("rs1_data    : 0x%h", dut.hart0_inst.rs1_data);
-            // $display("rs2_data    : 0x%h", dut.hart0_inst.rs2_data);
-            // // $display("ALU Op1     : 0x%h (%s)", dut.hart0_inst.alu_op1, dut.hart0_inst.alu_op1_sel.name());
-            // // $display("ALU Op2     : 0x%h (%s)", dut.hart0_inst.alu_op2, dut.hart0_inst.alu_op2_sel.name());
-            // // $display("ALU Op      : %s", dut.hart0_inst.alu_op.name());
-            // $display("ALU Result  : 0x%h", dut.hart0_inst.alu_result);
-            // // $display("Branch?     : %s, Taken?=%b", dut.hart0_inst.compare_op.name(), dut.hart0_inst.taken_branch);
-            // $display("=============================[ MEMORY ]=============================");
-            // if (dut.hart0_inst.is_ld || dut.hart0_inst.is_st) begin
-            //     $display("Memory Op   : %s", dut.hart0_inst.is_ld ? "LOAD" : "STORE");
-            //     $display("Mem Address : 0x%h", dmem_addr_o);
-            //     $display("Mem wr_en   : %b", dmem_we_o);
-            //     $display("Mem wr_data : 0x%h", dmem_data_o);
-            //     $display("Mem rd_data : 0x%h", dmem_data_i);
-            //     // $display("Mem width   : %s", dut.hart0_inst.dmem_width_o.name());
-            // end else begin
-            //     $display("Memory Op   : ---");
-            // end
-            // $display("=============================[ WRITEBACK ]==========================");
-            // $display("Writeback En: %b", dut.hart0_inst.is_wb);
-            // if (dut.hart0_inst.is_wb) begin
-            //     // $display("WB Data Src : %s", dut.hart0_inst.wb_sel.name());
-            //     $display("WB Data     : 0x%h", dut.hart0_inst.rd_data);
-            //     $display("WB Dest Reg : x%0d", dut.hart0_inst.rd_addr);
-            // end
-            // $display("=============================[ PC UPDATE ]==========================");
-            // // $display("PC Select   : %s", dut.hart0_inst.pc_sel.name());
-            // $display("--------------------------------------------------------------------------------\n");
+            if (dut.hart0_inst.s_4m_q.valid && dut.hart0_inst.s_4m_q.ins != 0'h00000033) begin
+                int unsigned pc, ins, rd, trap;
+                string disasm;
+                int errors;
+
+                pc = dut.hart0_inst.s_4m_q.pc;
+                ins = dut.hart0_inst.s_4m_q.ins;
+                rd = dut.hart0_inst.s_5w_d.rd_data;
+
+                disasm = rv32_util_pkg::disasm_rv32i(ins);
+                $display("NANO - 0x%08x: %s - RESULT: 0x%08x", pc, disasm, rd);
+            end
         end
     end
 
