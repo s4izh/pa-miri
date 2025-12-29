@@ -13,27 +13,27 @@ module tb (
     // DUT signals
     // Interface with core (d for data)
     // Request
-    logic                               dreq_valid_i;
-    logic                               dreq_ready_o;
-    logic [XLEN-1:0]                    dreq_addr_i;
-    logic [XLEN-1:0]                    dreq_data_i;
-    logic                               dreq_we_i;
-    cache_controller_pkg::memop_width_e dreq_width_i;
+    logic                                dreq_valid_i;
+    logic                                dreq_ready_o;
+    logic [XLEN-1:0]                     dreq_addr_i;
+    logic [XLEN-1:0]                     dreq_data_i;
+    logic                                dreq_we_i;
+    memory_controller_pkg::memop_width_e dreq_width_i;
     // Response
-    logic                               drsp_hit_o;
-    logic [XLEN-1:0]                    drsp_data_o;
-    logic                               drsp_xcpt_o;
+    logic                                drsp_hit_o;
+    logic [XLEN-1:0]                     drsp_data_o;
+    logic                                drsp_xcpt_o;
     // Interface with memory (f for fill)
     // Request
-    logic                               freq_valid_o;
-    logic                               freq_we_o;
-    logic [BITS_CACHELINE-1:0]          freq_data_o;
-    logic [XLEN-1:0]                    freq_addr_o;
+    logic                                freq_valid_o;
+    logic                                freq_we_o;
+    logic [BITS_CACHELINE-1:0]           freq_data_o;
+    logic [XLEN-1:0]                     freq_addr_o;
     // Response
-    logic                               frsp_valid_i;
-    logic [BITS_CACHELINE-1:0]          frsp_data_i;
+    logic                                frsp_valid_i;
+    logic [BITS_CACHELINE-1:0]           frsp_data_i;
 
-    logic [XLEN-1:0]                    addr;
+    logic [XLEN-1:0]                     addr;
 
     // Instantiate the DUT
     dcache_wrapper #(

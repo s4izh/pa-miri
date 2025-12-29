@@ -60,6 +60,10 @@ module rv_pa3# (
 
     logic waiting_for_memory_4m;
 
+    logic icache_dreq_ready;
+    logic icache_drsp_hit;
+    logic [XLEN-1:0] icache_drsp_data;
+
     // local assigns
     // assign trap_valid =
     //     imem_trap_i.valid |
@@ -103,9 +107,6 @@ module rv_pa3# (
     // =========================================================================
     // = Stage 1: Fetch
     // =========================================================================
-    logic icache_dreq_ready;
-    logic icache_drsp_hit;
-    logic [XLEN-1:0] icache_drsp_data;
     // pc
     always @(posedge clk) begin
         if (!reset_n) begin

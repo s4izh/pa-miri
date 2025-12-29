@@ -1,4 +1,4 @@
-import cache_controller_pkg::*;
+import memory_controller_pkg::*;
 
 module dcache_wrapper #(
     parameter int XLEN = 32,
