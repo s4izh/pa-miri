@@ -161,9 +161,9 @@ module dcache #(
 
     // Ready
     assign dreq_ready_o =
-        (fsm_state == FSM_IDLE)
-        & ~(dreq_valid_i & ~(|hits))
-        & ~(dreq_valid_i & (|hits) & dreq_we_i);
+          ((fsm_state == FSM_IDLE) & ~(dreq_valid_i & ~(|hits)) & ~(dreq_valid_i & (|hits) & dreq_we_i))
+        | ((fsm_state == FSM_WAIT_READ) & frsp_valid_i)
+        | ((fsm_state == FSM_WAIT_WRITE) & frsp_valid_i);
 
     // Hit detection
     always_comb begin
