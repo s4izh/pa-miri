@@ -18,7 +18,6 @@ module dcache #(
     input  logic [BITS_CACHELINE-1:0] dreq_data_i,
     input  logic [BITS_CACHELINE-1:0] dreq_data_mask_i,
     // Response
-    output logic                      drsp_hit_o,
     output logic [BITS_CACHELINE-1:0] drsp_data_o,
     // Interface with memory (f for fill)
     // Request to memory
@@ -62,6 +61,17 @@ module dcache #(
     set_t sets[SETS];
     logic [WAYS-1:0] hits;
 
+    logic idle_to_reads, idle_to_write,
+        read4write_to_write,
+        read_to_idle,
+        write_to_idle;
+
+    assign idle_to_reads       = dreq_valid_i & ~(|hits);
+    assign idle_to_write       = dreq_valid_i &  (|hits) & dreq_we_i;
+    assign read4write_to_write = frsp_valid_i;
+    assign read_to_idle        = frsp_valid_i;
+    assign write_to_idle       = frsp_valid_i;
+
     // FSM
     always @(posedge clk) begin
         logic            freq_valid;
@@ -87,7 +97,7 @@ module dcache #(
         end else begin
             case (fsm_state)
                 FSM_IDLE: begin
-                    if (dreq_valid_i & ~(|hits)) begin
+                    if (idle_to_reads) begin
                         if (dreq_we_i) begin
                             fsm_state <= FSM_WAIT_READ4WRITE;
                         end else begin
@@ -96,7 +106,7 @@ module dcache #(
                         freq_valid = 1;
                         freq_we    = 0;
                         freq_addr  = dreq_addr_i;
-                    end else if (dreq_valid_i & dreq_we_i & (|hits)) begin
+                    end else if (idle_to_write) begin
                         fsm_state <= FSM_WAIT_WRITE;
                         freq_valid = 1;
                         freq_we    = 1;
@@ -109,7 +119,7 @@ module dcache #(
                     end
                 end
                 FSM_WAIT_READ: begin
-                    if (frsp_valid_i) begin
+                    if (read_to_idle) begin
                         logic [$clog2(WAYS)-1:0] replace_idx_tmp;
                         // change
                         fsm_state <= FSM_IDLE;
@@ -123,7 +133,7 @@ module dcache #(
                     // no change
                 end
                 FSM_WAIT_READ4WRITE: begin
-                    if (frsp_valid_i) begin
+                    if (read4write_to_write) begin
                         logic [$clog2(WAYS)-1:0] replace_idx_tmp;
                         logic [BITS_CACHELINE-1:0] merged_data_tmp;
                         // change
@@ -142,7 +152,7 @@ module dcache #(
                     end
                 end
                 FSM_WAIT_WRITE: begin
-                    if (frsp_valid_i) begin
+                    if (write_to_idle) begin
                         fsm_state <= FSM_IDLE;
                         freq_valid = 0;
                         freq_we    = 0;
@@ -161,9 +171,9 @@ module dcache #(
 
     // Ready
     assign dreq_ready_o =
-          ((fsm_state == FSM_IDLE) & ~(dreq_valid_i & ~(|hits)) & ~(dreq_valid_i & (|hits) & dreq_we_i))
-        | ((fsm_state == FSM_WAIT_READ) & frsp_valid_i)
-        | ((fsm_state == FSM_WAIT_WRITE) & frsp_valid_i);
+          ((fsm_state == FSM_IDLE) & ~(idle_to_reads | idle_to_write))
+        | ((fsm_state == FSM_WAIT_READ) & read_to_idle)
+        | ((fsm_state == FSM_WAIT_WRITE) & write_to_idle);
 
     // Hit detection
     always_comb begin
@@ -174,12 +184,9 @@ module dcache #(
         `undef way
     end
 
-    // TODO: remove this, dreq_ready_o is fixed now
-    assign drsp_hit_o = dreq_valid_i & (|hits);
-
-
+    // Data to core with bypass
     logic drsp_bypass_valid;
-    assign drsp_bypass_valid = (fsm_state == FSM_WAIT_READ) & frsp_valid_i;
+    assign drsp_bypass_valid = (fsm_state == FSM_WAIT_READ) & read_to_idle;
     always_comb begin
         if (drsp_bypass_valid) begin
             drsp_data_o = frsp_data_i;

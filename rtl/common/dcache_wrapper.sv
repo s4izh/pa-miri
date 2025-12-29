@@ -20,7 +20,6 @@ module dcache_wrapper #(
     input  logic            dreq_we_i,
     input  memop_width_e    dreq_width_i,
     // Response
-    output logic            drsp_hit_o,
     output logic [XLEN-1:0] drsp_data_o,
     output logic            drsp_xcpt_o,
     // Interface with memory (f for fill)
@@ -81,7 +80,6 @@ module dcache_wrapper #(
         .dreq_data_i(creq_data),
         .dreq_data_mask_i(creq_data_mask),
         // Response
-        .drsp_hit_o,
         .drsp_data_o(crsp_data),
         // Interface with memory (f for fill)
         // Request to memory

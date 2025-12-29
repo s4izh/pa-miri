@@ -70,7 +70,6 @@ module stage_4m #(
         .dreq_we_i(_i.is_st),
         .dreq_width_i(_i.memop_width),
 
-        .drsp_hit_o(), // unconnected
         .drsp_data_o(drsp_data),
         .drsp_xcpt_o(dcache_xcpt_o),
 
