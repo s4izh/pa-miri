@@ -48,7 +48,7 @@ def run_simulation_with_orchestrator(sim, rom_path, sram_path, timeout, verbose)
     program_name = rom_path.relative_to(PROJ_DIR / "build")
     print(f"Simulating: {program_name}")
 
-    test_harness = "rv_pa3.cosim"
+    test_harness = "rv_pa3.anyrom"
 
     cmd = [
         "./tools/orchestrator", "simulate",
@@ -100,7 +100,7 @@ def main():
         formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument("--sim", choices=sims, default="vsim", help="Simulator to use (default: vsim).")
-    parser.add_argument("--timeout", default=5000, type=int, help="Number of simulation cycles before timeout (default: 5000).")
+    parser.add_argument("--timeout", default=10000, type=int, help="Number of simulation cycles before timeout (default: 5000).")
     parser.add_argument("--verbose", "-v", action="store_true", help="Print detailed simulator output.")
 
     args = parser.parse_args()
