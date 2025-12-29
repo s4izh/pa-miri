@@ -174,7 +174,18 @@ module dcache #(
         `undef way
     end
 
+    // TODO: remove this, dreq_ready_o is fixed now
     assign drsp_hit_o = dreq_valid_i & (|hits);
-    assign drsp_data_o = sets[dreq_addr_set_id].ways[$clog2(hits)].data;
+
+
+    logic drsp_bypass_valid;
+    assign drsp_bypass_valid = (fsm_state == FSM_WAIT_READ) & frsp_valid_i;
+    always_comb begin
+        if (drsp_bypass_valid) begin
+            drsp_data_o = frsp_data_i;
+        end else begin
+            drsp_data_o = sets[dreq_addr_set_id].ways[$clog2(hits)].data;
+        end
+    end
 
 endmodule
