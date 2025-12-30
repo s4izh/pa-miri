@@ -154,19 +154,19 @@ trap_t cosim_execute(cosim_t *soc, decoded_instruction_t *di) {
 			break;
 		case INSTRUCTION_OP_SB:
 			value = soc->hart.gpr[di->rs2] & 0xFF;
-			if (!cosim_dmem_write(soc, soc->hart.gpr[di->rs1] + sext(di->imm, 7), 8, value)) {
+			if (!cosim_dmem_write(soc, soc->hart.gpr[di->rs1] + sext(di->imm, 12), 8, value)) {
 				trap = TRAP_ERR;
 			}
 			break;
 		case INSTRUCTION_OP_SH:
 			value = soc->hart.gpr[di->rs2] & 0xFFFF;
-			if (!cosim_dmem_write(soc, soc->hart.gpr[di->rs1] + sext(di->imm, 7), 16, value)) {
+			if (!cosim_dmem_write(soc, soc->hart.gpr[di->rs1] + sext(di->imm, 12), 16, value)) {
 				trap = TRAP_ERR;
 			}
 			break;
 		case INSTRUCTION_OP_SW:
 			value = soc->hart.gpr[di->rs2];
-			if (!cosim_dmem_write(soc, soc->hart.gpr[di->rs1] + sext(di->imm, 7), 32, value)) {
+			if (!cosim_dmem_write(soc, soc->hart.gpr[di->rs1] + sext(di->imm, 12), 32, value)) {
 				trap = TRAP_ERR;
 			}
 			break;
@@ -177,7 +177,8 @@ trap_t cosim_execute(cosim_t *soc, decoded_instruction_t *di) {
 			soc->hart.gpr[di->rd] = (s_word)soc->hart.gpr[di->rs1] < (s_word)sext(di->imm, 12);
 			break;
 		case INSTRUCTION_OP_SLTIU:
-			soc->hart.gpr[di->rd] = soc->hart.gpr[di->rs1] < di->imm;
+			// soc->hart.gpr[di->rd] = soc->hart.gpr[di->rs1] < di->imm;
+            soc->hart.gpr[di->rd] = soc->hart.gpr[di->rs1] < (word)sext(di->imm, 12);
 			break;
 		case INSTRUCTION_OP_XORI:
 			soc->hart.gpr[di->rd] = soc->hart.gpr[di->rs1] ^ sext(di->imm, 12);

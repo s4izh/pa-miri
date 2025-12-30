@@ -6,31 +6,31 @@ import rv_isa_pkg::*;
 
 module rv_pa3# (
     parameter int XLEN = 32,
-    parameter int IMEM_DLEN = 128,
-    parameter int N_PHY_REG = 32
+    parameter int N_PHY_REG = 32,
+    parameter int WAYS = 4,
+    parameter int SETS = 4,
+    parameter int BITS_CACHELINE = 128
 )(
     input  logic clk,
     input  logic reset_n,
 
-    output logic            imem_valid_o,
-    output logic[XLEN-1:0]  imem_addr_o,
-    input  logic            imem_valid_i,
-    input  logic[IMEM_DLEN-1:0]  imem_data_i,
-    input  trap_t           imem_trap_i,
+    output logic                      imem_valid_o,
+    output logic [XLEN-1:0]           imem_addr_o,
+    input  logic                      imem_valid_i,
+    input  logic [BITS_CACHELINE-1:0] imem_data_i,
 
-    output memop_width_e    dmem_width_o,
-    output logic            dmem_memop_valid_o,
-    output logic[XLEN-1:0]  dmem_addr_o,
-    output logic[XLEN-1:0]  dmem_data_o,
-    output logic            dmem_we_o,
-    input  logic[XLEN-1:0]  dmem_data_i,
-    input  trap_t           dmem_trap_i
+    output logic                      dmem_valid_o,
+    output logic [XLEN-1:0]           dmem_addr_o,
+    output logic [BITS_CACHELINE-1:0] dmem_data_o,
+    output logic                      dmem_we_o,
+    input  logic                      dmem_valid_i,
+    input  logic [BITS_CACHELINE-1:0] dmem_data_i
 );
 
     // pc
     logic [XLEN-1:0] pc;
     // trap control signals
-    logic trap_valid, xcpt_illegal_ins;
+    logic trap_valid, xcpt_illegal_ins, xcpt_icache, xcpt_dcache;
     // branch control
     logic taken_branch;
     // mux selectors
@@ -58,6 +58,12 @@ module rv_pa3# (
     logic [XLEN-1:0] bypass_rs1_2d_data, bypass_rs2_2d_data;
     logic bypass_4m_3e_sel;
 
+    logic waiting_for_memory_4m;
+
+    logic icache_dreq_ready;
+    logic icache_drsp_hit;
+    logic [XLEN-1:0] icache_drsp_data;
+
     // local assigns
     // assign trap_valid =
     //     imem_trap_i.valid |
@@ -73,41 +79,34 @@ module rv_pa3# (
     // we must manually mask with jump_or_branch_3e because a branch should kill the trap
     logic trap_valid_1f, trap_valid_2d, trap_valid_4m;
 
-    assign trap_valid_1f = imem_trap_i.valid & s_1f_d.valid & ~jump_or_branch_3e;
+    assign trap_valid_1f = xcpt_icache & s_1f_d.valid & ~jump_or_branch_3e;
     assign trap_valid_2d = xcpt_illegal_ins & s_1f_q.valid & ~jump_or_branch_3e;
-    assign trap_valid_4m = dmem_trap_i.valid & s_3e_q.valid;
+    assign trap_valid_4m = xcpt_dcache & s_3e_q.valid;
 
-    assign trap_valid = trap_valid_1f | trap_valid_2d | trap_valid_4m ;
+    assign trap_valid = trap_valid_1f | trap_valid_2d | trap_valid_4m;
 
     assign noop_1f  = jump_or_branch_3e | trap_valid;
     assign noop_2d  = jump_or_branch_3e | trap_valid;
     assign noop_3e  = trap_valid_4m;
     assign noop_4m  = trap_valid_4m;
 
-    assign stall_1f = data_hazard | !icache_drsp_hit;
-    assign stall_2d = data_hazard | !icache_drsp_hit;
-    assign stall_3e = (!icache_drsp_hit & jump_or_branch_3e);
-    assign stall_4m = '0;
+    assign stall_1f = waiting_for_memory_4m | ~icache_drsp_hit | data_hazard;
+    assign stall_2d = waiting_for_memory_4m | ~icache_drsp_hit | data_hazard;
+    assign stall_3e = waiting_for_memory_4m | ~icache_drsp_hit;
+    assign stall_4m = waiting_for_memory_4m;
 
-    // dmem if
-    assign dmem_if_in.data = dmem_data_i;
-    assign dmem_if_in.trap = dmem_trap_i;
+    // Data memory interface
+    assign dmem_if_in.valid = dmem_valid_i;
+    assign dmem_if_in.data  = dmem_data_i;
 
-    assign dmem_memop_valid_o = dmem_if_out.valid;
-    assign dmem_we_o          = dmem_if_out.we;
-    assign dmem_addr_o        = dmem_if_out.addr;
-    assign dmem_data_o        = dmem_if_out.data;
-    assign dmem_width_o       = dmem_if_out.width;
+    assign dmem_valid_o = dmem_if_out.valid;
+    assign dmem_we_o    = dmem_if_out.we;
+    assign dmem_addr_o  = dmem_if_out.addr;
+    assign dmem_data_o  = dmem_if_out.data;
 
     // =========================================================================
     // = Stage 1: Fetch
     // =========================================================================
-    localparam int ICACHE_WAYS = 4;
-    localparam int ICACHE_SETS = 4;
-    localparam int ICACHE_BITS_CACHELINE = 128;
-    logic icache_dreq_ready;
-    logic icache_drsp_hit, icache_drsp_xcpt;
-    logic [XLEN-1:0] icache_drsp_data;
     // pc
     always @(posedge clk) begin
         if (!reset_n) begin
@@ -137,9 +136,9 @@ module rv_pa3# (
 
     icache #(
         .XLEN(XLEN),
-        .WAYS(ICACHE_WAYS),
-        .SETS(ICACHE_SETS),
-        .BITS_CACHELINE(ICACHE_BITS_CACHELINE)
+        .WAYS(WAYS),
+        .SETS(SETS),
+        .BITS_CACHELINE(BITS_CACHELINE)
     ) icache_inst (
         .clk,
         .reset_n,
@@ -150,14 +149,13 @@ module rv_pa3# (
         // Data rsp
         .drsp_hit_o(icache_drsp_hit),
         .drsp_data_o(icache_drsp_data),
-        .drsp_xcpt_o(icache_drsp_xcpt),
+        .drsp_xcpt_o(xcpt_icache),
         // Fill req
         .freq_valid_o(imem_valid_o),
         .freq_addr_o(imem_addr_o),
         // Fill rsp
         .frsp_valid_i(imem_valid_i),
         .frsp_data_i(imem_data_i)
-        // MISSING: imem_trap_i
     );
 
     // pipeline
@@ -259,7 +257,10 @@ module rv_pa3# (
     // = Stage 4: Memory
     // =========================================================================
     stage_4m #(
-        .XLEN(XLEN)
+        .XLEN(XLEN),
+        .WAYS(WAYS),
+        .SETS(SETS),
+        .BITS_CACHELINE(BITS_CACHELINE)
     ) stage_4m_inst (
         .clk,
         .reset_n,
@@ -270,7 +271,10 @@ module rv_pa3# (
         .dmem_o(dmem_if_out),
         .dmem_i(dmem_if_in),
         // Trap
-        .noop_i(noop_4m)
+        .noop_i(noop_4m),
+        .stall_i(stall_4m),
+        .waiting_for_memory_o(waiting_for_memory_4m),
+        .dcache_xcpt_o(xcpt_dcache)
     );
 
     decoupling_reg #(

@@ -43,7 +43,7 @@ asm: $(ASM_FILE)
 $(ROM_HEX_FILE): $(ELF_FILE) | docker-image-build
 	@echo "Converting ELF to intermediate HEX (ROM)..."
 	@mkdir -p $(dir $@)
-	$(OBJCOPY) -O verilog --verilog-data-width 4 --only-section=.text* $< $(BUILD_DIR)/$(TARGET).tmp.hex
+	$(OBJCOPY) -O verilog --verilog-data-width 16 --only-section=.text* $< $(BUILD_DIR)/$(TARGET).tmp.hex
 	@echo "Formatting final ROM.HEX file..."
 	@cat $(BUILD_DIR)/$(TARGET).tmp.hex | tr ' ' '\n' | tr -d '\r' > $@
 	@rm -f $(BUILD_DIR)/$(TARGET).tmp.hex
@@ -51,7 +51,7 @@ $(ROM_HEX_FILE): $(ELF_FILE) | docker-image-build
 $(SRAM_HEX_FILE): $(ELF_FILE) | docker-image-build
 	@echo "Converting ELF to intermediate HEX (SRAM)..."
 	@mkdir -p $(dir $@)
-	$(OBJCOPY) -O verilog --verilog-data-width 4 --only-section=.data* --only-section=.sdata* --only-section=.bss* --only-section=.sbss* $< $(BUILD_DIR)/$(TARGET).tmp.hex
+	$(OBJCOPY) -O verilog --verilog-data-width 16 --only-section=.data* --only-section=.sdata* --only-section=.bss* --only-section=.sbss* $< $(BUILD_DIR)/$(TARGET).tmp.hex
 	@echo "Formatting final SRAM.HEX file..."
 	@cat $(BUILD_DIR)/$(TARGET).tmp.hex | tr ' ' '\n' | tr -d '\r' > $@
 	@rm -f $(BUILD_DIR)/$(TARGET).tmp.hex
