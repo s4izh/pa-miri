@@ -184,8 +184,36 @@ to stop using it altogether, and rely on Verilator and Modelsim.
 
 ## RISC-V Processor Architecture assignment 3 (rv_pa3)
 ### 1.1 ISA
+Exact same RV32I subset as in *rv_pa2*.
+
 ### 1.2 uArch
 ### 1.3 Verification
+The verification environment for this deliverable has changed quite a bit.
+A new type of testbench called `rv_pa3.cosim` enables cosimulation through the
+DPI-C calling convention for executing binaries in simulation. The code of
+the reference model can be seen in directory `cosim/`. This new testbench
+initializes de cpp golden model with the same parameters as the RTL. The
+cosimulator is then single stepped at ISA level (just like a single cycle hart,
+such as `rv_pa1`) and the results are compared with the ones produced by the RTL
+(program counter, instruction word, and destination register value). This
+process is repeated every time an instruction completes. If the end of the
+program (write to `tohost`) is reached without any mismatches, the test is
+considered as "passed".
+
+Even with the limited uArch visibility that the ISA-level simulation provides,
+this testbench has been crucial in the verification of this deliverable, as it
+stops simulation as soon as a mismatch is found. This allows us to write tests
+that do not need to check themselves with potentially-faulty instructions. Not
+all behaviours of the uArch are captured in the reference model; however
+comparing the instruction's results is enough of a check for us to assert that
+the core follows the ISA.
+
+We also considered an open source Instruction Set Simulator (ISS) such as Spike
+or Dromajo. We ended gravitating towards developing our own because of code
+familiarity, and nuances of this project that don't follow the ISA religiously
+(severed instruction and data memories, lack of CSRs, uncomplete support of
+RV32I instructions, amongst others). Therefore, a tailor-made solution like
+ours is much more fitting for this particular instance.
 
 ## RISC-V Processor Architecture Final assignment (rv_paf)
 ### 1.1 ISA
