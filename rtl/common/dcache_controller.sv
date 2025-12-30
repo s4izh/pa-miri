@@ -1,6 +1,6 @@
 import memory_controller_pkg::*;
 
-module cache_controller #(
+module dcache_controller #(
     parameter int XLEN = 32,
     parameter int BITS_CACHELINE = 128
 ) (

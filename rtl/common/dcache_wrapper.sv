@@ -39,7 +39,7 @@ module dcache_wrapper #(
     logic                      creq_we;
     logic [BITS_CACHELINE-1:0] crsp_data;
 
-    cache_controller #(
+    dcache_controller #(
         .XLEN(XLEN),
         .BITS_CACHELINE(BITS_CACHELINE)
     ) dcache_ctrl_inst (
