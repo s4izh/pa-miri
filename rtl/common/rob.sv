@@ -1,10 +1,9 @@
 // https://www.youtube.com/watch?v=9yo3yhUijQs
+import rob_pkg::*;
 
 module rob #(
     parameter int XLEN = 32,
-    parameter int N_ENTRIES = 8,
-
-    parameter type rob_id_t = logic[$clog2(N_ENTRIES)-1:0]
+    parameter int N_ENTRIES = 8
 ) (
     input logic clk,
     input logic reset_n,
@@ -38,20 +37,16 @@ module rob #(
     // Define a type for reorder buffer
 
     typedef struct packed {
-        logic               valid;
-        logic [XLEN-1:0]    pc;
+        // Set at issue time
+        logic [XLEN-1:0] pc;
+        logic            rd_we;
+        logic [4:0]      rd_addr;
+        logic            is_st;
 
-        logic               rd_we;
-        logic [4:0]         rd_addr;
-        logic               rd_data_valid;
-        logic [XLEN-1:0]    rd_data;
-
-        logic               st_we;
-        logic               st_addr_valid;
-        logic [XLEN-1:0]    st_addr;
-        logic [XLEN-1:0]    st_data;
-        // valid bits for reg/data + control bits
-        logic               xcpt;
+        // Set at complete time
+        logic            complete;
+        logic [XLEN-1:0] result;
+        logic            xcpt;
     } rob_entry_t;
 
     // Tail points to the youngest entry
@@ -65,9 +60,12 @@ module rob #(
     //    | rob_id 6 |
     //    | rob_id 7 | <- tail
     //      ........
+    rob_id_t next_tail;
+    assign next_tail = tail + 1;
     rob_id_t tail, head;
     rob_entry_t [N_ENTRIES-1:0] entries;
 
+    // TODO: FSM (?)
     // Write to entries and control head and tail
     always @(posedge clk) begin
         if (!reset_n) begin
@@ -77,41 +75,40 @@ module rob #(
             if (issue_valid_i) begin
                 // Increase the tail pointer, and offer the new rob_id to the
                 // newly issued instruction
-                entries[tail].pc            <= issue_pc_i;
-                entries[tail].rd_we         <= issue_rd_we_i;
-                entries[tail].rd_addr       <= issue_rd_addr_i;
-                entries[tail].rd_data_valid <= 0;
-                entries[tail].st_we         <= issue_st_we_i;
-                entries[tail].xcpt          <= 0;
-                issue_robid_valid_o         <= 1;
-                issue_robid_o               <= tail;
-                tail                        <= tail + 1;
-            end else begin
-                issue_robid_valid_o         <= 0;
+                entries[tail].pc       <= issue_pc_i;
+                entries[tail].rd_we    <= issue_rd_we_i;
+                entries[tail].rd_addr  <= issue_rd_addr_i;
+                entries[tail].is_st    <= issue_st_we_i;
+                entries[tail].complete <= 0;
+                // entries[tail].result   <= '0;
+                entries[tail].xcpt     <= 0;
+
+                tail                   <= next_tail;
             end
 
             if (complete_valid_i) begin
                 // Find the entry completed and mark it as so in the
                 // corresponding rob entry
                 // TOCHECK: complete_rob_id_i should be between tail and head
-                entries[complete_rob_id_i].rd_data_valid    <= 1;
-                entries[complete_rob_id_i].rd_data          <= complete_rd_data_i;
+                entries[complete_rob_id_i].complete <= 1;
+                entries[complete_rob_id_i].result   <= complete_rd_data_i;
             end
 
-            if (entries[head].rd_data_valid) begin
+            if (entries[head].complete) begin
                 // An instruction has finished. We commit and write to the RF
-                commit_we_o         <= entries[head].rd_we;
-                commit_rd_addr_o    <= entries[head].rd_addr;
-                commit_rd_data_o    <= entries[head].rd_data;
-                entries[head].valid <= 0;
-                head                <= head + 1;
+                commit_we_o      <= entries[head].rd_we;
+                commit_rd_addr_o <= entries[head].rd_addr;
+                commit_rd_data_o <= entries[head].result;
+                head             <= head + 1;
             end else begin
-                commit_we_o         <= 0;
+                commit_we_o      <= 0;
             end
 
             // TODO: CAM lookup for younger instructions to use my value
         end
     end
 
+    assign issue_robid_o       = tail;
+    assign issue_robid_valid_o = issue_valid_i; // & ~full;
 
 endmodule

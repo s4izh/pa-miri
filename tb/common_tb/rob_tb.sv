@@ -1,3 +1,4 @@
+import rob_pkg::*;
 // This module is instantiated by the top_tb_wrapper
 module tb (
     input logic clk,
@@ -38,7 +39,7 @@ module tb (
     initial begin
         noop();
         @(posedge reset_n);
-        @(posedge clk);
+        repeat(4) @(posedge clk);
 
         test_directed();
 
@@ -54,11 +55,11 @@ module tb (
     task test_directed();
         rob_id_t robid1, robid2;
         issue('h80000000, 2);
-        @(posedge clk);
         robid1 = issue_robid_o;
-        issue('h80000004, 3);
         @(posedge clk);
+        issue('h80000004, 3);
         robid2 = issue_robid_o;
+        @(posedge clk);
         noop();
         @(posedge clk);
         @(posedge clk);
@@ -70,11 +71,11 @@ module tb (
         @(posedge clk);
         @(posedge clk);
         issue('h80000008, 8);
-        @(posedge clk);
         robid1 = issue_robid_o;
-        issue('h8000000c, 13);
         @(posedge clk);
+        issue('h8000000c, 13);
         robid2 = issue_robid_o;
+        @(posedge clk);
         noop();
         @(posedge clk);
         @(posedge clk);
