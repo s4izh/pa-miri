@@ -36,13 +36,13 @@ module tb (
 
     // Test sequence
     initial begin
-        noop(issue_valid_i, complete_valid_i);
+        noop();
         @(posedge reset_n);
         @(posedge clk);
 
         test_directed();
 
-        noop(issue_valid_i, complete_valid_i);
+        noop();
         @(posedge clk);
         $finish;
     end
@@ -53,44 +53,36 @@ module tb (
 
     task test_directed();
         rob_id_t robid1, robid2;
-        issue('h80000000, 2,
-            issue_valid_i, issue_pc_i, issue_rd_we_i, issue_rd_addr_i, issue_st_we_i, issue_st_data_i);
+        issue('h80000000, 2);
         @(posedge clk);
         robid1 = issue_robid_o;
-        issue('h80000004, 3,
-            issue_valid_i, issue_pc_i, issue_rd_we_i, issue_rd_addr_i, issue_st_we_i, issue_st_data_i);
+        issue('h80000004, 3);
         @(posedge clk);
         robid2 = issue_robid_o;
-        noop(issue_valid_i, complete_valid_i);
+        noop();
         @(posedge clk);
         @(posedge clk);
-        complete(robid2, 'hcafecafe,
-            complete_valid_i, complete_rob_id_i, complete_rd_data_i);
+        complete(robid2, 'hcafecafe);
         @(posedge clk);
-        complete(robid1, 'hfe0fe0fe,
-            complete_valid_i, complete_rob_id_i, complete_rd_data_i);
+        complete(robid1, 'hfe0fe0fe);
         @(posedge clk);
-        noop(issue_valid_i, complete_valid_i);
+        noop();
         @(posedge clk);
         @(posedge clk);
-        issue('h80000000, 8,
-            issue_valid_i, issue_pc_i, issue_rd_we_i, issue_rd_addr_i, issue_st_we_i, issue_st_data_i);
+        issue('h80000008, 8);
         @(posedge clk);
         robid1 = issue_robid_o;
-        issue('h80000004, 13,
-            issue_valid_i, issue_pc_i, issue_rd_we_i, issue_rd_addr_i, issue_st_we_i, issue_st_data_i);
+        issue('h8000000c, 13);
         @(posedge clk);
         robid2 = issue_robid_o;
-        noop(issue_valid_i, complete_valid_i);
+        noop();
         @(posedge clk);
         @(posedge clk);
-        complete(robid2, 'hcafecafe,
-            complete_valid_i, complete_rob_id_i, complete_rd_data_i);
+        complete(robid2, 'hbeefbeef);
         @(posedge clk);
-        complete(robid1, 'hfe0fe0fe,
-            complete_valid_i, complete_rob_id_i, complete_rd_data_i);
+        complete(robid1, 'hdeaddead);
         @(posedge clk);
-        noop(issue_valid_i, complete_valid_i);
+        noop();
         @(posedge clk);
         @(posedge clk);
     endtask
@@ -98,14 +90,6 @@ module tb (
     task issue (
         input logic[XLEN-1:0] pc,
         input logic[4:0] rd,
-
-        // output robid_t robid;
-        output logic            issue_valid_i,
-        output logic [XLEN-1:0] issue_pc_i,
-        output logic            issue_rd_we_i,
-        output logic [4:0]      issue_rd_addr_i,
-        output logic            issue_st_we_i,
-        output logic [XLEN-1:0] issue_st_data_i
     );
         issue_valid_i       = 1;
         issue_pc_i          = pc;
@@ -117,20 +101,13 @@ module tb (
     task complete (
         input rob_id_t robid,
         input logic[XLEN-1:0] result,
-
-        output logic            complete_valid_i,
-        output rob_id_t         complete_rob_id_i,
-        output logic [XLEN-1:0] complete_rd_data_i
     );
         complete_valid_i    = 1;
         complete_rob_id_i   = robid;
         complete_rd_data_i  = result;
     endtask
 
-    task noop (
-        output logic issue_valid_i,
-        output logic complete_valid_i
-    );
+    task noop ();
         issue_valid_i = 0;
         complete_valid_i = 0;
     endtask
