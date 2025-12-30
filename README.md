@@ -187,6 +187,42 @@ to stop using it altogether, and rely on Verilator and Modelsim.
 Exact same RV32I subset as in *rv_pa2*.
 
 ### 1.2 uArch
+The missing bypass for instructions that do not use stage execute, and depend
+on a load has been implemented this time around.
+
+- M->E
+
+This bypass is really useful when a store is right behind a load that produces
+the register value that the store will send to memory (memcpy).
+
+With respect to the caches, we designed two (data and instructions) with a
+similar architecture. We divided the caches between a simple front-end
+(`Xcache_controller`), and an engine (`Xcache`), threaded together in a single
+module (`Xcache_wrapper`). The front-end is responsible for detecting
+exceptions, and notifying the requester, without affecting the underlying
+engine. The controller communicates only valid requests to the engine, and
+supplies the data aligned with the cache-line size (128b). When a read request
+produces it's result, the controller aligns the data back to the width that the
+requester supplied (32b, 16b, 8b). The engine is a Mealy state machine that
+stays on state IDLE as long as read hits are requested. When there is a load
+miss, or a write hit, or a write miss, we jump to a series of states that
+interact with memory to fill the line that we need.
+
+<!-- dcache -->
+We implemented 4-way set-associative data cache with 4 sets and 128-bit
+cache-lines. It uses 2 bits from the address to select the set and employs a
+FIFO replacement policy when a set is full. The store policy is write-through
+and write-allocate. A four-state FSM manages the timing, using a valid-ready
+handshake to stall the core while waiting for slow memory responses. It
+features a combinational bypass that delivers data from memory directly to the
+core on the same cycle it arrives, minimizing the latency of a cache miss.
+
+<!-- icache -->
+The icache does the exact same as the dcache, but without all of the write logic.
+Therefore, the FSM has 2 states instead of 4.
+
+
+
 ### 1.3 Verification
 The verification environment for this deliverable has changed quite a bit.
 A new type of testbench called `rv_pa3.cosim` enables cosimulation through the
@@ -215,7 +251,7 @@ familiarity, and nuances of this project that don't follow the ISA religiously
 RV32I instructions, amongst others). Therefore, a tailor-made solution like
 ours is much more fitting for this particular instance.
 
-## RISC-V Processor Architecture Final assignment (rv_paf)
+## RISC-V Processor Architecture Final assignment (Gandul Lentium)
 ### 1.1 ISA
 ### 1.2 uArch
 ### 1.3 Verification
