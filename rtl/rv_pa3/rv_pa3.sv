@@ -61,7 +61,6 @@ module rv_pa3# (
     logic waiting_for_memory_4m;
 
     logic icache_dreq_ready;
-    logic icache_drsp_hit;
     logic [XLEN-1:0] icache_drsp_data;
 
     // local assigns
@@ -90,9 +89,9 @@ module rv_pa3# (
     assign noop_3e  = trap_valid_4m;
     assign noop_4m  = trap_valid_4m;
 
-    assign stall_1f = waiting_for_memory_4m | ~icache_drsp_hit | data_hazard;
-    assign stall_2d = waiting_for_memory_4m | ~icache_drsp_hit | data_hazard;
-    assign stall_3e = waiting_for_memory_4m | ~icache_drsp_hit;
+    assign stall_1f = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard;
+    assign stall_2d = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard;
+    assign stall_3e = waiting_for_memory_4m | ~icache_dreq_ready;
     assign stall_4m = waiting_for_memory_4m;
 
     // Data memory interface
@@ -134,7 +133,7 @@ module rv_pa3# (
         end
     end
 
-    icache #(
+    icache_wrapper #(
         .XLEN(XLEN),
         .WAYS(WAYS),
         .SETS(SETS),
@@ -146,8 +145,8 @@ module rv_pa3# (
         .dreq_valid_i(reset_n & !(trap_valid_2d | trap_valid_4m)),
         .dreq_ready_o(icache_dreq_ready),
         .dreq_addr_i(pc),
+        .dreq_width_i(MEMOP_WIDTH_32),
         // Data rsp
-        .drsp_hit_o(icache_drsp_hit),
         .drsp_data_o(icache_drsp_data),
         .drsp_xcpt_o(xcpt_icache),
         // Fill req
@@ -159,10 +158,10 @@ module rv_pa3# (
     );
 
     // pipeline
-    assign s_1f_d.valid = icache_drsp_hit;
+    assign s_1f_d.valid = icache_dreq_ready;
     assign s_1f_d.pc = pc;
     always_comb begin
-        if (noop_1f | stall_1f | !(icache_drsp_hit)) begin
+        if (noop_1f | stall_1f | !(icache_dreq_ready)) begin
             s_1f_d.ins = 32'h00000033; // noop (add x0, x0, x0)
         end else begin
             s_1f_d.ins = icache_drsp_data;
