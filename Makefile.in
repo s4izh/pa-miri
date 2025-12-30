@@ -31,7 +31,7 @@ $(info --- END DEBUG ---)
 WAVE_VIEWER ?= gtkwave
 SAVE_FILE   ?= $(PROJ_DIR)/savefile.gtkw
 
-COMPILED_COSIM  ?= $(PROJ_DIR)/cosim/cosim_dpi.a
+COMPILED_COSIM  ?= $(BUILD_DIR)/cosim_dpi.a
 
 all: simulate
 

@@ -53,9 +53,10 @@ if [[ $1 == "test" ]]; then
   cd "$TOP_LEVEL_DIR" || exit 1
 
   source set_env.sh
-  ./tools/regression --sim vsim
-  ./tools/regression --sim verilator
+  ./tools/regression --sim vsim --test rv_pa3.anyrom
+  ./tools/regression --sim verilator --test rv_pa3.cosim
   # ./tools/regression --sim iverilog
+  cd ..
   sudo rm -rf "$TOP_LEVEL_DIR"
 else
   echo ""

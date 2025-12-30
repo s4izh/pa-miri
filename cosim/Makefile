@@ -15,9 +15,9 @@ TARGETS = ${RVE_TARGETS} ${COSIM_TARGETS}
 
 
 # all: cosim_dpi.a cosim_dpi.so
-all: cosim_dpi.a
+all: ${BUILD_DIR}/cosim_dpi.a
 
-cosim_dpi.a: ${TARGETS}
+${BUILD_DIR}/cosim_dpi.a: ${TARGETS}
 	$(AR) $(ARFLAGS) $@ $^
 
 ${BUILD_DIR}/%.o: %.cpp
