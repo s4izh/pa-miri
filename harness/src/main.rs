@@ -6,7 +6,8 @@ mod hw;
 mod sim;
 mod cli;
 mod analysis;
-mod discovery;
+mod lua_engine;
+// mod discovery;
 
 use crate::core::*;
 use std::collections::{HashMap,BTreeMap};
@@ -16,40 +17,42 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use regex::Regex;
 
-use crate::cli::{Cli, Commands, ActionArgs};
+// use colored::Colorize;
+
+use crate::cli::{Cli, Commands};
 use crate::core::Config;
 
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
-    let proj_root: PathBuf = std::env::var("PROJ_DIR")?.into();
+    let proj_root: PathBuf = std::env::var("PROJ_DIR")
+        .map_err(|_| anyhow::anyhow!("PROJ_DIR environment variable not set"))?
+        .into();
 
-    let (config, silo) = setup_config(&proj_root)?;
+    let lua_path = proj_root.join("harness.lua");
+    let (config, silo) = if !lua_path.exists() {
+        setup_config(&proj_root)?
+    }
+    else {
+        let config = lua_engine::load_config(&lua_path)?;
+        let build_dir = config.build_dir.clone();
+        (config, silo::SiloResolver::new(build_dir.into()))
+    };
 
     match &cli.command {
         Commands::Gen => {
             println!("Discovering targets...");
-            let (all_hw, all_sw, all_sim) = resolve_all_jobs(&config, &silo)?;
-            
-            let ninja_str = ninja::generate(&config, &all_hw, &all_sw, &all_sim);
             let ninja_path = proj_root.join("build.ninja");
-            
-            std::fs::write(&ninja_path, ninja_str)?;
+            let (sh, hw, sw, sim) = resolve_all_jobs(&config, &silo)?;
+            std::fs::write(&ninja_path, ninja::generate(&config, &sh, &hw, &sw, &sim))?;
             println!("Ninja file generated at: {}", ninja_path.display());
-            println!("   Total HW targets:  {}", all_hw.len());
-            println!("   Total SW targets:  {}", all_sw.len());
-            println!("   Total Sim targets: {}", all_sim.len());
         }
-        cli::Commands::Completions { shell } => {
-            let mut cmd = cli::Cli::command();
-            let name = cmd.get_name().to_string();
-            clap_complete::generate(*shell, &mut cmd, name, &mut std::io::stdout());
-        }
+
         cli::Commands::List => {
-            let (all_hw, all_sw, _) = resolve_all_jobs(&config, &silo)?;
+            let (_, all_hw, all_sw, _) = resolve_all_jobs(&config, &silo)?;
             println!("\n--- Hardware Configurations ---");
             for h in all_hw {
-                println!("  - {:<15} (Variant: {:<10}, Sim: {})", h.processor, h.variant, h.simulator);
+                println!("  - {:<20} (Params: {:<10}, Sim: {})", h.testbench, h.param_set, h.simulator);
             }
             println!("\n--- Software Suites ---");
             for s in all_sw {
@@ -57,86 +60,139 @@ fn main() -> anyhow::Result<()> {
             }
         }
 
-        cli::Commands::Clean => {
-            let build_dir = proj_root.join(&silo.root);
-            if build_dir.exists() {
-                std::fs::remove_dir_all(&build_dir)?;
-                println!("Cleaned {}", build_dir.display());
-            }
-            let _ = std::fs::remove_file(proj_root.join("build.ninja"));
-        }
+        cli::Commands::Simulate(args) | cli::Commands::Compile(args) | cli::Commands::Analyze(args) => {
+            let (all_sh, all_hw, all_sw, all_sim) = resolve_all_jobs(&config, &silo)?;
 
-        cli::Commands::Compile(args) | cli::Commands::Simulate(args) => {
-            let (all_hw, all_sw, all_sim) = resolve_all_jobs(&config, &silo)?;
-            
-            let ninja_str = ninja::generate(&config, &all_hw, &all_sw, &all_sim);
-            std::fs::write(proj_root.join("build.ninja"), ninja_str)?;
-
-            let test_re = Regex::new(args.test.as_deref().unwrap_or(".*"))
-                .map_err(|e| anyhow::anyhow!("Invalid Test Regex: {}", e))?;
-            let hw_re = Regex::new(args.hw.as_deref().unwrap_or(".*"))
-                .map_err(|e| anyhow::anyhow!("Invalid HW Regex: {}", e))?;
-            let sim_re = Regex::new(args.sim.as_deref().unwrap_or(".*"))
-                .map_err(|e| anyhow::anyhow!("Invalid Sim Regex: {}", e))?;
-
-            let mut targets = Vec::new();
-
-            if matches!(cli.command, Commands::Simulate(_)) {
-                for s in all_sim {
-                    let path_str = s.silo_dir.to_string_lossy();
-                    
-                    if hw_re.is_match(&path_str) && 
-                       test_re.is_match(&path_str) && 
-                       sim_re.is_match(&path_str) 
-                    {
-                        targets.push(s.silo_dir.join("sim.log").to_string_lossy().to_string());
-                    }
+            let exp_name = match &args.experiment {
+                Some(name) => name,
+                None => {
+                    println!("Available Experiments:");
+                    for b in &config.experiments { println!("  - {}", b.name); }
+                    return Ok(());
                 }
-            } else {
-                for h in all_hw {
-                    if hw_re.is_match(&h.processor) && sim_re.is_match(&h.simulator) {
-                         for path in h.artifact_paths.values() {
-                            targets.push(path.to_string_lossy().to_string());
+            };
+            let target_exp = config.experiments.iter().find(|b| &b.name == exp_name)
+                .ok_or_else(|| anyhow::anyhow!("Experiment '{}' not found.", exp_name))?;
+
+            let sw_re = Regex::new(args.sw.as_deref().unwrap_or(".*"))?; // Searchable
+            let hw_filter = &args.hw;  // Categorical (Exact)
+            let sim_filter = &args.sim; // Categorical (Exact)
+
+            match &cli.command {
+                Commands::Simulate(args) | Commands::Analyze(args) => {
+                    let mut targets = Vec::new();
+                    for s in all_sim.iter().filter(|s| &s.experiment == exp_name) {
+                        let match_hw = hw_filter.as_ref().map_or(true, |f| s.hw_id.contains(f)); 
+                        let match_sim = sim_filter.as_ref().map_or(true, |f| s.silo_dir.to_string_lossy().contains(f));
+                        let match_sw = sw_re.is_match(&s.silo_dir.to_string_lossy());
+
+                        if match_hw && match_sim && match_sw {
+                            targets.push(s.silo_dir.join("sim.log").to_string_lossy().to_string());
                         }
                     }
+
+                    if matches!(cli.command, Commands::Simulate(_)) && !targets.is_empty() {
+                        let ninja_str = ninja::generate(&config, &all_sh, &all_hw, &all_sw, &all_sim);
+                        std::fs::write(proj_root.join("build.ninja"), ninja_str)?;
+                        let _ = run_ninja(&proj_root, &targets, true);
+                    }
+                    analysis::run_analysis(&proj_root, &targets, args.baseline.as_deref())?;
+                }
+
+                Commands::Compile(_) => {
+                    let mut hw_targets = std::collections::HashSet::new();
+                    let mut sw_targets = std::collections::HashSet::new();
+
+                    // hardware filtering (exact)
+                    for h in &all_hw {
+                        let is_for_exp = h.testbench == target_exp.testbench && target_exp.param_sets.contains(&h.param_set);
+                        let is_hw_match = hw_filter.as_ref().map_or(true, |f| &h.param_set == f);
+                        let is_sim_match = sim_filter.as_ref().map_or(true, |f| &h.simulator == f);
+
+                        if is_for_exp && is_hw_match && is_sim_match {
+                            for path in h.artifact_paths.values() {
+                                hw_targets.insert(path.to_string_lossy().to_string());
+                            }
+                        }
+                    }
+
+                    // software filtering (searchable regex)
+                    for suite_name in &target_exp.suites {
+                        for sw_job in all_sw.iter().filter(|j| &j.suite_name == suite_name) {
+                            if sw_re.is_match(&sw_job.rel_path.to_string_lossy()) {
+                                for path in sw_job.artifacts.values() {
+                                    sw_targets.insert(path.to_string_lossy().to_string());
+                                }
+                            }
+                        }
+                    }
+
+                    let final_targets: Vec<String> = hw_targets.into_iter().chain(sw_targets).collect();
+                    if !final_targets.is_empty() {
+                        let ninja_str = ninja::generate(&config, &all_sh, &all_hw, &all_sw, &all_sim);
+                        std::fs::write(proj_root.join("build.ninja"), ninja_str)?;
+                        let _ = run_ninja(&proj_root, &final_targets, false);
+                    }
+                }
+                _ => unreachable!()
+            }
+        }
+
+        cli::Commands::Clean(args) => {
+            let build_root = proj_root.join(&silo.root);
+            let has_any_filter = args.experiment.is_some() || args.hw.is_some() || args.sw.is_some() || args.sim.is_some();
+
+            if !has_any_filter {
+                if build_root.exists() { std::fs::remove_dir_all(&build_root)?; }
+                let _ = std::fs::remove_file(proj_root.join("build.ninja"));
+                println!("Full clean complete.");
+                return Ok(());
+            }
+
+            let (all_sh, all_hw, all_sw, all_sim) = resolve_all_jobs(&config, &silo)?;
+            let sw_re = Regex::new(args.sw.as_deref().unwrap_or(".*"))?;
+
+            // clean simulations (experiment exact)
+            for s in all_sim {
+                let match_exp = args.experiment.as_ref().map_or(true, |f| &s.experiment == f);
+                let match_sw = sw_re.is_match(&s.silo_dir.to_string_lossy());
+                let match_hw = args.hw.as_ref().map_or(true, |f| s.silo_dir.to_string_lossy().contains(f));
+
+                if match_exp && match_sw && match_hw && s.silo_dir.exists() {
+                    std::fs::remove_dir_all(&s.silo_dir)?;
                 }
             }
 
-            // let targets = if matches!(cli.command, cli::Commands::Compile(_)) {
-            //     all_hw.iter()
-            //         .filter(|h| {
-            //             args.hw.as_ref().map_or(true, |f| h.processor.contains(f)) &&
-            //             args.sim.as_ref().map_or(true, |f| h.simulator.contains(f))
-            //         })
-            //         .flat_map(|h| h.artifact_paths.values())
-            //         .map(|p| p.to_string_lossy().to_string())
-            //         .collect::<Vec<_>>()
-            // } else {
-            //     all_sim.iter()
-            //         .filter(|s| {
-            //             let path = s.silo_dir.to_string_lossy();
-            //             args.hw.as_ref().map_or(true, |f| path.contains(f)) &&
-            //             args.sim.as_ref().map_or(true, |f| path.contains(f)) &&
-            //             args.test.as_ref().map_or(true, |f| path.contains(f))
-            //         })
-            //         .map(|s| s.silo_dir.join("sim.log").to_string_lossy().to_string())
-            //         .collect::<Vec<_>>()
-            // };
-
-            if targets.is_empty() {
-                println!("No targets matched your filter.");
-            } else {
-                println!("Launching Ninja for {} target(s)...", targets.len());
-                let ninja_ok = run_ninja(&proj_root, &targets).is_ok();
-                
-                if matches!(cli.command, cli::Commands::Simulate(_)) {
-                    analysis::run_analysis(&proj_root, &targets)?;
+            // clean software (suite/program searchable)
+            if args.sw.is_some() {
+                for suite_name in config.suites.keys() {
+                    if sw_re.is_match(suite_name) {
+                        let suite_dir = build_root.join("sw").join(suite_name);
+                        if suite_dir.exists() { std::fs::remove_dir_all(&suite_dir)?; }
+                    }
                 }
-
-                if !ninja_ok {
-                    std::process::exit(1);
+                for sw_job in all_sw {
+                    if sw_re.is_match(&sw_job.rel_path.to_string_lossy()) {
+                        let sw_silo = silo.sw_dir(&sw_job.suite_name, &sw_job.rel_path);
+                        if sw_silo.exists() { std::fs::remove_dir_all(&sw_silo)?; }
+                    }
                 }
             }
+
+            // clean hardware (exact)
+            for h in all_hw {
+                let match_hw = args.hw.as_ref().map_or(true, |f| &h.param_set == f);
+                let match_sim = args.sim.as_ref().map_or(true, |f| &h.simulator == f);
+                if match_hw && match_sim && h.silo_dir.exists() {
+                    std::fs::remove_dir_all(&h.silo_dir)?;
+                }
+            }
+        }
+
+        cli::Commands::Completions { shell } => {
+            let mut cmd = cli::Cli::command();
+            let name = cmd.get_name().to_string();
+            clap_complete::generate(*shell, &mut cmd, name, &mut std::io::stdout());
         }
     }
 
@@ -154,66 +210,62 @@ fn detect_proj_root() -> Option<PathBuf> {
     None
 }
 
-fn run_ninja(root: &Path, targets: &[String]) -> anyhow::Result<()> {
-    let status = Command::new("ninja")
-        .current_dir(root)
-        .args(targets)
-        .status()?;
-    if !status.success() {
-        anyhow::bail!("Ninja failed to complete build.");
+// fn run_ninja(root: &Path, targets: &[String]) -> anyhow::Result<()> {
+//     let status = Command::new("ninja")
+//         .current_dir(root)
+//         .args(targets)
+//         .status()?;
+//     if !status.success() {
+//         anyhow::bail!("Ninja failed to complete build.");
+//     }
+//     Ok(())
+// }
+
+fn run_ninja(root: &Path, targets: &[String], keep_going: bool) -> anyhow::Result<()> {
+    let mut cmd = Command::new("ninja");
+    cmd.current_dir(root).args(targets);
+
+    if keep_going {
+        cmd.arg("-k").arg("0"); // Tell Ninja to keep going even if one sim fails
+    }
+
+    let status = cmd.status()?;
+    if !status.success() && !keep_going {
+        anyhow::bail!("Ninja failed.");
     }
     Ok(())
 }
 
-fn filter_hardware_targets(jobs: &[hw::HardwareJob], args: &ActionArgs) -> Vec<String> {
-    jobs.iter()
-        .filter(|j| args.hw.as_ref().map_or(true, |f| j.processor.contains(f) || j.variant.contains(f)))
-        .filter(|j| args.sim.as_ref().map_or(true, |f| j.simulator.contains(f)))
-        .flat_map(|j| j.artifact_paths.values())
-        .map(|p| p.to_string_lossy().to_string())
-        .collect()
-}
-
-fn filter_simulation_targets(jobs: &[sim::SimJob], args: &ActionArgs) -> Vec<String> {
-    jobs.iter()
-        .filter(|j| {
-            let path = j.silo_dir.to_string_lossy();
-            let hw_ok = args.hw.as_ref().map_or(true, |f| path.contains(f));
-            let sim_ok = args.sim.as_ref().map_or(true, |f| path.contains(f));
-            let test_ok = args.test.as_ref().map_or(true, |f| path.contains(f));
-            hw_ok && sim_ok && test_ok
-        })
-        .map(|j| j.silo_dir.join("sim.log").to_string_lossy().to_string())
-        .collect()
-}
-
 fn resolve_all_jobs(config: &Config, silo: &silo::SiloResolver) 
-    -> anyhow::Result<(Vec<hw::HardwareJob>, Vec<sw::SoftwareJob>, Vec<sim::SimJob>)> 
+-> anyhow::Result<(Vec<sw::ResolvedSharedJob>, Vec<hw::HardwareJob>, Vec<sw::SoftwareJob>, Vec<sim::SimJob>)> 
 {
-    let mut all_hw = Vec::new();
-    let mut all_sw = Vec::new();
+    let shared_map = sw::resolve_shared_jobs(config, silo)?;
+    let shared_vec: Vec<_> = shared_map.values().cloned().collect();
+
+    let mut unique_hw: HashMap<PathBuf, hw::HardwareJob> = HashMap::new();
     let mut all_sim = Vec::new();
+    let mut all_sw = Vec::new(); 
 
-    let unit_hw = hw::resolve_standalone_hw(config, silo)?;
-    let unit_sim = sim::resolve_standalone_sims(&unit_hw, config)?;
-
-    all_hw.extend(unit_hw);
-    all_sim.extend(unit_sim);
-
-    for bind in &config.bindings {
-        let hw_jobs = hw::resolve_hardware(config, bind, silo)?;
-        let mut sw_jobs = Vec::new();
-        for suite in &bind.suites {
-            sw_jobs.extend(sw::resolve_suite(config, suite, silo)?);
-        }
-        let sim_jobs = sim::resolve_simulations(config, bind, &hw_jobs, &sw_jobs, silo)?;
-
-        all_hw.extend(hw_jobs);
-        all_sw.extend(sw_jobs);
-        all_sim.extend(sim_jobs);
+    let mut suite_map = HashMap::new();
+    for name in config.suites.keys() {
+        let jobs = sw::resolve_suite(config, name, silo)?;
+        suite_map.insert(name.clone(), jobs.clone());
+        all_sw.extend(jobs); 
     }
 
-    Ok((all_hw, all_sw, all_sim))
+    for exp in &config.experiments {
+        let hw_for_exp = hw::resolve_hardware(config, exp, silo, &shared_map)?;
+        for job in &hw_for_exp { unique_hw.insert(job.silo_dir.clone(), job.clone()); }
+
+        let mut sw_for_exp = Vec::new();
+        for s_name in &exp.suites {
+            if let Some(j) = suite_map.get(s_name) { sw_for_exp.extend(j.clone()); }
+        }
+
+        all_sim.extend(sim::resolve_simulations(config, exp, &hw_for_exp, &sw_for_exp, silo, &shared_map)?);
+    }
+
+    Ok((shared_vec, unique_hw.into_values().collect(), all_sw, all_sim))
 }
 
 fn setup_config(root: &Path) -> anyhow::Result<(Config, silo::SiloResolver)> {
@@ -227,7 +279,7 @@ fn setup_config(root: &Path) -> anyhow::Result<(Config, silo::SiloResolver)> {
                 command: "riscv32-none-elf-gcc $flags -Iprograms -c $in -o $obj".into(),
                 inputs: vec![],
                 outputs: vec![Artifact { 
-                    name: "obj".into(), filename: "prog.o".into(), kind: ArtifactKind::Object
+                    name: "obj".into(), filename: "prog.o".into()
                 }],
             },
             Action {
@@ -235,8 +287,8 @@ fn setup_config(root: &Path) -> anyhow::Result<(Config, silo::SiloResolver)> {
                 command: "riscv32-none-elf-gcc $flags -T $ld -nostdlib -Wl,-Map,$map $obj -o $elf".into(),
                 inputs: vec!["obj".into()],
                 outputs: vec![
-                    Artifact { name: "elf".into(), filename: "prog.elf".into(), kind: ArtifactKind::Elf },
-                    Artifact { name: "map".into(), filename: "prog.map".into(), kind: ArtifactKind::Map }
+                    Artifact { name: "elf".into(), filename: "prog.elf".into() },
+                    Artifact { name: "map".into(), filename: "prog.map".into() }
                 ],
             },
             Action {
@@ -245,7 +297,7 @@ fn setup_config(root: &Path) -> anyhow::Result<(Config, silo::SiloResolver)> {
                     cat $out_dir/rom.tmp | tr -s ' ' '\\n' | tr -d '\\r' > $rom && \
                     rm $out_dir/rom.tmp".into(),
                 inputs: vec!["elf".into()],
-                outputs: vec![ Artifact { name: "rom".into(), filename: "rom.hex".into(), kind: ArtifactKind::MemoryHexIns } ],
+                outputs: vec![ Artifact { name: "rom".into(), filename: "rom.hex".into() } ],
             },
             Action {
                 name: "sram".into(),
@@ -253,7 +305,7 @@ fn setup_config(root: &Path) -> anyhow::Result<(Config, silo::SiloResolver)> {
                     cat $out_dir/sram.tmp | tr -s ' ' '\\n' | tr -d '\\r' > $sram && \
                     rm $out_dir/sram.tmp".into(),
                 inputs: vec!["elf".into()],
-                outputs: vec![ Artifact { name: "sram".into(), filename: "sram.hex".into(), kind: ArtifactKind::MemoryHexData } ],
+                outputs: vec![ Artifact { name: "sram".into(), filename: "sram.hex".into() } ],
             },
         ],
     };
@@ -271,75 +323,72 @@ fn setup_config(root: &Path) -> anyhow::Result<(Config, silo::SiloResolver)> {
             ("ld".into(), "programs/link.ld".into()),
         ]),
         program_overrides: HashMap::new(),
+        sw_deps: vec![]
     });
 
     config.simulators.insert("verilator".into(), Simulator {
         name: "verilator".into(),
         compile_rule: "verilator -j 8 --cc --binary --build -O3 --trace-fst --trace-structs --timing -f $filelist --top-module top_tb_wrapper --Mdir $out_dir -o Vtop".into(),
-        outputs: vec![Artifact { name: "bin".into(), filename: "Vtop".into(), kind: ArtifactKind::Executable }],
+        outputs: vec![Artifact { name: "bin".into(), filename: "Vtop".into() }],
         default_run_rule: "$bin $plusargs".into(),
     });
 
-    let mut rv_pa3 = Processor {
-        name: "rv_pa3".into(),
-        rtl_filelist: PathBuf::from("rtl/rv_pa3/rv_pa3.f"),
-        base_params: BTreeMap::new(),
-        variants: HashMap::new(),
-        plusargs: vec![],
-        sim_templates: HashMap::from([
-            ("verilator".into(), "$bin $plusargs +VCD_FILE=waves.fst +ROM_FILE=$rom +SRAM_FILE=$sram".into())
-        ]),
-    };
-
-    rv_pa3.variants.insert("base".into(), Variant {
-        params: BTreeMap::from([("UNIFIED".into(), "0".into())]),
-        plusargs: vec![],
-        sim_templates: HashMap::new(), // Inherits "+ROM_FILE=$rom +SRAM_FILE=$sram"
+    config.testbenches.insert("rv_pa3.anyrom".into(), Testbench {
+        name: "rv_pa3.anyrom".into(),
+        filelist: PathBuf::from("sim/rv_pa3/anyrom/filelist.f"),
+        run_template: "$bin $plusargs +ROM_FILE=$rom +SRAM_FILE=$sram +TIMEOUT=10000".into(),
+        sw_deps: vec![]
     });
 
-    rv_pa3.variants.insert("unified".into(), Variant {
-        params: BTreeMap::from([("UNIFIED".into(), "1".into())]),
-        plusargs: vec![],
-        sim_templates: HashMap::new(), // Inherits "+ROM_FILE=$rom +SRAM_FILE=$sram"
+    config.testbenches.insert("common.rob".into(), Testbench {
+        name: "common.rob".into(),
+        filelist: PathBuf::from("sim/common/rob/filelist.f"),
+        run_template: "$bin $plusargs +TIMEOUT=10000".into(),
+        sw_deps: vec![]
     });
 
-    // rv_pa3.variants.insert("unified_mem".into(), Variant {
-    //     params: BTreeMap::from([("UNIFIED".into(), "1".into())]),
-    //     plusargs: vec![],
-    //     sim_templates: HashMap::from([
-    //         ("verilator".into(), "$bin $plusargs +UNIFIED_IMG=$rom".into())
-    //     ]),
+    // config.testbenches.insert("rv_pa3.cosim".into(), Testbench {
+    //     name: "rv_pa3.cosim".into(),
+    //     filelist: PathBuf::from("sim/rv_pa3/cosim/filelist.f"),
     // });
 
-    config.testbenches.insert("anyrom".into(), Testbench {
-        name: "anyrom".into(),
-        filelist: PathBuf::from("sim/rv_pa3/anyrom/filelist.f"),
+    config.param_sets.insert("base".into(), ParamSet {
+        name: "base".into(),
+        defines: BTreeMap::from([("UNIFIED".into(), "0".into())]),
+        plusargs: vec![],
+        sim_templates: HashMap::new(),
     });
 
-    config.testbenches.insert("cosim".into(), Testbench {
-        name: "cosim".into(),
-        filelist: PathBuf::from("sim/rv_pa3/cosim/filelist.f"),
+    config.param_sets.insert("unified".into(), ParamSet {
+        name: "unified".into(),
+        defines: BTreeMap::from([("UNIFIED".into(), "1".into())]),
+        plusargs: vec![],
+        sim_templates: HashMap::new(),
     });
 
-    config.bindings.push(Binding {
+    config.experiments.push(Experiment {
         name: "regression".into(),
-        processors: vec!["rv_pa3".into()],
-        variants: vec!["base".into(), "unified".into()],
+        testbench: "rv_pa3.anyrom".into(),
+        param_sets: vec!["base".into(), "unified".into()],
         suites: vec!["isa".into()],
-        testbenches: vec!["anyrom".into(), "cosim".into()],
         simulators: vec!["verilator".into()],
     });
 
-    config.processors.insert("rv_pa3".into(), rv_pa3);
+    config.experiments.push(Experiment {
+        name: "regression2".into(),
+        testbench: "rv_pa3.anyrom".into(),
+        param_sets: vec!["unified".into()],
+        suites: vec!["isa".into()],
+        simulators: vec!["verilator".into()],
+    });
 
-    // config.standalone_bindings.push(StandaloneBinding {
-    //     name: "rob".into(),
-    //     filelist: root.join("sim/common/rob/filelist.f"),
-    //     simulator: "verilator".into(),
-    //     plusargs: vec!["+TIMEOUT=5000".into()],
-    // });
-
-    // config.standalone_bindings = discovery::discover_unit_tests(root);
+    config.experiments.push(Experiment {
+        name: "rob".into(),
+        testbench: "common.rob".into(),
+        param_sets: vec!["base".into()],
+        suites: vec![],
+        simulators: vec!["verilator".into()],
+    });
 
     Ok((config, silo::SiloResolver::new("build_test".into())))
 }

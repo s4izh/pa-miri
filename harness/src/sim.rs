@@ -1,138 +1,86 @@
-// harness/src/sim.rs
 use crate::core::*;
 use crate::hw::HardwareJob;
-use crate::sw::SoftwareJob;
+use crate::sw::{SoftwareJob, ResolvedSharedJob};
 use crate::silo::SiloResolver;
-use std::fs;
 use std::path::PathBuf;
+use std::collections::HashMap;
 
 pub struct SimJob {
+    pub experiment: String,
+    pub hw_id: String,
     pub silo_dir: PathBuf,
-    pub run_cmd: String,
     pub dependencies: Vec<PathBuf>,
 }
 
 pub fn resolve_simulations(
     config: &Config,
-    binding: &Binding,
+    experiment: &Experiment,
     hw_jobs: &[HardwareJob],
     sw_jobs: &[SoftwareJob],
     silo: &SiloResolver,
+    shared: &HashMap<String, ResolvedSharedJob>,
 ) -> anyhow::Result<Vec<SimJob>> {
     let mut jobs = Vec::new();
-    // Get the absolute root of the project so scripts are location-independent
     let root = std::env::current_dir()?;
+    let tb_spec = &config.testbenches[&experiment.testbench];
 
     for hw in hw_jobs {
-        for sw in sw_jobs {
-            let suite = config.suites.get(&sw.suite_name)
-                .ok_or_else(|| anyhow::anyhow!("Suite {} not found", sw.suite_name))?;
-            
-            let sim_dir = silo.sim_dir(
-                &binding.name, &hw.processor, &hw.variant, &hw.testbench, &hw.simulator, &suite.name, &sw.rel_path
-            );
-            fs::create_dir_all(&sim_dir)?;
+        let sw_configs: Vec<Option<&SoftwareJob>> = if sw_jobs.is_empty() { vec![None] } else { sw_jobs.iter().map(Some).collect() };
 
-            let proc_spec = &config.processors[&hw.processor];
-            let var_spec = &proc_spec.variants[&hw.variant];
+        for sw_opt in sw_configs {
+            let (sim_dir, suite_plusargs) = if let Some(sw) = sw_opt {
+                let suite = &config.suites[&sw.suite_name];
+                (silo.sim_dir(&experiment.name, &hw.testbench, &hw.param_set, &hw.simulator, &suite.name, &sw.rel_path), suite.plusargs.clone())
+            } else {
+                (silo.root.join("sim").join(&experiment.name).join(&hw.testbench).join(&hw.param_set).join(&hw.simulator).join("standalone"), vec![])
+            };
+
+            std::fs::create_dir_all(&sim_dir)?;
+            let ps_spec = &config.param_sets[&hw.param_set];
             let sim_spec = &config.simulators[&hw.simulator];
 
-            let template = var_spec.sim_templates.get(&hw.simulator)
-                .or_else(|| proc_spec.sim_templates.get(&hw.simulator))
-                .unwrap_or(&sim_spec.default_run_rule);
+            let mut cmd = ps_spec.sim_templates.get(&hw.simulator)
+                .unwrap_or(if !tb_spec.run_template.is_empty() { &tb_spec.run_template } else { &sim_spec.default_run_rule }).clone();
 
-            let mut cmd = template.clone();
             let mut deps = Vec::new();
-
-            // resolve HW Artifacts using ABSOLUTE paths for the script
             for (logical, path) in &hw.artifact_paths {
-                let abs_path = root.join(path); 
-                cmd = cmd.replace(&format!("${}", logical), &abs_path.to_string_lossy());
+                cmd = cmd.replace(&format!("${}", logical), &root.join(path).to_string_lossy());
                 deps.push(path.clone());
             }
 
-            // resolve SW Artifacts using ABSOLUTE paths for the script
-            for action in &sw.actions {
-                for (logical, path_str) in &action.variables {
-                    let placeholder = format!("${}", logical);
-                    if cmd.contains(&placeholder) {
-                        let abs_path = root.join(path_str);
-                        cmd = cmd.replace(&placeholder, &abs_path.to_string_lossy());
-                        deps.push(PathBuf::from(path_str));
-                    }
+            if let Some(sw) = sw_opt {
+                for (logical, path) in &sw.artifacts {
+                    cmd = cmd.replace(&format!("${}", logical), &root.join(path).to_string_lossy());
+                    deps.push(path.clone());
                 }
             }
-
-            // aggregate plusargs
-            let mut pa = proc_spec.plusargs.clone();
-            pa.extend(var_spec.plusargs.clone());
-            pa.extend(suite.plusargs.clone());
-            if let Some(ov) = suite.program_overrides.get(&sw.program_id) {
-                pa.extend(ov.plusargs.clone());
+            
+            for (name, s_job) in shared {
+                cmd = cmd.replace(&format!("${}", name), &root.join(&s_job.artifact_path).to_string_lossy());
+                deps.push(s_job.artifact_path.clone());
             }
+
+            let mut pa = ps_spec.plusargs.clone();
+            pa.extend(suite_plusargs);
             cmd = cmd.replace("$plusargs", &pa.join(" "));
 
-            // seed run.sh
+            let final_cmd = regex::Regex::new(r"\$\w+").unwrap().replace_all(&cmd, "").to_string();
             let script_path = sim_dir.join("run.sh");
-            let abs_sim_dir = root.join(&sim_dir);
-            let script_content = format!(
-                "#!/usr/bin/env bash\n# Generated by Harness\n# Silo: {}\n\n{}\n",
-                abs_sim_dir.display(), cmd
-            );
-            fs::write(&script_path, script_content)?;
-
+            std::fs::write(&script_path, format!("#!/usr/bin/env bash\n\n{}\n", final_cmd))?;
+            
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;
-                let mut perms = fs::metadata(&script_path)?.permissions();
-                perms.set_mode(0o755);
-                fs::set_permissions(&script_path, perms)?;
+                let _ = std::fs::set_permissions(&script_path, std::fs::Permissions::from_mode(0o755));
             }
 
             jobs.push(SimJob {
+                experiment: experiment.name.clone(),
+                hw_id: format!("{}/{}", hw.testbench, hw.param_set),
                 silo_dir: sim_dir,
-                run_cmd: cmd,
                 dependencies: deps,
             });
         }
-    }
-    Ok(jobs)
-}
-
-
-pub fn resolve_standalone_sims(
-    hw_jobs: &[HardwareJob],
-    config: &Config,
-) -> anyhow::Result<Vec<SimJob>> {
-    let mut jobs = Vec::new();
-    let root = std::env::current_dir()?;
-
-    for hw in hw_jobs {
-        let unit_cfg = config.standalone_bindings.iter().find(|u| u.name == hw.testbench).unwrap();
-        let sim_spec = &config.simulators[&hw.simulator];
-
-        let mut cmd = sim_spec.default_run_rule.clone();
-        
-        for (logical, path) in &hw.artifact_paths {
-            cmd = cmd.replace(&format!("${}", logical), &root.join(path).to_string_lossy());
-        }
-
-        cmd = cmd.replace("$plusargs", &unit_cfg.plusargs.join(" "));
-
-        let script_path = hw.silo_dir.join("run.sh");
-        std::fs::write(&script_path, format!("#!/usr/bin/env bash\n{}\n", cmd))?;
-        
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&script_path, std::fs::Permissions::from_mode(0o755))?;
-        }
-
-        jobs.push(SimJob {
-            silo_dir: hw.silo_dir.clone(),
-            run_cmd: cmd,
-            dependencies: hw.artifact_paths.values().cloned().collect(),
-        });
     }
     Ok(jobs)
 }

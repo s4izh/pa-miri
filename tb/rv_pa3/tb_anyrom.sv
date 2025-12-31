@@ -128,18 +128,25 @@ module tb (
     logic [XLEN-1:0] ins;
     assign ins = dut.hart0_inst.s_1f_d.ins;
 
+    logic dut_instr_retired_signal;
+    assign dut_instr_retired_signal = (dut.hart0_inst.s_4m_q.valid && dut.hart0_inst.s_4m_q.ins != 0'h00000033);
+
     int cycle_count = 0;
+    int instr_count = 0;
     always @(posedge clk) begin
         if (reset_n) begin
+            if (dut_instr_retired_signal) begin
+                instr_count <= instr_count + 1;
+            end
             ++cycle_count;
             if (tohost_written) begin
                 if (tohost_value == 0) begin
                     $display("** SIMULATION PASSED **: 'tohost' was written with 0.");
-                    $display("TESTBENCH_RESULTS: res=0, clk=%0d, ins=%0d", cycle_count, cycle_count);
+                    $display("TESTBENCH_RESULTS: res=0, clk=%0d, ins=%0d", cycle_count, instr_count);
                     $finish;
                 end else begin
-                    $fatal(1, "Test FAILED! Incorrect 'tohost' value. Expected 0, got %0d.", tohost_value);
-                    $display("TESTBENCH_RESULTS: res=1, clk=%0d, ins=%0d", cycle_count, cycle_count);
+                    $display(1, "Test FAILED! Incorrect 'tohost' value. Expected 0, got %0d.", tohost_value);
+                    $display("TESTBENCH_RESULTS: res=1, clk=%0d, ins=%0d", cycle_count, instr_count);
                 end
             end else if (cycle_count >= TIMEOUT_CYCLES) begin
                 $fatal(1, "Test FAILED! Timeout reached (%0d cycles) without writing to 'tohost'.", TIMEOUT_CYCLES);

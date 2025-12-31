@@ -17,6 +17,16 @@ pub struct SoftwareJob {
     pub program_id: String,
     pub rel_path: PathBuf, // e.g., "rtype/add"
     pub actions: Vec<ResolvedAction>,
+    pub artifacts: HashMap<String, PathBuf>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ResolvedSharedJob {
+    pub name: String,
+    pub artifact_path: PathBuf,
+    pub action_name: String,
+    pub vars: HashMap<String, String>,
+    pub inputs: Vec<PathBuf>,
 }
 
 pub fn resolve_suite(
@@ -110,14 +120,41 @@ pub fn resolve_suite(
                     variables: n_vars,
                 });
             }
-
             jobs.push(SoftwareJob {
                 suite_name: suite_name.to_string(),
                 program_id: program_id,
                 rel_path: rel_path_in_silo,
                 actions: resolved_actions,
+                artifacts: artifact_paths,
             });
         }
     }
     Ok(jobs)
+}
+
+pub fn resolve_shared_jobs(config: &Config, silo: &crate::silo::SiloResolver) -> anyhow::Result<HashMap<String, ResolvedSharedJob>> {
+    let mut resolved = HashMap::new();
+    for (name, job) in &config.shared_jobs {
+        let tool = &config.tools[&job.tool];
+        let sw_dir = silo.root.join("sw").join("shared").join(name);
+        std::fs::create_dir_all(&sw_dir)?;
+
+        // We assume the first action of the tool creates the primary library
+        let action = &tool.actions[0];
+        let artifact = &action.outputs[0];
+        let artifact_path = sw_dir.join(&artifact.filename);
+
+        let mut vars = job.var_overrides.clone();
+        vars.insert("out_dir".to_string(), sw_dir.to_string_lossy().to_string());
+        vars.insert(artifact.name.clone(), artifact_path.to_string_lossy().to_string());
+
+        resolved.insert(name.clone(), ResolvedSharedJob {
+            name: name.clone(),
+            artifact_path,
+            action_name: format!("{}_{}", tool.name, action.name),
+            vars,
+            inputs: job.inputs.clone(),
+        });
+    }
+    Ok(resolved)
 }

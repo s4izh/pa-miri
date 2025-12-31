@@ -1,127 +1,113 @@
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum ArtifactKind {
-    Elf,
-    Object,
-    Map,
-    MemoryHexIns,  // Instruction ROM
-    MemoryHexData, // SRAM/Data
-    MemoryHexFull,
-    Executable,    // Compiled HW simulation binary
-    Waveform,      // FST/VCD
-    Log,           // sim.log
-}
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Artifact {
-    pub name: String,        // Logical name used in templates (e.g., "rom")
-    pub filename: String,    // Physical filename in silo (e.g., "rom.hex")
-    pub kind: ArtifactKind,
+    pub name: String,        // Logical name (e.g., "rom")
+    pub filename: String,    // Physical name (e.g., "rom.hex")
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Action {
     pub name: String,
-    pub command: String,       // Template: "gcc $flags -c $in -o $out"
-    pub inputs: Vec<String>,   // Logical names of artifacts consumed (e.g., ["obj"])
-    pub outputs: Vec<Artifact>, // Artifacts produced by this action
+    pub command: String,       
+    pub inputs: Vec<String>,   
+    pub outputs: Vec<Artifact>, 
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Tool {
     pub name: String,
     pub actions: Vec<Action>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SharedJob {
+    pub name: String,
+    pub tool: String,
+    pub inputs: Vec<PathBuf>,
+    pub var_overrides: HashMap<String, String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Simulator {
     pub name: String,
     pub compile_rule: String,
-    pub outputs: Vec<Artifact>,   // What the HW compiler produces (e.g., "bin" -> "Vtop")
-    pub default_run_rule: String, // Template: "$bin $plusargs +ROM=$rom"
+    pub outputs: Vec<Artifact>,   
+    pub default_run_rule: String, 
 }
 
-#[derive(Clone, Debug)]
-pub struct Variant {
-    pub params: BTreeMap<String, String>,
-    pub plusargs: Vec<String>,
-    pub sim_templates: HashMap<String, String>, // Override run template per simulator
-}
-
-#[derive(Clone, Debug)]
-pub struct Processor {
-    pub name: String,
-    pub rtl_filelist: PathBuf,
-    pub base_params: BTreeMap<String, String>,
-    pub variants: HashMap<String, Variant>,
-    pub plusargs: Vec<String>,
-    pub sim_templates: HashMap<String, String>, // sim_name -> template
-}
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProgramOverride {
     pub vars: HashMap<String, String>,
     pub plusargs: Vec<String>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Suite {
     pub name: String,
     pub base_dir: PathBuf,
     pub pattern: String,
-    pub tool: String, // Key in Config.tools
+    pub tool: String, 
     pub default_vars: HashMap<String, String>,
     pub plusargs: Vec<String>,
+    #[serde(default)]
     pub program_overrides: HashMap<String, ProgramOverride>,
+    #[serde(default)]
+    pub sw_deps: Vec<String>, // SharedJobs this suite links against
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Testbench {
     pub name: String,
     pub filelist: PathBuf,
+    pub run_template: String, 
+    pub sw_deps: Vec<String>, // SharedJobs this HW links against (e.g. cosim.a)
 }
 
-#[derive(Clone, Debug)]
-pub struct Binding {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ParamSet {
     pub name: String,
-    pub processors: Vec<String>,
-    pub variants: Vec<String>,
-    pub suites: Vec<String>,
-    pub testbenches: Vec<String>,
-    pub simulators: Vec<String>,
-}
-
-#[derive(Clone, Debug)]
-pub struct StandaloneBinding {
-    pub name: String,
-    pub filelist: PathBuf,
-    pub simulator: String,
+    pub defines: BTreeMap<String, String>,
+    #[serde(default)]
     pub plusargs: Vec<String>,
+    #[serde(default)]
+    pub sim_templates: HashMap<String, String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Experiment {
+    pub name: String,
+    pub testbench: String,       
+    pub param_sets: Vec<String>, 
+    pub suites: Vec<String>,     
+    pub simulators: Vec<String>, 
 }
 
 #[derive(Clone, Debug)]
 pub struct Config {
-    pub processors: HashMap<String, Processor>,
+    pub build_dir: String,
     pub tools: HashMap<String, Tool>,
+    pub shared_jobs: HashMap<String, SharedJob>,
     pub simulators: HashMap<String, Simulator>,
     pub suites: HashMap<String, Suite>,
     pub testbenches: HashMap<String, Testbench>,
-    pub bindings: Vec<Binding>,
-    pub standalone_bindings: Vec<StandaloneBinding>,
+    pub param_sets: HashMap<String, ParamSet>,
+    pub experiments: Vec<Experiment>,
 }
 
 impl Config {
     pub fn new() -> Self {
         Self {
-            processors: HashMap::new(),
+            build_dir: "build".into(),
             tools: HashMap::new(),
+            shared_jobs: HashMap::new(),
             simulators: HashMap::new(),
             suites: HashMap::new(),
             testbenches: HashMap::new(),
-            bindings: Vec::new(),
-            standalone_bindings: Vec::new(),
+            param_sets: HashMap::new(),
+            experiments: Vec::new(),
         }
     }
 }

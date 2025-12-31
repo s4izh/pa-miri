@@ -5,41 +5,33 @@ pub struct SiloResolver {
 }
 
 impl SiloResolver {
-    pub fn new(root: PathBuf) -> Self {
-        Self { root }
+    pub fn new(root: PathBuf) -> Self { Self { root } }
+
+    /// HW: build/hw/<testbench>/<param_set>/<simulator>/
+    pub fn hw_dir(&self, tb: &str, ps: &str, sim: &str) -> PathBuf {
+        self.root.join("hw").join(tb).join(ps).join(sim)
     }
 
-    /// HW: build/hw/<processor>/<variant>/<testbench>/<simulator>/
-    pub fn hw_dir(&self, proc: &str, variant: &str, tb: &str, sim: &str) -> PathBuf {
-        self.root
-            .join("hw")
-            .join(proc)
-            .join(variant)
-            .join(tb)
-            .join(sim)
-    }
-
-    /// SW: build/sw/<suite>/<rel_path_to_prog>/
+    /// SW: build/sw/<suite>/<rel_path>/ (Stays the same)
     pub fn sw_dir(&self, suite: &str, rel_path: &Path) -> PathBuf {
         self.root.join("sw").join(suite).join(rel_path)
     }
 
-    /// SIM: build/sim/<binding>/<proc>_<var>/<tb>/<sim>/<suite>/<prog_path>/
+    /// SIM: build/sim/<binding>/<tb>/<ps>/<sim>/<suite>/<prog>/
     pub fn sim_dir(
         &self,
-        binding: &str,
-        proc: &str,
-        variant: &str,
+        bind_name: &str,
         tb: &str,
+        ps: &str,
         sim: &str,
         suite: &str,
         rel_path: &Path,
     ) -> PathBuf {
         self.root
             .join("sim")
-            .join(binding)
-            .join(format!("{}_{}", proc, variant))
+            .join(bind_name)
             .join(tb)
+            .join(ps)
             .join(sim)
             .join(suite)
             .join(rel_path)

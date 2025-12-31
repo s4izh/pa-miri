@@ -1,8 +1,7 @@
 use std::path::Path;
 use walkdir::WalkDir;
-use crate::core::StandaloneBinding;
 
-pub fn discover_unit_tests(root: &Path) -> Vec<StandaloneBinding> {
+pub fn discover_unit_tests(root: &Path) -> Vec<StandaloneExperiment> {
     let unit_tb_dir = root.join("tb/common");
     let mut tests = Vec::new();
 
@@ -17,7 +16,7 @@ pub fn discover_unit_tests(root: &Path) -> Vec<StandaloneBinding> {
             
             println!("adding {name} as unit test");
             
-            tests.push(StandaloneBinding {
+            tests.push(StandaloneExperiment {
                 name,
                 filelist: path.to_path_buf(),
                 simulator: "verilator".into(), // Default simulator
