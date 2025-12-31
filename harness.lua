@@ -1,18 +1,6 @@
 harness.set_build_dir("build")
 
 harness.add_tool({
-    name = "external_make",
-    actions = {
-        {
-            name = "build",
-            command = "make -C $makefile_dir BUILD_DIR=$out_dir",
-            inputs = {},
-            outputs = { { name = "lib", filename = "cosim_dpi.a" } }
-        }
-    }
-})
-
-harness.add_tool({
     name = "riscv_gcc",
     actions = {
         {
@@ -34,7 +22,7 @@ harness.add_tool({
         },
         {
             name = "rom",
-            command = "riscv32-none-elf-objcopy -O verilog --verilog-data-width 4 --only-section=.text* $elf $out_dir/rom.tmp && " ..
+            command = "riscv32-none-elf-objcopy -O verilog --verilog-data-width 16 --only-section=.text* $elf $out_dir/rom.tmp && " ..
                       "cat $out_dir/rom.tmp | tr -s ' ' '\\n' | tr -d '\\r' > $rom && " ..
                       "rm $out_dir/rom.tmp",
             inputs = { "elf" },
@@ -44,7 +32,7 @@ harness.add_tool({
         },
         {
             name = "sram",
-            command = "riscv32-none-elf-objcopy -O verilog --verilog-data-width 4 --only-section=.data* --only-section=.sdata* --only-section=.bss* --only-section=.sbss* $elf $out_dir/sram.tmp && " ..
+            command = "riscv32-none-elf-objcopy -O verilog --verilog-data-width 16 --only-section=.data* --only-section=.sdata* --only-section=.bss* --only-section=.sbss* $elf $out_dir/sram.tmp && " ..
                       "cat $out_dir/sram.tmp | tr -s ' ' '\\n' | tr -d '\\r' > $sram && " ..
                       "rm $out_dir/sram.tmp",
             inputs = { "elf" },
@@ -98,21 +86,21 @@ harness.add_simulator({
 harness.add_testbench({
     name = "rv_pa3.anyrom",
     filelist = "sim/rv_pa3/anyrom/filelist.f",
-    run_template = "$bin $plusargs +ROM_FILE=$rom +SRAM_FILE=$sram +TIMEOUT=10000",
+    run_template = "$bin $plusargs +VCD_FILE=waves.fst +ROM_FILE=$rom +SRAM_FILE=$sram +TIMEOUT=10000",
     sw_deps = {}
 })
 
 harness.add_testbench({
     name = "rv_pa3.cosim",
     filelist = "sim/rv_pa3/cosim/filelist.f",
-    run_template = "$bin $plusargs +ROM_FILE=$rom +SRAM_FILE=$sram +TIMEOUT=10000",
+    run_template = "$bin $plusargs +VCD_FILE=waves.fst +ROM_FILE=$rom +SRAM_FILE=$sram +TIMEOUT=10000",
     sw_deps = { "cosim_dpi" }
 })
 
 harness.add_testbench({
     name = "common.rob",
     filelist = "sim/common/rob/filelist.f",
-    run_template = "$bin $plusargs +TIMEOUT=10000",
+    run_template = "$bin $plusargs +VCD_FILE=waves.fst +TIMEOUT=10000",
     sw_deps = {}
 })
 
