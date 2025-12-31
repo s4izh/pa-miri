@@ -12,6 +12,10 @@ impl SiloResolver {
         self.root.join("hw").join(tb).join(ps).join(sim)
     }
 
+    pub fn hw_common_dir(&self, tb: &str, ps: &str) -> PathBuf {
+        self.root.join("hw").join(tb).join(ps)
+    }
+
     /// SW: build/sw/<suite>/<rel_path>/ (Stays the same)
     pub fn sw_dir(&self, suite: &str, rel_path: &Path) -> PathBuf {
         self.root.join("sw").join(suite).join(rel_path)

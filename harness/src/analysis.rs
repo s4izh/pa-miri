@@ -134,7 +134,7 @@ fn print_metrics_table(results: &[SimMetrics]) {
             SimStatus::Fail => "FAIL".red(),
             SimStatus::Crash => "CRASH".on_red().white(),
         };
-        println!("{:<40} {:<30} {:<10} {:<10} {:<6.2} {:<6}", 
+        println!("{:<30} {:<30} {:<10} {:<10} {:<6.2} {:<6}", 
             r.program, r.hw_id, r.cycles, r.instructions, r.cpi, status_str);
     }
 }

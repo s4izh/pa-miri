@@ -103,6 +103,13 @@ harness.add_testbench({
 })
 
 harness.add_testbench({
+    name = "rv_pa3.cosim",
+    filelist = "sim/rv_pa3/cosim/filelist.f",
+    run_template = "$bin $plusargs +ROM_FILE=$rom +SRAM_FILE=$sram +TIMEOUT=10000",
+    sw_deps = { "cosim_dpi" }
+})
+
+harness.add_testbench({
     name = "common.rob",
     filelist = "sim/common/rob/filelist.f",
     run_template = "$bin $plusargs +TIMEOUT=10000",
@@ -124,12 +131,27 @@ harness.add_param_set({
     sim_templates = {}
 })
 
--- Experiment definitions
 harness.add_experiment({
     name = "regression",
     testbench = "rv_pa3.anyrom",
+    param_sets = { "base", "unified" },
+    suites = { "isa" },
+    simulators = { "verilator" }
+})
+
+harness.add_experiment({
+    name = "opt",
+    testbench = "rv_pa3.anyrom",
     param_sets = { "base" },
     suites = { "isa", "isa_opt" },
+    simulators = { "verilator" }
+})
+
+harness.add_experiment({
+    name = "cosim",
+    testbench = "rv_pa3.cosim",
+    param_sets = { "base" },
+    suites = { "isa" },
     simulators = { "verilator" }
 })
 
