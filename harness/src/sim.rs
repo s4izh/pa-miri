@@ -1,6 +1,6 @@
 use crate::core::*;
 use crate::hw::HardwareJob;
-use crate::sw::{SoftwareJob, ResolvedSharedJob};
+use crate::sw::SoftwareJob;
 use crate::silo::SiloResolver;
 use std::path::PathBuf;
 use std::collections::HashMap;
@@ -18,7 +18,6 @@ pub fn resolve_simulations(
     hw_jobs: &[HardwareJob],
     sw_jobs: &[SoftwareJob],
     silo: &SiloResolver,
-    shared: &HashMap<String, ResolvedSharedJob>,
 ) -> anyhow::Result<Vec<SimJob>> {
     let mut jobs = Vec::new();
     let root = std::env::current_dir()?;
@@ -54,11 +53,6 @@ pub fn resolve_simulations(
                     deps.push(path.clone());
                 }
             }
-            
-            for (name, s_job) in shared {
-                cmd = cmd.replace(&format!("${}", name), &root.join(&s_job.artifact_path).to_string_lossy());
-                deps.push(s_job.artifact_path.clone());
-            }
 
             let mut pa = ps_spec.plusargs.clone();
             pa.extend(suite_plusargs);
@@ -67,7 +61,7 @@ pub fn resolve_simulations(
             let final_cmd = regex::Regex::new(r"\$\w+").unwrap().replace_all(&cmd, "").to_string();
             let script_path = sim_dir.join("run.sh");
             std::fs::write(&script_path, format!("#!/usr/bin/env bash\n\n{}\n", final_cmd))?;
-            
+
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;

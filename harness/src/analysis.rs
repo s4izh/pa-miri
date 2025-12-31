@@ -126,7 +126,7 @@ fn print_standalone_report(results: &[SimMetrics], root: &Path) {
 fn print_metrics_table(results: &[SimMetrics]) {
     println!("\n{}", "            TESTS RESULTS             ".on_blue().black().bold());
     println!("{:<40} {:<30} {:<10} {:<10} {:<6} {:<6}", "PROGRAM", "HARDWARE", "CYCLES", "INSTR", "CPI", "STATUS");
-    println!("{}", "-".repeat(100));
+    println!("{}", "-".repeat(110));
 
     for r in results {
         let status_str = match r.status {
@@ -134,7 +134,7 @@ fn print_metrics_table(results: &[SimMetrics]) {
             SimStatus::Fail => "FAIL".red(),
             SimStatus::Crash => "CRASH".on_red().white(),
         };
-        println!("{:<30} {:<30} {:<10} {:<10} {:<6.2} {:<6}", 
+        println!("{:<40} {:<30} {:<10} {:<10} {:<6.2} {:<6}", 
             r.program, r.hw_id, r.cycles, r.instructions, r.cpi, status_str);
     }
 }

@@ -3,7 +3,7 @@
 $(PROJ_DIR)/rtl/common/valid_delayer.sv
 $(PROJ_DIR)/rtl/common/rom.sv
 $(PROJ_DIR)/rtl/common/sram.sv
-$(BUILD_DIR)/cosim_dpi.a
+$(COSIM_DPI_LIB)
 
 $(PROJ_DIR)/tb/common_tb/rv32_util_pkg.sv
 $(PROJ_DIR)/tb/common_tb/konata_tracer.sv

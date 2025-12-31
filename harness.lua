@@ -1,5 +1,19 @@
 harness.set_build_dir("build")
 
+local cosim = harness.add_task({
+    tasks_namespace = "cosim",
+    name = "build_dpi",
+    source_dir = "cosim",
+    command = "BUILD_DIR=$abs_out_dir make -C $source_dir $abs_out_dir/cosim_dpi.a",
+    inputs = harness.list_files("cosim/**"),
+    vars = {
+        debug = "0"
+    },
+    outputs = {
+        lib = "cosim_dpi.a"
+    }
+})
+
 harness.add_tool({
     name = "riscv_gcc",
     actions = {
@@ -94,7 +108,10 @@ harness.add_testbench({
     name = "rv_pa3.cosim",
     filelist = "sim/rv_pa3/cosim/filelist.f",
     run_template = "$bin $plusargs +VCD_FILE=waves.fst +ROM_FILE=$rom +SRAM_FILE=$sram +TIMEOUT=10000",
-    sw_deps = { "cosim_dpi" }
+    vars = {
+          COSIM_DPI_LIB = harness.abspath(cosim.outputs.lib)
+    },
+    sw_deps = { cosim.outputs.lib },
 })
 
 harness.add_testbench({

@@ -21,35 +21,34 @@ use regex::Regex;
 
 use crate::cli::{Cli, Commands};
 use crate::core::Config;
+use std::sync::Arc;
 
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
-
-    let proj_root: PathBuf = std::env::var("PROJ_DIR")
-        .map_err(|_| anyhow::anyhow!("PROJ_DIR environment variable not set"))?
-        .into();
+    let proj_root: PathBuf = std::env::var("PROJ_DIR")?.into();
 
     let lua_path = proj_root.join("harness.lua");
-    let (config, silo) = if !lua_path.exists() {
-        setup_config(&proj_root)?
-    }
-    else {
-        let config = lua_engine::load_config(&lua_path)?;
-        let build_dir = config.build_dir.clone();
-        (config, silo::SiloResolver::new(build_dir.into()))
+    
+    let (config, lua, silo) = if !lua_path.exists() {
+        let (c, s) = setup_config(&proj_root)?;
+        (c, Arc::new(mlua::Lua::new()), s)
+    } else {
+        let (c, l) = lua_engine::load_config(&lua_path)?;
+        let s = silo::SiloResolver::new(c.build_dir.clone().into());
+        (c, l, s)
     };
 
     match &cli.command {
         Commands::Gen => {
             println!("Discovering targets...");
             let ninja_path = proj_root.join("build.ninja");
-            let (sh, hw, sw, sim) = resolve_all_jobs(&config, &silo)?;
-            std::fs::write(&ninja_path, ninja::generate(&config, &sh, &hw, &sw, &sim))?;
+            let (hw, sw, sim) = resolve_all_jobs(&config, &lua, &silo)?;
+            std::fs::write(&ninja_path, ninja::generate(&config, &hw, &sw, &sim))?;
             println!("Ninja file generated at: {}", ninja_path.display());
         }
 
         cli::Commands::List => {
-            let (_, all_hw, all_sw, _) = resolve_all_jobs(&config, &silo)?;
+            let (all_hw, all_sw, _) = resolve_all_jobs(&config, &lua, &silo)?;
             println!("\n--- Hardware Configurations ---");
             for h in all_hw {
                 println!("  - {:<20} (Params: {:<10}, Sim: {})", h.testbench, h.param_set, h.simulator);
@@ -61,7 +60,7 @@ fn main() -> anyhow::Result<()> {
         }
 
         cli::Commands::Simulate(args) | cli::Commands::Compile(args) | cli::Commands::Analyze(args) => {
-            let (all_sh, all_hw, all_sw, all_sim) = resolve_all_jobs(&config, &silo)?;
+            let (all_hw, all_sw, all_sim) = resolve_all_jobs(&config, &lua, &silo)?;
 
             let exp_name = match &args.experiment {
                 Some(name) => name,
@@ -92,7 +91,7 @@ fn main() -> anyhow::Result<()> {
                     }
 
                     if matches!(cli.command, Commands::Simulate(_)) && !targets.is_empty() {
-                        let ninja_str = ninja::generate(&config, &all_sh, &all_hw, &all_sw, &all_sim);
+                        let ninja_str = ninja::generate(&config, &all_hw, &all_sw, &all_sim);
                         std::fs::write(proj_root.join("build.ninja"), ninja_str)?;
                         let _ = run_ninja(&proj_root, &targets, true);
                     }
@@ -129,7 +128,7 @@ fn main() -> anyhow::Result<()> {
 
                     let final_targets: Vec<String> = hw_targets.into_iter().chain(sw_targets).collect();
                     if !final_targets.is_empty() {
-                        let ninja_str = ninja::generate(&config, &all_sh, &all_hw, &all_sw, &all_sim);
+                        let ninja_str = ninja::generate(&config, &all_hw, &all_sw, &all_sim);
                         std::fs::write(proj_root.join("build.ninja"), ninja_str)?;
                         let _ = run_ninja(&proj_root, &final_targets, false);
                     }
@@ -149,7 +148,7 @@ fn main() -> anyhow::Result<()> {
                 return Ok(());
             }
 
-            let (all_sh, all_hw, all_sw, all_sim) = resolve_all_jobs(&config, &silo)?;
+            let (all_hw, all_sw, all_sim) = resolve_all_jobs(&config, &lua, &silo)?;
             let sw_re = Regex::new(args.sw.as_deref().unwrap_or(".*"))?;
 
             // clean simulations (experiment exact)
@@ -236,25 +235,22 @@ fn run_ninja(root: &Path, targets: &[String], keep_going: bool) -> anyhow::Resul
     Ok(())
 }
 
-fn resolve_all_jobs(config: &Config, silo: &silo::SiloResolver) 
--> anyhow::Result<(Vec<sw::ResolvedSharedJob>, Vec<hw::HardwareJob>, Vec<sw::SoftwareJob>, Vec<sim::SimJob>)> 
+fn resolve_all_jobs(config: &Config, lua: &mlua::Lua, silo: &silo::SiloResolver)
+-> anyhow::Result<(Vec<hw::HardwareJob>, Vec<sw::SoftwareJob>, Vec<sim::SimJob>)>
 {
-    let shared_map = sw::resolve_shared_jobs(config, silo)?;
-    let shared_vec: Vec<_> = shared_map.values().cloned().collect();
-
-    let mut unique_hw: HashMap<PathBuf, hw::HardwareJob> = HashMap::new();
+    let mut unique_hw = HashMap::new();
+    let mut all_sw = Vec::new();
     let mut all_sim = Vec::new();
-    let mut all_sw = Vec::new(); 
 
     let mut suite_map = HashMap::new();
     for name in config.suites.keys() {
         let jobs = sw::resolve_suite(config, name, silo)?;
         suite_map.insert(name.clone(), jobs.clone());
-        all_sw.extend(jobs); 
+        all_sw.extend(jobs);
     }
 
     for exp in &config.experiments {
-        let hw_for_exp = hw::resolve_hardware(config, exp, silo, &shared_map)?;
+        let hw_for_exp = hw::resolve_hardware(config, lua, exp, silo)?;
         for job in &hw_for_exp { unique_hw.insert(job.silo_dir.clone(), job.clone()); }
 
         let mut sw_for_exp = Vec::new();
@@ -262,10 +258,10 @@ fn resolve_all_jobs(config: &Config, silo: &silo::SiloResolver)
             if let Some(j) = suite_map.get(s_name) { sw_for_exp.extend(j.clone()); }
         }
 
-        all_sim.extend(sim::resolve_simulations(config, exp, &hw_for_exp, &sw_for_exp, silo, &shared_map)?);
+        all_sim.extend(sim::resolve_simulations(config, exp, &hw_for_exp, &sw_for_exp, silo)?);
     }
 
-    Ok((shared_vec, unique_hw.into_values().collect(), all_sw, all_sim))
+    Ok((unique_hw.into_values().collect(), all_sw, all_sim))
 }
 
 fn setup_config(root: &Path) -> anyhow::Result<(Config, silo::SiloResolver)> {
@@ -337,14 +333,16 @@ fn setup_config(root: &Path) -> anyhow::Result<(Config, silo::SiloResolver)> {
         name: "rv_pa3.anyrom".into(),
         filelist: PathBuf::from("sim/rv_pa3/anyrom/filelist.f"),
         run_template: "$bin $plusargs +ROM_FILE=$rom +SRAM_FILE=$sram +TIMEOUT=10000".into(),
-        sw_deps: vec![]
+        sw_deps: vec![],
+        ..Default::default()
     });
 
     config.testbenches.insert("common.rob".into(), Testbench {
         name: "common.rob".into(),
         filelist: PathBuf::from("sim/common/rob/filelist.f"),
         run_template: "$bin $plusargs +TIMEOUT=10000".into(),
-        sw_deps: vec![]
+        sw_deps: vec![],
+        ..Default::default()
     });
 
     // config.testbenches.insert("rv_pa3.cosim".into(), Testbench {

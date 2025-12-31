@@ -40,4 +40,11 @@ impl SiloResolver {
             .join(suite)
             .join(rel_path)
     }
+
+    pub fn task_dir(&self, namespace: &str, name: &str) -> PathBuf {
+        self.root
+            .join("tasks")
+            .join(namespace)
+            .join(name)
+    }
 }

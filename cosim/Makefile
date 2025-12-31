@@ -3,7 +3,7 @@ CC = g++
 ARFLAGS = rcs
 CFLAGS = -Irve/include -Icosim
 
-BUILD_DIR = build
+BUILD_DIR ?= build
 
 COSIM_SOURCES = $(wildcard cosim/*.cpp)
 RVE_SOURCES = rve/src/decoder.c
