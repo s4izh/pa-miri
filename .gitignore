@@ -30,6 +30,7 @@ Thumbs.db
 
 # Build directories
 build/
+build*/
 obj/
 bin/
 rtl_work

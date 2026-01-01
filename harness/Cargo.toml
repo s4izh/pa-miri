@@ -1,0 +1,19 @@
+[package]
+name = "harness"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.100"
+clap = { version = "4.5.53", features = ["derive"] }
+clap_complete = "4.5.62"
+colored = "3.0.0"
+comfy-table = "7.1.4"
+glob = "0.3.3"
+mlua = { version = "0.11.5", features = ["lua54", "vendored", "serialize"] }
+ninja-writer = "0.3.1"
+pathdiff = "0.2.3"
+regex = "1.12.2"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.146"
+walkdir = "2.5.0"
