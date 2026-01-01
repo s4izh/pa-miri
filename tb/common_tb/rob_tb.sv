@@ -57,10 +57,10 @@ module tb (
     task test_directed();
         robid_t robid1, robid2;
         issue('h80000000, 2);
-        robid1 = issue_robid_o;
+        robid1 = issue_rsp_o.robid;
         @(posedge clk);
         issue('h80000004, 3);
-        robid2 = issue_robid_o;
+        robid2 = issue_rsp_o.robid;
         @(posedge clk);
         noop();
         @(posedge clk);
@@ -73,10 +73,10 @@ module tb (
         @(posedge clk);
         @(posedge clk);
         issue('h80000008, 8);
-        robid1 = issue_robid_o;
+        robid1 = issue_rsp_o.robid;
         @(posedge clk);
         issue('h8000000c, 13);
-        robid2 = issue_robid_o;
+        robid2 = issue_rsp_o.robid;
         @(posedge clk);
         noop();
         @(posedge clk);

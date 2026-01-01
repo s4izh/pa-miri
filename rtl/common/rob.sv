@@ -22,10 +22,8 @@ module rob #(
     // Commit to store_buffer
     output commit_sb_t commit_sb_o
 );
-    // Define a type for reorder buffer
-
+    // Define a type for a reorder buffer entry
     typedef struct packed {
-        // Set at issue time
         logic [XLEN-1:0] pc;
         // rf
         logic            rd_we;
@@ -56,50 +54,70 @@ module rob #(
     rob_entry_t [N_ENTRIES-1:0] entries;
 
     // TODO: FSM (?)
-    // Write to entries and control head and tail
+    // Control tail
     always @(posedge clk) begin
         if (!reset_n) begin
-            head <= '0;
             tail <= '0;
         end else begin
-            if (issue_valid_i) begin
-                // Increase the tail pointer, and offer the new rob_id to the
-                // newly issued instruction
-                entries[tail].pc       <= issue_pc_i;
-                entries[tail].rd_we    <= issue_rd_we_i;
-                entries[tail].rd_addr  <= issue_rd_addr_i;
-                entries[tail].is_st    <= issue_st_we_i;
+            if (issue_req_i.valid) begin
+                entries[tail].pc       <= issue_req_i.pc;
+                entries[tail].rd_we    <= issue_req_i.rd_we;
+                entries[tail].rd_addr  <= issue_req_i.rd_addr;
+                entries[tail].is_st    <= issue_req_i.is_st;
                 entries[tail].sbid     <= '0;
                 entries[tail].complete <= 0;
-                // entries[tail].result   <= '0;
+                entries[tail].result   <= '0;
                 entries[tail].xcpt     <= 0;
-
-                tail                   <= next_tail;
+                tail                   <= tail + 1;
             end
 
-            if (complete_valid_i) begin
+            if (complete_emw_i.valid) begin
                 // Find the entry completed and mark it as so in the
                 // corresponding rob entry
                 // TOCHECK: complete_rob_id_i should be between tail and head
-                entries[complete_rob_id_i].complete <= 1;
-                entries[complete_rob_id_i].result   <= complete_rd_data_i;
+                entries[complete_emw_i.robid].complete <= 1;
+                entries[complete_emw_i.robid].result   <= complete_emw_i.result;
+                entries[complete_emw_i.robid].sbid     <= complete_emw_i.sbid;
             end
-
-            if (entries[head].complete) begin
-                // An instruction has finished. We commit and write to the RF
-                commit_we_o      <= entries[head].rd_we;
-                commit_rd_addr_o <= entries[head].rd_addr;
-                commit_rd_data_o <= entries[head].result;
-                head             <= head + 1;
-            end else begin
-                commit_we_o      <= 0;
-            end
-
-            // TODO: CAM lookup for younger instructions to use my value
         end
     end
 
-    assign issue_robid_o       = tail;
-    assign issue_robid_valid_o = issue_valid_i; // & ~full;
+    assign issue_rsp_o.robid = tail;
+    assign issue_rsp_o.valid = issue_req_i.valid; // & ~full;
+
+    // Control head
+    always @(posedge clk) begin
+        if (!reset_n) begin
+            head <= '0;
+        end else begin
+            if (entries[head].complete) begin
+                head <= head + 1;
+            end
+        end
+    end
+
+    // Output commits
+    always_comb begin
+        commit_o = '0;
+        commit_rf_o = '0;
+        commit_sb_o = '0;
+        if (entries[head].complete) begin
+            commit_o.valid = 1;
+            commit_o.xcpt  = entries[head].xcpt;
+            commit_o.robid = head;
+            if (!entries[head].xcpt) begin
+                if (entries[head].is_st) begin
+                    commit_sb_o.valid = 1;
+                    commit_sb_o.sbid  = entries[head].sbid;
+                end else begin
+                    commit_rf_o.rd_we   = entries[head].rd_we;
+                    commit_rf_o.rd_addr = entries[head].rd_addr;
+                    commit_rf_o.rd_data = entries[head].result;
+                end
+            end
+        end
+    end
+
+    // TODO: CAM lookup for younger instructions to use my value
 
 endmodule

@@ -6,9 +6,9 @@ package rob_pkg;
     `define N_ENTRIES_SB  8
 
     // Basic ID types
-    typedef logic[$clog2(N_ENTRIES_ROB)-1:0] robid_t;
+    typedef logic[$clog2(`N_ENTRIES_ROB)-1:0] robid_t;
     // TODO: use propper store buffer id when we have it
-    typedef logic[$clog2(N_ENTRIES_SB)-1:0] sbid_t;
+    typedef logic[$clog2(`N_ENTRIES_SB)-1:0] sbid_t;
 
     // Issue interfaces types
     typedef struct {
@@ -20,7 +20,7 @@ package rob_pkg;
     } issue_req_t;
 
     typedef struct {
-        logic             ready;
+        logic             valid;
         robid_t           robid;
     } issue_rsp_t;
 
@@ -44,7 +44,6 @@ package rob_pkg;
         logic             rd_we;
         logic [4:0]       rd_addr;
         logic [`XLEN-1:0] rd_data;
-        logic             xcpt;
     } commit_rf_t;
 
     typedef struct {
