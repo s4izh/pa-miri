@@ -2,48 +2,38 @@
 import rob_pkg::*;
 
 module rob #(
-    parameter int XLEN = 32,
-    parameter int N_ENTRIES = 8
+    parameter int XLEN = `XLEN,
+    parameter int N_ENTRIES = `N_ENTRIES_ROB
 ) (
     input logic clk,
     input logic reset_n,
-
-    // Issue interface
-    input  logic            issue_valid_i,
-    input  logic [XLEN-1:0] issue_pc_i,
-    input  logic            issue_rd_we_i,
-    input  logic [4:0]      issue_rd_addr_i,
-    input  logic            issue_st_we_i,
-    input  logic [XLEN-1:0] issue_st_data_i,
-    output logic            issue_robid_valid_o,
-    output rob_id_t         issue_robid_o,
-
-    // writable at a latter time
-    // input  logic [XLEN-1:0] complete_st_addr_i,
-    // input  logic            complete_st_addr_i,
-    // input  logic            complete_xcpt_i,
-    // input  rob_id_t         complete_xcpt_robid_i,
-
-    // Complete interface
-    input  logic            complete_valid_i,
-    input  rob_id_t         complete_rob_id_i,
-    input  logic [XLEN-1:0] complete_rd_data_i,
-
-    // Commit interface
-    output logic            commit_we_o,
-    output logic [4:0]      commit_rd_addr_o,
-    output logic [XLEN-1:0] commit_rd_data_o
+    // Request to issue new instruction
+    input  issue_req_t issue_req_i,
+    // Respond with assigned robid
+    output issue_rsp_t issue_rsp_o,
+    // Complete instruction from alu-memory fu
+    input  complete_t  complete_emw_i,
+    // Complete instruction from multiply fu
+    input  complete_t  complete_mul_i,
+    // Commit general (general info)
+    output commit_t    commit_o,
+    // Commit to register file
+    output commit_rf_t commit_rf_o,
+    // Commit to store_buffer
+    output commit_sb_t commit_sb_o
 );
     // Define a type for reorder buffer
 
     typedef struct packed {
         // Set at issue time
         logic [XLEN-1:0] pc;
+        // rf
         logic            rd_we;
         logic [4:0]      rd_addr;
+        // sb
         logic            is_st;
-
-        // Set at complete time
+        sbid_t           sbid;
+        // complete
         logic            complete;
         logic [XLEN-1:0] result;
         logic            xcpt;
@@ -60,9 +50,9 @@ module rob #(
     //    | rob_id 6 |
     //    | rob_id 7 | <- tail
     //      ........
-    rob_id_t next_tail;
+    robid_t next_tail;
     assign next_tail = tail + 1;
-    rob_id_t tail, head;
+    robid_t tail, head;
     rob_entry_t [N_ENTRIES-1:0] entries;
 
     // TODO: FSM (?)
@@ -79,6 +69,7 @@ module rob #(
                 entries[tail].rd_we    <= issue_rd_we_i;
                 entries[tail].rd_addr  <= issue_rd_addr_i;
                 entries[tail].is_st    <= issue_st_we_i;
+                entries[tail].sbid     <= '0;
                 entries[tail].complete <= 0;
                 // entries[tail].result   <= '0;
                 entries[tail].xcpt     <= 0;
