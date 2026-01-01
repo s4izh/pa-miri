@@ -11,7 +11,7 @@ package rob_pkg;
     typedef logic[$clog2(`N_ENTRIES_SB)-1:0] sbid_t;
 
     // Issue interfaces types
-    typedef struct {
+    typedef struct packed {
         logic             valid;
         logic [`XLEN-1:0] pc;
         logic             rd_we;
@@ -19,13 +19,13 @@ package rob_pkg;
         logic             is_st;
     } issue_req_t;
 
-    typedef struct {
+    typedef struct packed {
         logic             valid;
         robid_t           robid;
     } issue_rsp_t;
 
     // Complete interface type
-    typedef struct {
+    typedef struct packed {
         logic             valid;
         robid_t           robid;
         logic [`XLEN-1:0] result;
@@ -34,19 +34,19 @@ package rob_pkg;
     } complete_t;
 
     // Commit interfaces types
-    typedef struct {
+    typedef struct packed {
         logic             valid;
         logic             xcpt;
         robid_t           robid; //debug
     } commit_t;
 
-    typedef struct {
+    typedef struct packed {
         logic             rd_we;
         logic [4:0]       rd_addr;
         logic [`XLEN-1:0] rd_data;
     } commit_rf_t;
 
-    typedef struct {
+    typedef struct packed {
         logic             valid;
         sbid_t            sbid;
     } commit_sb_t;
