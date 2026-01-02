@@ -1,4 +1,5 @@
 import rv_datapath_pkg::*;
+import rob_pkg::*;
 
 module stage_2d #(
     parameter int XLEN = 32,
@@ -7,8 +8,8 @@ module stage_2d #(
     input logic clk,
     input logic reset_n,
     // Pipeline input/output
-    input  signals_fetch_t  _i,
-    output signals_decode_t _o,
+    input  signals_fetch_t         _i,
+    output signals_decode_t        _o,
     // Write-back
     input logic                    rd_we_i,
     input logic [$clog2(NREG)-1:0] rd_addr_i,

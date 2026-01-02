@@ -3,6 +3,7 @@ import rv_branch_compare_pkg::*;
 import memory_controller_pkg::*;
 import alu_pkg::*;
 import rv_isa_pkg::*;
+import rob_pkg::*;
 
 module gandul# (
     parameter int XLEN = 32,
@@ -63,12 +64,6 @@ module gandul# (
     logic icache_dreq_ready;
     logic [XLEN-1:0] icache_drsp_data;
 
-    // local assigns
-    // assign trap_valid =
-    //     imem_trap_i.valid |
-    //     (dmem_trap_i.valid & s_4m_d.valid) |
-    //     (xcpt_illegal_ins & s_2d_d.valid);
-
     // are we jumping or branching in the execute stage?
     logic jump_or_branch_3e;
     assign jump_or_branch_3e = (taken_branch || pc_sel[1]) && s_2d_q.valid;
@@ -76,21 +71,21 @@ module gandul# (
     // use s_1f_q.valid (input to decode) instead of s_2d_d.valid (output of decode)
     // this avoids the circular loop where trap -> noop -> s_2d_d.valid=0 -> trap=0
     // we must manually mask with jump_or_branch_3e because a branch should kill the trap
-    logic trap_valid_1f, trap_valid_2d, trap_valid_4m;
+    logic trap_valid_1f, trap_valid_2d;
 
+    // TODO: change all of this for rob outputs
     assign trap_valid_1f = xcpt_icache & s_1f_d.valid & ~jump_or_branch_3e;
     assign trap_valid_2d = xcpt_illegal_ins & s_1f_q.valid & ~jump_or_branch_3e;
-    assign trap_valid_4m = xcpt_dcache & s_3e_q.valid;
 
-    assign trap_valid = trap_valid_1f | trap_valid_2d | trap_valid_4m;
+    assign trap_valid = rob_commit.valid & rob_commit.xcpt | trap_valid_1f | trap_valid_2d;
 
     assign noop_1f  = jump_or_branch_3e | trap_valid;
     assign noop_2d  = jump_or_branch_3e | trap_valid;
-    assign noop_3e  = trap_valid_4m;
-    assign noop_4m  = trap_valid_4m;
+    assign noop_3e  = 0;
+    assign noop_4m  = 0;
 
-    assign stall_1f = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard;
-    assign stall_2d = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard;
+    assign stall_1f = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
+    assign stall_2d = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
     assign stall_3e = waiting_for_memory_4m | ~icache_dreq_ready;
     assign stall_4m = waiting_for_memory_4m;
 
@@ -102,6 +97,80 @@ module gandul# (
     assign dmem_we_o    = dmem_if_out.we;
     assign dmem_addr_o  = dmem_if_out.addr;
     assign dmem_data_o  = dmem_if_out.data;
+
+    // =========================================================================
+    // = Stage 2-ish: Reorder Buffer
+    // =========================================================================
+
+    // From stage_2d
+    issue_req_t rob_issue_req;
+    // To stage_2d
+    issue_rsp_t rob_issue_rsp;
+    // From wb in normal FU
+    complete_t  rob_complete_emw;
+    // From wb in muldiv FU
+    complete_t  rob_complete_mul;
+    // To pc_sel
+    commit_t    rob_commit;
+    // To regfile
+    commit_rf_t rob_commit_rf;
+    // To store-buffer
+    commit_sb_t rob_commit_sb;
+    // From stage_2d
+    cam_req_t   rob_cam_req_rs1;
+    // To stage_2d
+    cam_rsp_t   rob_cam_rsp_rs1;
+    // From stage_2d
+    cam_req_t   rob_cam_req_rs2;
+    // To stage_2d
+    cam_rsp_t   rob_cam_rsp_rs2;
+
+    assign rob_issue_req.valid   = s_2d_d.valid; // & ~xcpt_illegal_ins
+    assign rob_issue_req.pc      = s_1f_q.pc;
+    assign rob_issue_req.rd_we   = s_2d_d.is_wb;
+    assign rob_issue_req.rd_addr = s_2d_d.rd_addr;
+    assign rob_issue_req.is_st   = s_2d_d.is_st;
+
+    // Complete emw
+    assign rob_complete_emw.valid  = s_4m_q.valid;
+    assign rob_complete_emw.robid  = s_5w_d.robid;
+    assign rob_complete_emw.result = s_5w_d.rd_data;
+    assign rob_complete_emw.xcpt   = s_5w_d.xcpt;
+    assign rob_complete_emw.sbid   = s_5w_d.sbid;
+
+    // TODO: Complete mul
+    // assign rob_complete_emw.valid  =
+    // assign rob_complete_emw.robid  =
+    // assign rob_complete_emw.result =
+    // assign rob_complete_emw.xcpt   =
+    // assign rob_complete_emw.sbid   =
+
+    // CAM
+    assign rob_cam_req_rs1.valid = rs1_valid;
+    assign rob_cam_req_rs1.addr  = rs1_addr;
+    assign rob_cam_req_rs2.valid = rs2_valid;
+    assign rob_cam_req_rs2.addr  = rs2_addr;
+
+
+    rob rob_inst (
+        .clk,
+        .reset_n,
+
+        .issue_req_i(rob_issue_req),
+        .issue_rsp_o(rob_issue_rsp),
+
+        .complete_emw_i(rob_complete_emw),
+        .complete_mul_i(rob_complete_mul),
+
+        .commit_o(rob_commit),
+        .commit_rf_o(rob_commit_rf),
+        .commit_sb_o(rob_commit_sb),
+
+        .cam_req_rs1_i(rob_cam_req_rs1),
+        .cam_rsp_rs1_o(rob_cam_rsp_rs1),
+        .cam_req_rs2_i(rob_cam_req_rs2),
+        .cam_rsp_rs2_o(rob_cam_rsp_rs2)
+    );
 
     // =========================================================================
     // = Stage 1: Fetch
@@ -142,7 +211,7 @@ module gandul# (
         .clk,
         .reset_n,
         // Data req
-        .dreq_valid_i(reset_n & !(trap_valid_2d | trap_valid_4m)),
+        .dreq_valid_i(reset_n & !(trap_valid_2d)),
         .dreq_ready_o(icache_dreq_ready),
         .dreq_addr_i(pc),
         .dreq_width_i(MEMOP_WIDTH_32),
@@ -191,9 +260,9 @@ module gandul# (
         ._i(s_1f_q),
         ._o(s_2d_d),
         // Write-back
-        .rd_we_i(s_5w_d.is_wb),
-        .rd_addr_i(s_5w_d.rd_addr),
-        .rd_data_i(s_5w_d.rd_data),
+        .rd_we_i(rob_commit_rf.rd_we),
+        .rd_addr_i(rob_commit_rf.rd_addr),
+        .rd_data_i(rob_commit_rf.rd_data),
         // Exceptions
         .xcpt_illegal_ins_o(xcpt_illegal_ins),
         // Hazard detection
@@ -319,15 +388,6 @@ module gandul# (
             fwd_data_4m = s_4m_d.alu_result;
         end
     end
-
-    // hazard_unit hazard_unit_inst (
-    //     .jump_or_branch_3e_i(jump_or_branch_3e),
-    //     .trap_i(trap_valid),
-    //     .data_hazard_i(data_hazard),
-    //     .noop_o(noop),
-    //     .stall_o(stall)
-    // );
-
 
     fwd_unit #(
         .XLEN(XLEN)

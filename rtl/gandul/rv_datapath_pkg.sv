@@ -9,6 +9,7 @@ package rv_datapath_pkg;
     import alu_pkg::*;
     import rv_branch_compare_pkg::*;
     import memory_controller_pkg::*;
+    import rob_pkg::*;
 
     typedef enum logic [0:0] {
         MUX_ALU_OP1_RS1,
@@ -42,34 +43,32 @@ package rv_datapath_pkg;
     typedef struct packed {
         logic             valid;
         logic [`INS_WIDTH-1:0] ins;
-        // outputs for datapath control
+        // Outputs for datapath control
         alu_op_e          alu_op;
         mux_alu_op1_sel_e alu_op1_sel;
         mux_alu_op2_sel_e alu_op2_sel;
         mux_wb_sel_e      wb_sel;
-
         mux_pc_sel_e      pc_sel;
-
-        // write enable signals
+        // Write enable signals
         logic             is_wb;
         logic             is_ld; // kept for convenience (is_ld_o = (wb_sel_o == MUX_WB_MEM) && is_wb_o)
         logic             is_st;
-
-        // decoded instruction fields
+        // Decoded instruction fields
         logic [`XLEN-1:0] rs1_data;
         logic [`XLEN-1:0] rs2_data;
         logic [4:0]       rd_addr;
         logic [`XLEN-1:0] immed;
-
+        // Compare
         compare_op_e      compare_op;
-
-        // memory signals
+        // Memory signals
         memop_width_e     memop_width;
         logic             ld_unsigned;
-
-        // bypasses
+        // Bypasses
         logic             bypass_4m_3e_sel;
-
+        // ROB things
+        robid_t           robid;
+        logic             xcpt;
+        // PC
         logic [`XLEN-1:0] pc;
     } signals_decode_t;
 
@@ -79,18 +78,18 @@ package rv_datapath_pkg;
         logic [`XLEN-1:0] alu_result;
         mux_wb_sel_e      wb_sel;
         logic [4:0]       rd_addr;
-
-        // write enable signals
+        // Write enable signals
         logic             is_wb;
         logic             is_ld; // kept for convenience (is_ld_o = (wb_sel_o == MUX_WB_MEM) && is_wb_o)
         logic             is_st;
-
-        // memory signals
+        // Memory signals
         memop_width_e     memop_width;
         logic             ld_unsigned;
         logic [`XLEN-1:0] rs2_data;
-
-
+        // ROB things
+        robid_t           robid;
+        logic             xcpt;
+        // PC
         logic [`XLEN-1:0] pc;
     } signals_execute_t;
 
@@ -101,10 +100,13 @@ package rv_datapath_pkg;
         logic [`XLEN-1:0] alu_result;
         mux_wb_sel_e      wb_sel;
         logic [4:0]       rd_addr;
-
         // write enable signals
         logic             is_wb;
-
+        // ROB things
+        robid_t           robid;
+        logic             xcpt;
+        sbid_t            sbid;
+        // PC
         logic [`XLEN-1:0] pc;
     } signals_memory_t;
 
@@ -112,9 +114,12 @@ package rv_datapath_pkg;
         logic [`INS_WIDTH-1:0] ins;
         logic [`XLEN-1:0] rd_data;
         logic [4:0]       rd_addr;
-
         // write enable signals
         logic             is_wb;
+        // ROB things
+        robid_t           robid;
+        logic             xcpt;
+        sbid_t            sbid;
     } signals_writeback_t;
 
 
