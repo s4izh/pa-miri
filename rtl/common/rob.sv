@@ -9,7 +9,6 @@ module rob #(
     input logic reset_n,
     // Request to issue new instruction
     input  issue_req_t issue_req_i,
-    // Respond with assigned robid
     output issue_rsp_t issue_rsp_o,
     // Complete instruction from alu-memory fu
     input  complete_t  complete_emw_i,
@@ -20,7 +19,13 @@ module rob #(
     // Commit to register file
     output commit_rf_t commit_rf_o,
     // Commit to store_buffer
-    output commit_sb_t commit_sb_o
+    output commit_sb_t commit_sb_o,
+    // Peek youngest rs1 value
+    input  cam_req_t   cam_req_rs1_i,
+    output cam_rsp_t   cam_rsp_rs1_o,
+    // Peek youngest rs2 value
+    input  cam_req_t   cam_req_rs2_i,
+    output cam_rsp_t   cam_rsp_rs2_o
 );
     // Define a type for a reorder buffer entry
     typedef struct packed {
@@ -52,7 +57,8 @@ module rob #(
     assign next_tail = tail + 1;
     robid_t tail, head;
     rob_entry_t [N_ENTRIES-1:0] entries;
-    logic full;
+    logic empty, full;
+    assign empty = (tail == head);
     assign full = (tail+1 == head) | ((&tail) & (head == '0));
 
     // Control tail
@@ -120,6 +126,53 @@ module rob #(
         end
     end
 
-    // TODO: CAM lookup for younger instructions to use my value
+    // CAM lookup for younger instructions to use my value
+    // RS1
+    always_comb begin
+        logic   found;
+        robid_t found_robid;
+        found       = 0;
+        found_robid = '0;
+
+        // Default
+        cam_rsp_rs1_o = '0;
+
+        if (~empty) begin
+            // Go from tail-1 (youngest) til head (oldest) and check
+            // RS1
+            for (robid_t i = tail; i != head; --i) begin
+                found = (entries[i-1].rd_addr == cam_req_rs1_i.addr) & entries[i-1].complete & ~entries[i-1].xcpt;
+                found_robid = i-1;
+                if (found) break;
+            end
+            // Final asssign
+            cam_rsp_rs1_o.valid = found;
+            cam_rsp_rs1_o.value = entries[found_robid].result;
+        end
+    end
+    // RS2
+    always_comb begin
+        logic   found;
+        robid_t found_robid;
+        found       = 0;
+        found_robid = '0;
+
+        // Default
+        cam_rsp_rs2_o = '0;
+
+        if (~empty) begin
+            // Go from tail-1 (youngest) til head (oldest) and check
+            // RS1
+            for (robid_t i = tail; i != head; --i) begin
+                found = (entries[i-1].rd_addr == cam_req_rs2_i.addr) & entries[i-1].complete & ~entries[i-1].xcpt;
+                found_robid = i-1;
+                if (found) break;
+            end
+            // Final asssign
+            cam_rsp_rs2_o.valid = found;
+            cam_rsp_rs2_o.value = entries[found_robid].result;
+        end
+    end
+
 
 endmodule

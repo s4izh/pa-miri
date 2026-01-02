@@ -15,6 +15,10 @@ module tb (
     commit_t    commit_o;
     commit_rf_t commit_rf_o;
     commit_sb_t commit_sb_o;
+    cam_req_t   cam_req_rs1_i;
+    cam_rsp_t   cam_rsp_rs1_o;
+    cam_req_t   cam_req_rs2_i;
+    cam_rsp_t   cam_rsp_rs2_o;
 
     // Instantiate the DUT
     rob #(
@@ -70,7 +74,7 @@ module tb (
                 commit_count += 1;
             end
             if (cycle_count >= TIMEOUT_CYCLES) begin
-                $fatal(1, "Test FAILED! Timeout reached (%0d cycles) without writing to 'tohost'.", TIMEOUT_CYCLES);
+                $fatal(1, "Test FAILED! Timeout reached", TIMEOUT_CYCLES);
             end
         end
     end
@@ -123,6 +127,7 @@ module tb (
         tb_issue_t created[$];
         int issued[robid_t];
 
+        // Create all ops to be issued
         for (int i = 0; i < total_ops; ++i) begin
             tb_issue_t tmp;
             tmp.delay = $urandom_range(5,20);
@@ -160,8 +165,16 @@ module tb (
                     issued.delete(robid);
                 end
             end
+            // Peek CAM
+            if ($urandom_range(1,100) < 50) begin
+                peek_rs1($urandom_range(0,31)[4:0]);
+            end
+            if ($urandom_range(1,100) < 50) begin
+                peek_rs2($urandom_range(0,31)[4:0]);
+            end
             // Advance sim time
             @(posedge clk);
+            // Check if all ops have committed
             if (commit_count >= total_ops) break;
         end
     endtask
@@ -199,9 +212,25 @@ module tb (
         complete_mul_i.sbid   = '0;
     endtask
 
+    task peek_rs1 (
+        input logic [4:0] addr
+    );
+        cam_req_rs1_i.valid = 1;
+        cam_req_rs1_i.addr  = addr;
+    endtask
+
+    task peek_rs2 (
+        input logic [4:0] addr
+    );
+        cam_req_rs2_i.valid = 1;
+        cam_req_rs2_i.addr  = addr;
+    endtask
+
     task noop ();
         issue_req_i.valid    = 0;
         complete_emw_i.valid = 0;
+        cam_req_rs1_i.valid    = 0;
+        cam_req_rs2_i.valid    = 0;
     endtask
 
 endmodule

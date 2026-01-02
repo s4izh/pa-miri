@@ -52,4 +52,16 @@ package rob_pkg;
         sbid_t            sbid;
     } commit_sb_t;
 
+    // Interface types to peek youngest register values
+    // (make rob act as content addressable memory)
+    typedef struct packed {
+        logic             valid;
+        logic [4:0]       addr;
+    } cam_req_t;
+
+    typedef struct packed {
+        logic             valid;
+        logic [`XLEN-1:0] value;
+    } cam_rsp_t;
+
 endpackage
