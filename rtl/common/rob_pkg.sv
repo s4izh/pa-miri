@@ -29,7 +29,8 @@ package rob_pkg;
         logic             valid;
         robid_t           robid;
         logic [`XLEN-1:0] result;
-        // We know if the sbid will be valid at issue time
+        logic             xcpt;
+        // We know if the sbid will be valid at issue time (is_st)
         sbid_t            sbid;
     } complete_t;
 

@@ -77,6 +77,7 @@ module rob #(
                 // TOCHECK: complete_rob_id_i should be between tail and head
                 entries[complete_emw_i.robid].complete <= 1;
                 entries[complete_emw_i.robid].result   <= complete_emw_i.result;
+                entries[complete_emw_i.robid].xcpt     <= complete_emw_i.xcpt;
                 entries[complete_emw_i.robid].sbid     <= complete_emw_i.sbid;
             end
         end

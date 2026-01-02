@@ -37,78 +37,166 @@ module tb (
         .rd_we_i(commit_rf_o.rd_we)
     );
 
-    // Test sequence
+    int TIMEOUT_CYCLES;
+    int DEFAULT_TIMEOUT_CYCLES = 1000;
     initial begin
+        if ($value$plusargs("TIMEOUT_CYCLES=%d", TIMEOUT_CYCLES)) begin
+            $display("Timeout set at %d cycles", TIMEOUT_CYCLES);
+        end else begin
+            TIMEOUT_CYCLES = DEFAULT_TIMEOUT_CYCLES;
+            $warning("Timeout not set. Using default %d cycles", TIMEOUT_CYCLES);
+        end
+
+        // Test sequence
         noop();
         @(posedge reset_n);
         repeat(4) @(posedge clk);
 
-        test_directed();
+        // test_directed();
+        test_random(5);
 
         noop();
         @(posedge clk);
         $finish;
     end
 
-    // - An issuing instructions generator
-    // - A completing instructions generator
-    // - A commiting instructions monitor
+    int cycle_count = 0;
+    int commit_count = 0;
+    always @(posedge clk) begin
+        if (reset_n) begin
+            ++cycle_count;
+            // Count commited
+            if (commit_o.valid) begin
+                commit_count += 1;
+            end
+            if (cycle_count >= TIMEOUT_CYCLES) begin
+                $fatal(1, "Test FAILED! Timeout reached (%0d cycles) without writing to 'tohost'.", TIMEOUT_CYCLES);
+            end
+        end
+    end
 
     task test_directed();
         robid_t robid1, robid2;
-        issue('h80000000, 2);
+        issue('h80000000, 2, 0);
         robid1 = issue_rsp_o.robid;
         @(posedge clk);
-        issue('h80000004, 3);
+        issue('h80000004, 3, 0);
         robid2 = issue_rsp_o.robid;
         @(posedge clk);
         noop();
         @(posedge clk);
         @(posedge clk);
-        complete(robid2, 'hcafecafe);
+        complete_emw(robid2, 'hcafecafe, '0);
         @(posedge clk);
-        complete(robid1, 'hfe0fe0fe);
+        complete_emw(robid1, 'hfe0fe0fe, '0);
         @(posedge clk);
         noop();
         @(posedge clk);
         @(posedge clk);
-        issue('h80000008, 8);
+        issue('h80000008, 8, 0);
         robid1 = issue_rsp_o.robid;
         @(posedge clk);
-        issue('h8000000c, 13);
+        issue('h8000000c, 13, 0);
         robid2 = issue_rsp_o.robid;
         @(posedge clk);
         noop();
         @(posedge clk);
         @(posedge clk);
-        complete(robid2, 'hbeefbeef);
+        complete_emw(robid2, 'hbeefbeef, '0);
         @(posedge clk);
-        complete(robid1, 'hdeaddead);
+        complete_emw(robid1, 'hdeaddead, '0);
         @(posedge clk);
         noop();
         @(posedge clk);
         @(posedge clk);
+    endtask
+
+    typedef struct packed {
+        int        delay;
+        logic[4:0] rd;
+        logic      is_st;
+    } tb_issue_t;
+
+    task test_random(input int total_ops);
+        int n_issued;
+        logic [XLEN-1:0] pc;
+        tb_issue_t created[$];
+        int issued[robid_t];
+
+        for (int i = 0; i < total_ops; ++i) begin
+            tb_issue_t tmp;
+            tmp.delay = $urandom_range(5,20);
+            if ($urandom_range(1,100) < 50) begin
+                // store
+                tmp.rd    = '0;
+                tmp.is_st = 1;
+            end else begin
+                // reg op
+                tmp.rd    = $urandom_range(0,31)[4:0];
+                tmp.is_st = 0;
+            end
+            created.push_back(tmp);
+        end
+
+        n_issued   = 0;
+        pc = 'h1000;
+        forever begin
+            noop();
+            // Issue someone (if possible)
+            if (n_issued < total_ops) begin
+                robid_t robid;
+                issue(pc, created[n_issued].rd, created[n_issued].is_st);
+                robid = issue_rsp_o.robid;
+                issued[robid] = created[n_issued].delay;
+                ++n_issued;
+                pc += 'h4;
+            end
+            // Complete inflight ops
+            foreach (issued[robid]) begin
+                if (issued[robid] > 0) begin
+                    issued[robid] -= 1;
+                end else begin
+                    complete_emw(robid, $urandom(), sbid_t'(robid));
+                    issued.delete(robid);
+                end
+            end
+            // Advance sim time
+            @(posedge clk);
+            if (commit_count >= total_ops) break;
+        end
     endtask
 
     task issue (
         input logic[XLEN-1:0] pc,
-        input logic[4:0] rd
+        input logic[4:0] rd,
+        input logic is_st
     );
         issue_req_i.valid   = 1;
         issue_req_i.pc      = pc;
-        issue_req_i.rd_we   = 1;
+        issue_req_i.rd_we   = ~is_st;
         issue_req_i.rd_addr = rd;
-        issue_req_i.is_st   = 0;
+        issue_req_i.is_st   = is_st;
     endtask
 
-    task complete (
+    task complete_emw (
         input robid_t robid,
-        input logic[XLEN-1:0] result
+        input logic[XLEN-1:0] result,
+        input sbid_t sbid
     );
         complete_emw_i.valid  = 1;
         complete_emw_i.robid  = robid;
         complete_emw_i.result = result;
         complete_emw_i.sbid   = '0; // FIXME
+    endtask
+
+    task complete_mul (
+        input robid_t robid,
+        input logic[XLEN-1:0] result
+    );
+        complete_mul_i.valid  = 1;
+        complete_mul_i.robid  = robid;
+        complete_mul_i.result = result;
+        complete_mul_i.sbid   = '0;
     endtask
 
     task noop ();
