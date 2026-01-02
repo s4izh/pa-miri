@@ -56,8 +56,8 @@ module tb (
         @(posedge reset_n);
         repeat(4) @(posedge clk);
 
-        // test_directed();
-        test_random(50);
+        test_directed();
+        // test_random(50);
 
         noop();
         @(posedge clk);
@@ -90,9 +90,9 @@ module tb (
         noop();
         @(posedge clk);
         @(posedge clk);
-        complete_emw(robid2, 'hcafecafe, '0);
+        complete_emw(robid2, 'hcafecafe, '0, 0);
         @(posedge clk);
-        complete_emw(robid1, 'hfe0fe0fe, '0);
+        complete_emw(robid1, 'hfe0fe0fe, '0, 1); // xcpt!!!
         @(posedge clk);
         noop();
         @(posedge clk);
@@ -106,9 +106,9 @@ module tb (
         noop();
         @(posedge clk);
         @(posedge clk);
-        complete_emw(robid2, 'hbeefbeef, '0);
+        complete_emw(robid2, 'hbeefbeef, '0, 0);
         @(posedge clk);
-        complete_emw(robid1, 'hdeaddead, '0);
+        complete_emw(robid1, 'hdeaddead, '0, 0);
         @(posedge clk);
         noop();
         @(posedge clk);
@@ -161,7 +161,7 @@ module tb (
                 if (issued[robid] > 0) begin
                     issued[robid] -= 1;
                 end else begin
-                    complete_emw(robid, $urandom(), $urandom()[2:0]);
+                    complete_emw(robid, $urandom(), $urandom()[2:0], 0);
                     issued.delete(robid);
                 end
             end
@@ -194,22 +194,26 @@ module tb (
     task complete_emw (
         input robid_t robid,
         input logic[XLEN-1:0] result,
-        input sbid_t sbid
+        input sbid_t sbid,
+        input logic xcpt
     );
         complete_emw_i.valid  = 1;
         complete_emw_i.robid  = robid;
         complete_emw_i.result = result;
         complete_emw_i.sbid   = sbid;
+        complete_emw_i.xcpt   = xcpt;
     endtask
 
     task complete_mul (
         input robid_t robid,
-        input logic[XLEN-1:0] result
+        input logic[XLEN-1:0] result,
+        input logic xcpt
     );
         complete_mul_i.valid  = 1;
         complete_mul_i.robid  = robid;
         complete_mul_i.result = result;
         complete_mul_i.sbid   = '0;
+        complete_emw_i.xcpt   = xcpt;
     endtask
 
     task peek_rs1 (

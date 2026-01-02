@@ -55,6 +55,7 @@ module rob #(
     //      ........
     robid_t tail_d, tail_q, head_d, head_q;
     rob_entry_t [N_ENTRIES-1:0] entries;
+    logic committing_xcpt;
     logic empty, full;
     assign empty = (tail_q == head_q);
     assign full = (tail_q+1 == head_q) | ((&tail_q) & (head_q == '0));
@@ -81,7 +82,9 @@ module rob #(
     // Control tail_d
     always_comb begin
         tail_d = tail_q;
-        if (issue_req_i.valid & ~full) begin
+        if (committing_xcpt) begin
+            tail_d = head_d;
+        end else if (issue_req_i.valid & ~full) begin
             tail_d = tail_q + 1;
         end
     end
@@ -104,7 +107,6 @@ module rob #(
         end
         // Complete emw
         if (complete_emw_i.valid) begin
-            // TOCHECK: complete_*_i.robid should be between tail and head
             entries[complete_emw_i.robid].complete <= 1;
             entries[complete_emw_i.robid].result   <= complete_emw_i.result;
             entries[complete_emw_i.robid].xcpt     <= complete_emw_i.xcpt;
@@ -112,7 +114,6 @@ module rob #(
         end
         // Complete mul
         if (complete_mul_i.valid) begin
-            // TOCHECK: complete_*_i.robid should be between tail and head
             entries[complete_mul_i.robid].complete <= 1;
             entries[complete_mul_i.robid].result   <= complete_mul_i.result;
             entries[complete_mul_i.robid].xcpt     <= complete_mul_i.xcpt;
@@ -125,11 +126,13 @@ module rob #(
         commit_o = '0;
         commit_rf_o = '0;
         commit_sb_o = '0;
+        committing_xcpt = 0;
         commit_o.robid = head_q;
         if (entries[head_q].complete & ~empty) begin
-            commit_o.valid = 1;
-            commit_o.xcpt  = entries[head_q].xcpt;
-            if (!entries[head_q].xcpt) begin
+            commit_o.valid  = 1;
+            commit_o.xcpt   = entries[head_q].xcpt;
+            committing_xcpt = entries[head_q].xcpt;
+            if (~entries[head_q].xcpt) begin
                 if (entries[head_q].is_st) begin
                     commit_sb_o.valid = 1;
                     commit_sb_o.sbid  = entries[head_q].sbid;
@@ -138,8 +141,6 @@ module rob #(
                     commit_rf_o.rd_addr = entries[head_q].rd_addr;
                     commit_rf_o.rd_data = entries[head_q].result;
                 end
-            end else begin
-                // TODO: invalidate all younger instructions?
             end
         end
     end
