@@ -47,86 +47,97 @@ module rob #(
     // Therefore, instructions are instroduced through the tail,
     // and completed through the head
     //      ........
-    //    | rob_id 3 | <- head
+    //    | rob_id 3 | <- head_q
     //    | rob_id 4 |
     //    | rob_id 5 |
     //    | rob_id 6 |
-    //    | rob_id 7 | <- tail
+    //    | rob_id 7 | <- tail_q
     //      ........
-    robid_t next_tail;
-    assign next_tail = tail + 1;
-    robid_t tail, head;
+    robid_t tail_d, tail_q, head_d, head_q;
     rob_entry_t [N_ENTRIES-1:0] entries;
     logic empty, full;
-    assign empty = (tail == head);
-    assign full = (tail+1 == head) | ((&tail) & (head == '0));
+    assign empty = (tail_q == head_q);
+    assign full = (tail_q+1 == head_q) | ((&tail_q) & (head_q == '0));
 
-    // Control tail
-    always @(posedge clk) begin
+    // Control head_q and tail_q ff
+    always_ff @(posedge clk) begin
         if (!reset_n) begin
-            tail <= '0;
+            head_q <= '0;
+            tail_q <= '0;
         end else begin
-            if (issue_req_i.valid) begin
-                entries[tail].pc       <= issue_req_i.pc;
-                entries[tail].rd_we    <= issue_req_i.rd_we;
-                entries[tail].rd_addr  <= issue_req_i.rd_addr;
-                entries[tail].is_st    <= issue_req_i.is_st;
-                entries[tail].sbid     <= '0;
-                entries[tail].complete <= 0;
-                entries[tail].result   <= '0;
-                entries[tail].xcpt     <= 0;
-                tail                   <= tail + 1;
-            end
-
-            if (complete_emw_i.valid) begin
-                // Find the entry completed and mark it as so in the
-                // corresponding rob entry
-                // TOCHECK: complete_rob_id_i should be between tail and head
-                entries[complete_emw_i.robid].complete <= 1;
-                entries[complete_emw_i.robid].result   <= complete_emw_i.result;
-                entries[complete_emw_i.robid].xcpt     <= complete_emw_i.xcpt;
-                entries[complete_emw_i.robid].sbid     <= complete_emw_i.sbid;
-            end
+            head_q <= head_d;
+            tail_q <= tail_d;
         end
     end
 
-    assign issue_rsp_o.robid = tail;
+    // Control head_d
+    always_comb begin
+        head_d = head_q;
+        if (entries[head_q].complete & ~empty) begin
+            head_d = head_q + 1;
+        end
+    end
+
+    // Control tail_d
+    always_comb begin
+        tail_d = tail_q;
+        if (issue_req_i.valid & ~full) begin
+            tail_d = tail_q + 1;
+        end
+    end
+
+    assign issue_rsp_o.robid = tail_q;
     assign issue_rsp_o.ready = ~full;
 
-    // Control head
-    always @(posedge clk) begin
-        if (!reset_n) begin
-            head <= '0;
-        end else begin
-            if (entries[head].complete) begin
-                head <= head + 1;
-            end
+    // Issue logic
+    always_ff @(posedge clk) begin
+        if (issue_req_i.valid & ~full) begin
+            entries[tail_q].pc       <= issue_req_i.pc;
+            entries[tail_q].rd_we    <= issue_req_i.rd_we;
+            entries[tail_q].rd_addr  <= issue_req_i.rd_addr;
+            entries[tail_q].is_st    <= issue_req_i.is_st;
+            entries[tail_q].sbid     <= '0;
+            entries[tail_q].complete <= 0;
+            entries[tail_q].result   <= '0;
+            entries[tail_q].xcpt     <= 0;
+        end
+
+        if (complete_emw_i.valid) begin
+            // Find the entry completed and mark it as so in the
+            // corresponding rob entry
+            // TOCHECK: complete_rob_id_i should be between tail and head
+            entries[complete_emw_i.robid].complete <= 1;
+            entries[complete_emw_i.robid].result   <= complete_emw_i.result;
+            entries[complete_emw_i.robid].xcpt     <= complete_emw_i.xcpt;
+            entries[complete_emw_i.robid].sbid     <= complete_emw_i.sbid;
         end
     end
 
-    // Output commits
+    // Commit logic
     always_comb begin
         commit_o = '0;
         commit_rf_o = '0;
         commit_sb_o = '0;
-        if (entries[head].complete) begin
+        commit_o.robid = head_q;
+        if (entries[head_q].complete & ~empty) begin
             commit_o.valid = 1;
-            commit_o.xcpt  = entries[head].xcpt;
-            commit_o.robid = head;
-            if (!entries[head].xcpt) begin
-                if (entries[head].is_st) begin
+            commit_o.xcpt  = entries[head_q].xcpt;
+            if (!entries[head_q].xcpt) begin
+                if (entries[head_q].is_st) begin
                     commit_sb_o.valid = 1;
-                    commit_sb_o.sbid  = entries[head].sbid;
+                    commit_sb_o.sbid  = entries[head_q].sbid;
                 end else begin
-                    commit_rf_o.rd_we   = entries[head].rd_we;
-                    commit_rf_o.rd_addr = entries[head].rd_addr;
-                    commit_rf_o.rd_data = entries[head].result;
+                    commit_rf_o.rd_we   = entries[head_q].rd_we;
+                    commit_rf_o.rd_addr = entries[head_q].rd_addr;
+                    commit_rf_o.rd_data = entries[head_q].result;
                 end
+            end else begin
+                // TODO: invalidate all younger instructions?
             end
         end
     end
 
-    // CAM lookup for younger instructions to use my value
+    // CAM lookup for younger instructions to use my values
     // RS1
     always_comb begin
         logic   found;
@@ -140,7 +151,7 @@ module rob #(
         if (~empty) begin
             // Go from tail-1 (youngest) til head (oldest) and check
             // RS1
-            for (robid_t i = tail; i != head; --i) begin
+            for (robid_t i = tail_q; i != head_q; --i) begin
                 found = (entries[i-1].rd_addr == cam_req_rs1_i.addr) & entries[i-1].complete & ~entries[i-1].xcpt;
                 found_robid = i-1;
                 if (found) break;
@@ -163,7 +174,7 @@ module rob #(
         if (~empty) begin
             // Go from tail-1 (youngest) til head (oldest) and check
             // RS1
-            for (robid_t i = tail; i != head; --i) begin
+            for (robid_t i = tail_q; i != head_q; --i) begin
                 found = (entries[i-1].rd_addr == cam_req_rs2_i.addr) & entries[i-1].complete & ~entries[i-1].xcpt;
                 found_robid = i-1;
                 if (found) break;
@@ -173,6 +184,5 @@ module rob #(
             cam_rsp_rs2_o.value = entries[found_robid].result;
         end
     end
-
 
 endmodule
