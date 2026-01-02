@@ -89,8 +89,9 @@ module rob #(
     assign issue_rsp_o.robid = tail_q;
     assign issue_rsp_o.ready = ~full;
 
-    // Issue logic
+    // Issue and complete logic
     always_ff @(posedge clk) begin
+        // Issue
         if (issue_req_i.valid & ~full) begin
             entries[tail_q].pc       <= issue_req_i.pc;
             entries[tail_q].rd_we    <= issue_req_i.rd_we;
@@ -101,15 +102,21 @@ module rob #(
             entries[tail_q].result   <= '0;
             entries[tail_q].xcpt     <= 0;
         end
-
+        // Complete emw
         if (complete_emw_i.valid) begin
-            // Find the entry completed and mark it as so in the
-            // corresponding rob entry
-            // TOCHECK: complete_rob_id_i should be between tail and head
+            // TOCHECK: complete_*_i.robid should be between tail and head
             entries[complete_emw_i.robid].complete <= 1;
             entries[complete_emw_i.robid].result   <= complete_emw_i.result;
             entries[complete_emw_i.robid].xcpt     <= complete_emw_i.xcpt;
             entries[complete_emw_i.robid].sbid     <= complete_emw_i.sbid;
+        end
+        // Complete mul
+        if (complete_mul_i.valid) begin
+            // TOCHECK: complete_*_i.robid should be between tail and head
+            entries[complete_mul_i.robid].complete <= 1;
+            entries[complete_mul_i.robid].result   <= complete_mul_i.result;
+            entries[complete_mul_i.robid].xcpt     <= complete_mul_i.xcpt;
+            entries[complete_mul_i.robid].sbid     <= complete_mul_i.sbid;
         end
     end
 
