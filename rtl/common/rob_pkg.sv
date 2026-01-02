@@ -20,7 +20,7 @@ package rob_pkg;
     } issue_req_t;
 
     typedef struct packed {
-        logic             valid;
+        logic             ready;
         robid_t           robid;
     } issue_rsp_t;
 

@@ -53,7 +53,7 @@ module tb (
         repeat(4) @(posedge clk);
 
         // test_directed();
-        test_random(5);
+        test_random(50);
 
         noop();
         @(posedge clk);
@@ -143,7 +143,7 @@ module tb (
         forever begin
             noop();
             // Issue someone (if possible)
-            if (n_issued < total_ops) begin
+            if ((n_issued < total_ops) & issue_rsp_o.ready) begin
                 robid_t robid;
                 issue(pc, created[n_issued].rd, created[n_issued].is_st);
                 robid = issue_rsp_o.robid;
@@ -156,7 +156,7 @@ module tb (
                 if (issued[robid] > 0) begin
                     issued[robid] -= 1;
                 end else begin
-                    complete_emw(robid, $urandom(), sbid_t'(robid));
+                    complete_emw(robid, $urandom(), $urandom()[2:0]);
                     issued.delete(robid);
                 end
             end
@@ -186,7 +186,7 @@ module tb (
         complete_emw_i.valid  = 1;
         complete_emw_i.robid  = robid;
         complete_emw_i.result = result;
-        complete_emw_i.sbid   = '0; // FIXME
+        complete_emw_i.sbid   = sbid;
     endtask
 
     task complete_mul (

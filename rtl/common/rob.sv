@@ -52,8 +52,9 @@ module rob #(
     assign next_tail = tail + 1;
     robid_t tail, head;
     rob_entry_t [N_ENTRIES-1:0] entries;
+    logic full;
+    assign full = (tail+1 == head) | ((&tail) & (head == '0));
 
-    // TODO: FSM (?)
     // Control tail
     always @(posedge clk) begin
         if (!reset_n) begin
@@ -84,7 +85,7 @@ module rob #(
     end
 
     assign issue_rsp_o.robid = tail;
-    assign issue_rsp_o.valid = issue_req_i.valid; // & ~full;
+    assign issue_rsp_o.ready = ~full;
 
     // Control head
     always @(posedge clk) begin
