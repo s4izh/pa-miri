@@ -421,6 +421,11 @@ module gandul# (
         .rd_5w_i(s_5w_d.rd_addr),
         .rd_is_wb_5w_i(s_5w_d.is_wb),
         .data_5w_i(s_5w_d.rd_data),
+        // rob inputs
+        .rob_cam_rs1_valid_i(rob_cam_rsp_rs1.valid),
+        .rob_cam_rs1_data_i(rob_cam_rsp_rs1.value),
+        .rob_cam_rs2_valid_i(rob_cam_rsp_rs2.valid),
+        .rob_cam_rs2_data_i(rob_cam_rsp_rs2.value),
         // outputs
         .bypass_rs1_2d_sel_o(bypass_rs1_2d_sel),
         .bypass_rs2_2d_sel_o(bypass_rs2_2d_sel),

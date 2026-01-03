@@ -160,13 +160,12 @@ module rob #(
         // Default
         cam_rsp_rs1_o = '0;
 
-        if (~empty) begin
+        if (~empty & (cam_req_rs1_i.addr != '0)) begin
             // Go from tail-1 (youngest) til head (oldest) and check
             // RS1
-            for (robid_t i = tail_q; i != head_q; --i) begin
+            for (robid_t i = tail_q; i != head_q && ~found; --i) begin
                 found = (entries[i-1].rd_addr == cam_req_rs1_i.addr) & entries[i-1].complete & ~entries[i-1].xcpt;
                 found_robid = i-1;
-                if (found) break;
             end
             // Final asssign
             cam_rsp_rs1_o.valid = found;
@@ -183,13 +182,12 @@ module rob #(
         // Default
         cam_rsp_rs2_o = '0;
 
-        if (~empty) begin
+        if (~empty & (cam_req_rs2_i.addr != '0)) begin
             // Go from tail-1 (youngest) til head (oldest) and check
             // RS1
-            for (robid_t i = tail_q; i != head_q; --i) begin
+            for (robid_t i = tail_q; i != head_q && ~found; --i) begin
                 found = (entries[i-1].rd_addr == cam_req_rs2_i.addr) & entries[i-1].complete & ~entries[i-1].xcpt;
                 found_robid = i-1;
-                if (found) break;
             end
             // Final asssign
             cam_rsp_rs2_o.valid = found;
