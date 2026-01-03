@@ -52,6 +52,7 @@ module stage_4m #(
     `PROPAGATE(wb_sel);
     `PROPAGATE(rd_addr);
     `PROPAGATE(alu_result);
+    `PROPAGATE(robid);
 
     sign_extender #(
         .XLEN(XLEN)

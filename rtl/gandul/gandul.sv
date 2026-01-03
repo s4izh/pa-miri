@@ -285,7 +285,8 @@ module gandul# (
         .rs1_valid_o(rs1_valid),
         .rs2_addr_o(rs2_addr),
         .rs2_valid_o(rs2_valid),
-        .is_st_o(is_st_2d)
+        .is_st_o(is_st_2d),
+        .robid_i(rob_issue_rsp.robid)
     );
 
     decoupling_reg #(
@@ -381,6 +382,8 @@ module gandul# (
     assign s_5w_d.ins     = s_4m_q.ins;
     assign s_5w_d.is_wb   = s_4m_q.is_wb && s_4m_q.valid;
     assign s_5w_d.rd_addr = s_4m_q.rd_addr;
+    assign s_5w_d.robid   = s_4m_q.robid;
+    assign s_5w_d.xcpt    = s_4m_q.xcpt;
 
     // =========================================================================
     // = Hazards and bypasses

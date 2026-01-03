@@ -28,7 +28,9 @@ module stage_2d #(
     output logic                    rs1_valid_o,
     output logic [$clog2(NREG)-1:0] rs2_addr_o,
     output logic                    rs2_valid_o,
-    output logic                    is_st_o
+    output logic                    is_st_o,
+    // rob
+    input  robid_t                  robid_i
 );
     `define PROPAGATE(signal) assign _o.signal = _i.signal
 
@@ -51,7 +53,6 @@ module stage_2d #(
     end
 
     `PROPAGATE(pc);
-
     assign rs1_addr_o = rs1_addr;
     assign rs2_addr_o = rs2_addr;
 
@@ -59,6 +60,9 @@ module stage_2d #(
     assign _o.rs2_data = (bypass_rs2_sel_i == '1) ? bypass_rs2_data_i : rf_rs2_data;
 
     assign _o.bypass_4m_3e_sel = bypass_4m_3e_sel_i;
+
+    assign _o.robid = robid_i;
+    assign _o.xcpt  = 0;
 
     assign is_st_o = is_st;
 
