@@ -31,7 +31,7 @@ module gandul# (
     // pc
     logic [XLEN-1:0] pc;
     // trap control signals
-    logic trap_valid, xcpt_illegal_ins, xcpt_icache, xcpt_dcache;
+    logic frontend_trap_valid, rob_trap_valid, xcpt_illegal_ins, xcpt_icache;
     // branch control
     logic taken_branch;
     // mux selectors
@@ -77,12 +77,13 @@ module gandul# (
     assign trap_valid_1f = xcpt_icache & s_1f_d.valid & ~jump_or_branch_3e;
     assign trap_valid_2d = xcpt_illegal_ins & s_1f_q.valid & ~jump_or_branch_3e;
 
-    assign trap_valid = rob_commit.valid & rob_commit.xcpt | trap_valid_1f | trap_valid_2d;
+    assign rob_trap_valid = rob_commit.valid & rob_commit.xcpt;
+    assign frontend_trap_valid = trap_valid_1f | trap_valid_2d;
 
-    assign noop_1f  = jump_or_branch_3e | trap_valid;
-    assign noop_2d  = jump_or_branch_3e | trap_valid;
-    assign noop_3e  = 0;
-    assign noop_4m  = 0;
+    assign noop_1f  = jump_or_branch_3e | frontend_trap_valid | rob_trap_valid;
+    assign noop_2d  = jump_or_branch_3e | frontend_trap_valid | rob_trap_valid;
+    assign noop_3e  = rob_trap_valid;
+    assign noop_4m  = rob_trap_valid;
 
     assign stall_1f = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
     assign stall_2d = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
@@ -99,23 +100,30 @@ module gandul# (
     assign dmem_data_o  = dmem_if_out.data;
 
     // =========================================================================
-    // = Stage 2-ish: Reorder Buffer
+    // = Reorder Buffer
     // =========================================================================
 
+    // // === ISSUE ===
     // From stage_2d
     issue_req_t rob_issue_req;
     // To stage_2d
     issue_rsp_t rob_issue_rsp;
+
+    // // === COMPLETE ===
     // From wb in normal FU
     complete_t  rob_complete_emw;
     // From wb in muldiv FU
     complete_t  rob_complete_mul;
+
+    // // === COMMIT ===
     // To pc_sel
     commit_t    rob_commit;
     // To regfile
     commit_rf_t rob_commit_rf;
     // To store-buffer
     commit_sb_t rob_commit_sb;
+
+    // // === CAM ===
     // From stage_2d
     cam_req_t   rob_cam_req_rs1;
     // To stage_2d
@@ -180,7 +188,7 @@ module gandul# (
         if (!reset_n) begin
             pc <= 'h1000;
         end else begin
-            if (trap_valid) begin
+            if (frontend_trap_valid | rob_trap_valid) begin
                 pc <= 'h2000;
             end else begin
                 if (!stall_1f) begin
@@ -230,7 +238,7 @@ module gandul# (
     assign s_1f_d.valid = icache_dreq_ready;
     assign s_1f_d.pc = pc;
     always_comb begin
-        if (noop_1f | stall_1f | !(icache_dreq_ready)) begin
+        if (noop_1f | stall_1f) begin
             s_1f_d.ins = 32'h00000033; // noop (add x0, x0, x0)
         end else begin
             s_1f_d.ins = icache_drsp_data;
@@ -341,8 +349,7 @@ module gandul# (
         // Trap
         .noop_i(noop_4m),
         .stall_i(stall_4m),
-        .waiting_for_memory_o(waiting_for_memory_4m),
-        .dcache_xcpt_o(xcpt_dcache)
+        .waiting_for_memory_o(waiting_for_memory_4m)
     );
 
     decoupling_reg #(
