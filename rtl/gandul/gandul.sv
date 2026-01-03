@@ -135,6 +135,7 @@ module gandul# (
 
     assign rob_issue_req.valid   = s_2d_d.valid; // & ~xcpt_illegal_ins
     assign rob_issue_req.pc      = s_1f_q.pc;
+    assign rob_issue_req.dbg_ins = s_1f_q.ins;
     assign rob_issue_req.rd_we   = s_2d_d.is_wb;
     assign rob_issue_req.rd_addr = s_2d_d.rd_addr;
     assign rob_issue_req.is_st   = s_2d_d.is_st;

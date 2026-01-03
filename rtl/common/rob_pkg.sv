@@ -14,6 +14,7 @@ package rob_pkg;
     typedef struct packed {
         logic             valid;
         logic [`XLEN-1:0] pc;
+        logic [`XLEN-1:0] dbg_ins;
         logic             rd_we;
         logic [4:0]       rd_addr;
         logic             is_st;
@@ -39,7 +40,8 @@ package rob_pkg;
         logic             valid;
         logic [`XLEN-1:0] pc;
         logic             xcpt;
-        robid_t           robid; //debug
+        robid_t           dbg_robid;
+        logic [`XLEN-1:0] dbg_ins;
     } commit_t;
 
     typedef struct packed {

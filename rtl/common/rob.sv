@@ -30,6 +30,7 @@ module rob #(
     // Define a type for a reorder buffer entry
     typedef struct packed {
         logic [XLEN-1:0] pc;
+        logic [XLEN-1:0] dbg_ins;
         // rf
         logic            rd_we;
         logic [4:0]      rd_addr;
@@ -97,6 +98,7 @@ module rob #(
         // Issue
         if (issue_req_i.valid & ~full) begin
             entries[tail_q].pc       <= issue_req_i.pc;
+            entries[tail_q].dbg_ins  <= issue_req_i.dbg_ins;
             entries[tail_q].rd_we    <= issue_req_i.rd_we;
             entries[tail_q].rd_addr  <= issue_req_i.rd_addr;
             entries[tail_q].is_st    <= issue_req_i.is_st;
@@ -127,7 +129,8 @@ module rob #(
         commit_rf_o = '0;
         commit_sb_o = '0;
         committing_xcpt = 0;
-        commit_o.robid = head_q;
+        commit_o.dbg_robid = head_q;
+        commit_o.dbg_ins   = entries[head_q].dbg_ins;
         if (entries[head_q].complete & ~empty) begin
             commit_o.valid  = 1;
             commit_o.pc     = entries[head_q].pc;

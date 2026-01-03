@@ -180,10 +180,10 @@ module tb (
                     errors += 1;
                 end
 
-                // if (ins != dut.hart0_inst.s_4m_q.ins) begin
-                //     $display("ERROR - Different instruction: {dut: 0x%08x, iss: 0x%08x}", dut.hart0_inst.s_4m_q.ins, ins);
-                //     errors += 1;
-                // end
+                if (ins != dut.hart0_inst.rob_commit.dbg_ins) begin
+                    $display("ERROR - Different instruction: {dut: 0x%08x, iss: 0x%08x}", dut.hart0_inst.rob_commit.dbg_ins, ins);
+                    errors += 1;
+                end
 
                 if (dut.hart0_inst.rob_commit_rf.rd_we
                     && '0 != dut.hart0_inst.rob_commit_rf.rd_addr
