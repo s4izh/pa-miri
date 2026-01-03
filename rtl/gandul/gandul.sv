@@ -87,7 +87,7 @@ module gandul# (
 
     assign stall_1f = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
     assign stall_2d = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
-    assign stall_3e = waiting_for_memory_4m | ~icache_dreq_ready;
+    assign stall_3e = waiting_for_memory_4m | (~icache_dreq_ready & jump_or_branch_3e);
     assign stall_4m = waiting_for_memory_4m;
 
     // Data memory interface
