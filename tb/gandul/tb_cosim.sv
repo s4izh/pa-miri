@@ -162,7 +162,10 @@ module tb (
 
     always @(posedge clk) begin
         if (reset_n) begin
-            if (dut.hart0_inst.rob_commit.valid /*&& not noop ???*/) begin
+            if (dut.hart0_inst.rob_commit.valid && dut.hart0_inst.rob_commit.dbg_ins == 32'h00000033) begin
+                $display ("NOOP COMMITTED: {pc: 0x%08x, robid: 0x%08x}",
+                    dut.hart0_inst.rob_commit.pc, dut.hart0_inst.rob_commit.dbg_robid);
+            end else if (dut.hart0_inst.rob_commit.valid && dut.hart0_inst.rob_commit.dbg_ins != 32'h00000033) begin
                 int unsigned pc, ins, rd, trap;
                 string disasm;
                 int errors;
