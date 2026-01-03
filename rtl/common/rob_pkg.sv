@@ -37,6 +37,7 @@ package rob_pkg;
     // Commit interfaces types
     typedef struct packed {
         logic             valid;
+        logic [`XLEN-1:0] pc;
         logic             xcpt;
         robid_t           robid; //debug
     } commit_t;

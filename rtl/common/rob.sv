@@ -130,6 +130,7 @@ module rob #(
         commit_o.robid = head_q;
         if (entries[head_q].complete & ~empty) begin
             commit_o.valid  = 1;
+            commit_o.pc     = entries[head_q].pc;
             commit_o.xcpt   = entries[head_q].xcpt;
             committing_xcpt = entries[head_q].xcpt;
             if (~entries[head_q].xcpt) begin

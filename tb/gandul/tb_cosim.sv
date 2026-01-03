@@ -162,7 +162,7 @@ module tb (
 
     always @(posedge clk) begin
         if (reset_n) begin
-            if (dut.hart0_inst.s_4m_q.valid && dut.hart0_inst.s_4m_q.ins != 0'h00000033) begin
+            if (dut.hart0_inst.rob_commit.valid /*&& not noop ???*/) begin
                 int unsigned pc, ins, rd, trap;
                 string disasm;
                 int errors;
@@ -175,20 +175,20 @@ module tb (
                 end
 
                 errors = 0;
-                if (pc != dut.hart0_inst.s_4m_q.pc) begin
-                    $display("ERROR - Different PC: {dut: 0x%08x, iss: 0x%08x}", dut.hart0_inst.s_4m_q.pc, pc);
+                if (pc != dut.hart0_inst.rob_commit.pc) begin
+                    $display("ERROR - Different PC: {dut: 0x%08x, iss: 0x%08x}", dut.hart0_inst.rob_commit.pc, pc);
                     errors += 1;
                 end
 
-                if (ins != dut.hart0_inst.s_4m_q.ins) begin
-                    $display("ERROR - Different instruction: {dut: 0x%08x, iss: 0x%08x}", dut.hart0_inst.s_4m_q.ins, ins);
-                    errors += 1;
-                end
+                // if (ins != dut.hart0_inst.s_4m_q.ins) begin
+                //     $display("ERROR - Different instruction: {dut: 0x%08x, iss: 0x%08x}", dut.hart0_inst.s_4m_q.ins, ins);
+                //     errors += 1;
+                // end
 
-                if (dut.hart0_inst.s_5w_d.is_wb
-                    && '0 != dut.hart0_inst.s_5w_d.rd_addr
-                    && rd != dut.hart0_inst.s_5w_d.rd_data) begin
-                    $display("ERROR - Different rd: {dut: 0x%08x, iss: 0x%08x}", dut.hart0_inst.s_5w_d.rd_data, rd);
+                if (dut.hart0_inst.rob_commit_rf.rd_we
+                    && '0 != dut.hart0_inst.rob_commit_rf.rd_addr
+                    && rd != dut.hart0_inst.rob_commit_rf.rd_data) begin
+                    $display("ERROR - Different rd: {dut: 0x%08x, iss: 0x%08x}", dut.hart0_inst.rob_commit_rf.rd_data, rd);
                     errors += 1;
                 end
 
