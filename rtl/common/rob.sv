@@ -96,7 +96,7 @@ module rob #(
     // Issue and complete logic
     always_ff @(posedge clk) begin
         // Issue
-        if (issue_req_i.valid & ~full) begin
+        if (~committing_xcpt & issue_req_i.valid & ~full) begin
             entries[tail_q].pc       <= issue_req_i.pc;
             entries[tail_q].dbg_ins  <= issue_req_i.dbg_ins;
             entries[tail_q].rd_we    <= issue_req_i.rd_we;
