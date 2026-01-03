@@ -121,6 +121,13 @@ harness.add_testbench({
     sw_deps = {}
 })
 
+harness.add_testbench({
+    name = "common.store_buffer",
+    filelist = "sim/common/store_buffer/filelist.f",
+    run_template = "$bin $plusargs +VCD_FILE=waves.fst +TIMEOUT=10000",
+    sw_deps = {}
+})
+
 -- Parameter set definitions
 harness.add_param_set({
     name = "base",
@@ -163,6 +170,14 @@ harness.add_experiment({
 harness.add_experiment({
     name = "rob",
     testbench = "common.rob",
+    param_sets = { "base" },
+    suites = {}, -- standalone HW test, no software suite involved
+    simulators = { "verilator" }
+})
+
+harness.add_experiment({
+    name = "store_buffer",
+    testbench = "common.store_buffer",
     param_sets = { "base" },
     suites = {}, -- standalone HW test, no software suite involved
     simulators = { "verilator" }
