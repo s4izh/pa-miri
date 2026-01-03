@@ -161,37 +161,43 @@ module tb (
     end
 
     always @(posedge clk) begin
+        `define ROB_COMMIT dut.hart0_inst.rob_commit
+        `define ROB_COMMIT_RF dut.hart0_inst.rob_commit_rf
         if (reset_n) begin
-            if (dut.hart0_inst.rob_commit.valid && dut.hart0_inst.rob_commit.dbg_ins == 32'h00000033) begin
-                $display ("NOOP COMMITTED: {pc: 0x%08x, robid: 0x%08x}",
-                    dut.hart0_inst.rob_commit.pc, dut.hart0_inst.rob_commit.dbg_robid);
-            end else if (dut.hart0_inst.rob_commit.valid && dut.hart0_inst.rob_commit.dbg_ins != 32'h00000033) begin
+            if (`ROB_COMMIT.valid && `ROB_COMMIT.dbg_ins == 32'h00000033) begin
+                $display("NOOP COMMITTED: {pc: 0x%08x, robid: 0x%08x}",
+                    `ROB_COMMIT.pc, `ROB_COMMIT.dbg_robid);
+            end else if (`ROB_COMMIT.valid && `ROB_COMMIT.dbg_ins != 32'h00000033) begin
                 int unsigned pc, ins, rd, trap;
                 string disasm;
                 int errors;
 
                 trap = cosim_dpi_step(pc, ins, rd);
 
-                if (trap == 1) begin
-                    $display("TRAP in cosim: pc: 0x%08x", pc);
-                    trap = cosim_dpi_step(pc, ins, rd);
-                end
-
                 errors = 0;
-                if (pc != dut.hart0_inst.rob_commit.pc) begin
-                    $display("ERROR - Different PC: {dut: 0x%08x, iss: 0x%08x}", dut.hart0_inst.rob_commit.pc, pc);
+                if (pc != `ROB_COMMIT.pc) begin
+                    $display("ERROR - Different PC: {dut: 0x%08x, iss: 0x%08x}",
+                        `ROB_COMMIT.pc, pc);
                     errors += 1;
                 end
 
-                if (ins != dut.hart0_inst.rob_commit.dbg_ins) begin
-                    $display("ERROR - Different instruction: {dut: 0x%08x, iss: 0x%08x}", dut.hart0_inst.rob_commit.dbg_ins, ins);
+                if (ins != `ROB_COMMIT.dbg_ins) begin
+                    $display("ERROR - Different instruction: {dut: 0x%08x, iss: 0x%08x}",
+                        `ROB_COMMIT.dbg_ins, ins);
                     errors += 1;
                 end
 
-                if (dut.hart0_inst.rob_commit_rf.rd_we
-                    && '0 != dut.hart0_inst.rob_commit_rf.rd_addr
-                    && rd != dut.hart0_inst.rob_commit_rf.rd_data) begin
-                    $display("ERROR - Different rd: {dut: 0x%08x, iss: 0x%08x}", dut.hart0_inst.rob_commit_rf.rd_data, rd);
+                if (`ROB_COMMIT_RF.rd_we
+                    && '0 != `ROB_COMMIT_RF.rd_addr
+                    && rd != `ROB_COMMIT_RF.rd_data) begin
+                    $display("ERROR - Different rd: {dut: 0x%08x, iss: 0x%08x}",
+                        `ROB_COMMIT_RF.rd_data, rd);
+                    errors += 1;
+                end
+
+                if ((trap != 0) != `ROB_COMMIT.xcpt) begin
+                    $display("ERROR - Different xcpt: {dut: %0d, iss: %0d}",
+                        `ROB_COMMIT.xcpt, trap);
                     errors += 1;
                 end
 
