@@ -28,12 +28,16 @@ module store_buffer #(
     input  logic                commit_en_i,
     input  logic [SB_IDX_W-1:0] commit_idx_i,
 
+    // --- control ---
+    input  logic                fence_i,
+    output logic                sb_empty_o,
+
     // --- forwarding / hazard interface ---
     input  logic [XLEN-1:0]     ld_addr_i,
     input  memop_width_e        ld_width_i,
     input  logic [SB_IDX_W-1:0] ld_age_tag_i,
-    output logic                ld_hit_o,     // Exact match: Forward data
-    output logic                ld_stall_o,   // Hazard: Stall Load
+    output logic                ld_hit_o,     
+    output logic                ld_stall_o,   
     output logic [XLEN-1:0]     ld_data_o,
 
     // --- dcache interface ---
@@ -63,8 +67,8 @@ module store_buffer #(
 
     // logic to decide when we "really need" to drain
     logic drain_needed;
-    // assign drain_needed = (count >= DRAIN_THRESHOLD) || ld_stall_o;
-    assign drain_needed = (count >= (SB_IDX_W+1)'(DRAIN_THRESHOLD)) || ld_stall_o;
+    // FENCE forces a drain regardless of count threshold
+    assign drain_needed = (count >= (SB_IDX_W+1)'(DRAIN_THRESHOLD)) || ld_stall_o || fence_i;
 
     // FIFO MANAGEMENT
     always_ff @(posedge clk) begin
@@ -124,8 +128,8 @@ module store_buffer #(
 
                 ST_DRAIN: begin
                     if (dreq_ready_i) begin
-                        // Check if we should continue draining or go to IDLE
-                        // Logic moved inline to avoid Verilator "next" identifier errors
+                        // Re-evaluate if we need to stay in DRAIN mode
+                        // We check the "next" head (which is head + 1)
                         if (!(buffer[head + 1'b1].allocated && 
                               buffer[head + 1'b1].committed && 
                               drain_needed)) begin
@@ -146,22 +150,22 @@ module store_buffer #(
     assign dreq_we_o    = 1'b1;
 
     assign sb_full_o    = (count == (SB_IDX_W+1)'(DEPTH));
+    assign sb_empty_o   = (count == '0);
+
     assign alloc_idx_o  = tail;
 
     // combinational forwarding logic
     always_comb begin
-        // Internal loop variables
         logic [3:0] ld_be;
         logic [3:0] st_be;
         logic [SB_IDX_W-1:0] curr_idx;
         logic is_older;
 
-        // inline BE generation for load
         case (ld_width_i)
-            MEMOP_WIDTH_8: ld_be = 4'b0001 << ld_addr_i[1:0];
+            MEMOP_WIDTH_8:  ld_be = 4'b0001 << ld_addr_i[1:0];
             MEMOP_WIDTH_16: ld_be = 4'b0011 << ld_addr_i[1:0];
             MEMOP_WIDTH_32: ld_be = 4'b1111;
-            default: ld_be = 4'b0000;
+            default:        ld_be = 4'b0000;
         endcase
 
         ld_hit_o   = 1'b0;
@@ -181,10 +185,10 @@ module store_buffer #(
                     MEMOP_WIDTH_8:  st_be = 4'b0001 << buffer[curr_idx].addr[1:0];
                     MEMOP_WIDTH_16: st_be = 4'b0011 << buffer[curr_idx].addr[1:0];
                     MEMOP_WIDTH_32: st_be = 4'b1111;
-                    default: st_be = 4'b0000;
+                    default:        st_be = 4'b0000;
                 endcase
 
-                if (buffer[curr_idx].addr[31:2] == ld_addr_i[31:2]) begin
+                if (buffer[curr_idx].addr[XLEN-1:2] == ld_addr_i[XLEN-1:2]) begin
                     if ((st_be & ld_be) != 4'b0000) begin
                         // exact match (same address and same byte mask)
                         if (buffer[curr_idx].addr == ld_addr_i && st_be == ld_be) begin
