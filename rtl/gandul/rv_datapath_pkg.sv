@@ -111,6 +111,7 @@ package rv_datapath_pkg;
     } signals_memory_t;
 
     typedef struct packed {
+        logic                  valid;
         logic [`INS_WIDTH-1:0] ins;
         logic [`XLEN-1:0] rd_data;
         logic [4:0]       rd_addr;

@@ -49,7 +49,7 @@ module gandul# (
     // Hazard control
     logic rs1_valid, rs2_valid;
     logic [$clog2(N_PHY_REG)-1:0] rs1_addr, rs2_addr;
-    logic noop_1f, noop_2d, noop_3e, noop_4m;
+    logic noop_1f, noop_2d, noop_3e, noop_4m, noop_5w;
     logic stall_1f, stall_2d, stall_3e, stall_4m;
     logic data_hazard;
     // Signals from 2d to forwarding unit (to avoid UNOPTFLAT)
@@ -84,6 +84,7 @@ module gandul# (
     assign noop_2d  = jump_or_branch_3e | frontend_trap_valid | rob_trap_valid;
     assign noop_3e  = rob_trap_valid;
     assign noop_4m  = rob_trap_valid;
+    assign noop_5w  = rob_trap_valid;
 
     assign stall_1f = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
     assign stall_2d = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
@@ -141,7 +142,7 @@ module gandul# (
     assign rob_issue_req.is_st   = s_2d_d.is_st;
 
     // Complete emw
-    assign rob_complete_emw.valid  = s_4m_q.valid;
+    assign rob_complete_emw.valid  = s_5w_d.valid;
     assign rob_complete_emw.robid  = s_5w_d.robid;
     assign rob_complete_emw.result = s_5w_d.rd_data;
     assign rob_complete_emw.xcpt   = s_5w_d.xcpt;
@@ -380,8 +381,17 @@ module gandul# (
         endcase
     end
 
-    assign s_5w_d.ins     = s_4m_q.ins;
-    assign s_5w_d.is_wb   = s_4m_q.is_wb && s_4m_q.valid;
+    always_comb begin
+        if (noop_5w) begin
+            s_5w_d.valid = 0;
+            s_5w_d.is_wb = 0;
+            s_5w_d.ins   = 32'h00000033;
+        end else begin
+            s_5w_d.valid = s_4m_q.valid;
+            s_5w_d.is_wb = s_4m_q.is_wb;
+            s_5w_d.ins   = s_4m_q.ins;
+        end
+    end
     assign s_5w_d.rd_addr = s_4m_q.rd_addr;
     assign s_5w_d.robid   = s_4m_q.robid;
     assign s_5w_d.xcpt    = s_4m_q.xcpt;
