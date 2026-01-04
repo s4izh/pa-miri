@@ -130,12 +130,14 @@ module store_buffer #(
                     if (dreq_ready_i) begin
                         // Re-evaluate if we need to stay in DRAIN mode
                         // We check the "next" head (which is head + 1)
-                        if (!(buffer[head + 1'b1].allocated && 
-                              buffer[head + 1'b1].committed && 
+                        logic [SB_IDX_W-1:0] next_head;
+                        next_head = head + 1'b1;
+                        if (!(buffer[next_head].allocated && 
+                              buffer[next_head].committed && 
                               drain_needed)) begin
                             state <= ST_IDLE;
                         end
-                        head <= head + 1'b1;
+                        head <= next_head;
                     end
                 end
                 default: state <= ST_IDLE;
