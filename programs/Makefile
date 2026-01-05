@@ -1,5 +1,5 @@
 TARGET ?= minimal
-ARCH   := -march=rv32i -mabi=ilp32
+ARCH   := -march=rv32im -mabi=ilp32
 
 # This will be an absolute path passed from the regression script
 BUILD_DIR ?= ./build

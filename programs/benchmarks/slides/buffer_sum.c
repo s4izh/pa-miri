@@ -1,5 +1,7 @@
+#define N 128
+
 int main() {
-    int a[128], sum = 0;
-    for (int i=0; i<128; i++) { sum += a[i]; }
+    int a[N], sum = 0;
+    for (int i=0; i<N; i++) { sum += a[i]; }
     return 0;
 }

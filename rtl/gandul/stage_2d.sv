@@ -82,7 +82,7 @@ module stage_2d #(
             _o.ins          = 32'h00000033; // noop (add x0, x0, x0)
             // muldiv fu
             _o_muldiv.valid = 0;
-            _o.ins          = 32'h00000033; // noop (add x0, x0, x0)
+            _o_muldiv.ins   = 32'h00000033; // noop (add x0, x0, x0)
         end else if (is_muldiv) begin
             // ISSUE MULDIV
             // alumem fu
@@ -93,7 +93,7 @@ module stage_2d #(
             _o.ins          = 32'h00000033; // noop (add x0, x0, x0)
             // muldiv fu
             _o_muldiv.valid = _i.valid;
-            _o.ins          = _i.ins;
+            _o_muldiv.ins   = _i.ins;
         end else begin
             // ISSUE ALUMEM
             // alumem fu
