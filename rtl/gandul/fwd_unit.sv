@@ -8,6 +8,7 @@ module fwd_unit #(
     input  logic       is_st_2d_i,
 
     // stage 3e inputs
+    input  logic            valid_3e_i,
     input  logic [4:0]      rd_3e_i,
     input  logic            rd_is_wb_3e_i,
     input  logic            is_ld_3e_i,
@@ -47,7 +48,7 @@ module fwd_unit #(
     always_comb begin
         hazard_ld = 1'b0;
         bypass_4m_3e_sel_o = 1'b0;
-        if (is_ld_3e_i && rd_3e_not_zero) begin
+        if (is_ld_3e_i & valid_3e_i & rd_3e_not_zero) begin
             if (rs1_valid_2d_i && (rs1_2d_i == rd_3e_i)) begin
                 hazard_ld = 1'b1;
             end

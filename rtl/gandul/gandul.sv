@@ -420,6 +420,7 @@ module gandul# (
         .rs2_valid_2d_i(rs2_valid),
         .is_st_2d_i(is_st_2d),
         // stage 3 inputs
+        .valid_3e_i(s_2d_q.valid),
         .rd_3e_i(s_3e_d.rd_addr),
         .rd_is_wb_3e_i(s_3e_d.is_wb),
         .is_ld_3e_i(s_3e_d.is_ld),

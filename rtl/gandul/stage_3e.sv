@@ -38,11 +38,13 @@ module stage_3e #(
         if (noop_i | noop_q | stall_i) begin
             _o.valid  = 0;
             _o.is_wb  = 0;
+            // _o.is_ld  = 0;
             _o.is_st  = 0;
             _o.ins = 32'h00000033; // noop (add x0, x0, x0)
         end else begin
             _o.valid  = _i.valid;
             _o.is_wb  = _i.is_wb;
+            // _o.is_ld  = _i.is_ld;
             _o.is_st  = _i.is_st;
             _o.ins    = _i.ins;
         end
@@ -55,7 +57,7 @@ module stage_3e #(
     `PROPAGATE(rd_addr);
 
     `PROPAGATE(is_ld);
-    // `PROPAGATE(rs2_data);
+
     `PROPAGATE(memop_width);
     `PROPAGATE(ld_unsigned);
 
