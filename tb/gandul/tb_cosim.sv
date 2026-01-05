@@ -204,7 +204,7 @@ module tb (
                 // disasm_rv32i(data.hart0_inst.s_4m_q.ins);
                 disasm = rv32_util_pkg::disasm_rv32i(ins);
                 if (errors == 0) begin
-                    $display("CORRECT - 0x%08x: %s", pc, disasm);
+                    $display("CORRECT - 0x%08x: %s - RESULT: 0x%08x", pc, disasm, rd);
                 end else begin
                     $display("INCORRECT - 0x%08x: %s", pc, disasm);
                     $fatal(1, "Test FAILED! Due to %0d errors.", errors);
