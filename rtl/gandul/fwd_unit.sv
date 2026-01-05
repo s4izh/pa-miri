@@ -92,7 +92,7 @@ module fwd_unit #(
         end else if ((rs2_2d_i == rd_5w_i) && rd_5w_not_zero && rs2_valid_2d_i && rd_is_wb_5w_i) begin
             bypass_rs2_2d_sel_o  = 1;
             bypass_rs2_2d_data_o = data_5w_i;
-        end else if (rob_cam_rs1_valid_i) begin
+        end else if (rob_cam_rs2_valid_i) begin
             bypass_rs2_2d_sel_o  = 1;
             bypass_rs2_2d_data_o = rob_cam_rs2_data_i;
         end
