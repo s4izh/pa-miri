@@ -137,6 +137,26 @@ package rv_datapath_pkg;
         logic [`BITS_CACHELINE-1:0] data;
     } dmem_if_in_t;
 
+    typedef enum logic {
+        MULDIV_OP_MUL,
+        MULDIV_OP_DIV
+    } muldiv_op_e;
+
+    typedef struct packed {
+        logic                       valid;
+        muldiv_op_e                 op;
+        logic [`XLEN-1:0]           rs1;
+        logic [`XLEN-1:0]           rs2;
+        robid_t                     robid;
+    } signals_muldiv_op_t;
+
+    typedef struct packed {
+        logic                       valid;
+        logic                       xcpt;
+        logic [`XLEN-1:0]           result;
+        robid_t                     robid;
+    } signals_muldiv_result_t;
+
 endpackage
 
 `endif
