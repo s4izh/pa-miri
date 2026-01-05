@@ -172,6 +172,7 @@ module gandul# (
         .complete_emw_i(rob_complete_emw),
         .complete_mul_i(rob_complete_mul),
 
+        .can_commit_xcpt_i(~(stall_1f | stall_2d)),
         .commit_o(rob_commit),
         .commit_rf_o(rob_commit_rf),
         .commit_sb_o(rob_commit_sb),

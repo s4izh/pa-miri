@@ -14,6 +14,8 @@ module rob #(
     input  complete_t  complete_emw_i,
     // Complete instruction from multiply fu
     input  complete_t  complete_mul_i,
+    // Commit xcpt control
+    input  logic       can_commit_xcpt_i,
     // Commit general (general info)
     output commit_t    commit_o,
     // Commit to register file
@@ -56,10 +58,15 @@ module rob #(
     //      ........
     robid_t tail_d, tail_q, head_d, head_q;
     rob_entry_t [N_ENTRIES-1:0] entries;
-    logic committing_xcpt;
     logic empty, full;
     assign empty = (tail_q == head_q);
     assign full = (tail_q+1 == head_q) | ((&tail_q) & (head_q == '0));
+
+    logic committing_xcpt;
+    logic committing_head_q, issuing_tail_q;
+    assign committing_head_q = entries[head_q].complete & ~empty & ((entries[head_q].xcpt & can_commit_xcpt_i) | ~entries[head_q].xcpt);
+    assign committing_xcpt   = committing_head_q & entries[head_q].xcpt;
+    assign issuing_tail_q    = ~committing_xcpt & issue_req_i.valid & ~full;
 
     // Control head_q and tail_q ff
     always_ff @(posedge clk) begin
@@ -75,7 +82,7 @@ module rob #(
     // Control head_d
     always_comb begin
         head_d = head_q;
-        if (entries[head_q].complete & ~empty) begin
+        if (committing_head_q) begin
             head_d = head_q + 1;
         end
     end
@@ -96,7 +103,7 @@ module rob #(
     // Issue and complete logic
     always_ff @(posedge clk) begin
         // Issue
-        if (~committing_xcpt & issue_req_i.valid & ~full) begin
+        if (issuing_tail_q) begin
             entries[tail_q].pc       <= issue_req_i.pc;
             entries[tail_q].dbg_ins  <= issue_req_i.dbg_ins;
             entries[tail_q].rd_we    <= issue_req_i.rd_we;
@@ -128,14 +135,12 @@ module rob #(
         commit_o = '0;
         commit_rf_o = '0;
         commit_sb_o = '0;
-        committing_xcpt = 0;
         commit_o.dbg_robid = head_q;
         commit_o.dbg_ins   = entries[head_q].dbg_ins;
-        if (entries[head_q].complete & ~empty) begin
+        if (committing_head_q) begin
             commit_o.valid  = 1;
             commit_o.pc     = entries[head_q].pc;
             commit_o.xcpt   = entries[head_q].xcpt;
-            committing_xcpt = entries[head_q].xcpt;
             if (~entries[head_q].xcpt) begin
                 if (entries[head_q].is_st) begin
                     commit_sb_o.valid = 1;
