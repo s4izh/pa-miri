@@ -11,9 +11,9 @@ module rob #(
     input  issue_req_t issue_req_i,
     output issue_rsp_t issue_rsp_o,
     // Complete instruction from alu-memory fu
-    input  complete_t  complete_emw_i,
+    input  complete_t  complete_alumem_i,
     // Complete instruction from multiply fu
-    input  complete_t  complete_mul_i,
+    input  complete_t  complete_muldiv_i,
     // Commit xcpt control
     input  logic       can_commit_xcpt_i,
     // Commit general (general info)
@@ -114,19 +114,19 @@ module rob #(
             entries[tail_q].result   <= '0;
             entries[tail_q].xcpt     <= 0;
         end
-        // Complete emw
-        if (complete_emw_i.valid) begin
-            entries[complete_emw_i.robid].complete <= 1;
-            entries[complete_emw_i.robid].result   <= complete_emw_i.result;
-            entries[complete_emw_i.robid].xcpt     <= complete_emw_i.xcpt;
-            entries[complete_emw_i.robid].sbid     <= complete_emw_i.sbid;
+        // Complete alumem
+        if (complete_alumem_i.valid) begin
+            entries[complete_alumem_i.robid].complete <= 1;
+            entries[complete_alumem_i.robid].result   <= complete_alumem_i.result;
+            entries[complete_alumem_i.robid].xcpt     <= complete_alumem_i.xcpt;
+            entries[complete_alumem_i.robid].sbid     <= complete_alumem_i.sbid;
         end
-        // Complete mul
-        if (complete_mul_i.valid) begin
-            entries[complete_mul_i.robid].complete <= 1;
-            entries[complete_mul_i.robid].result   <= complete_mul_i.result;
-            entries[complete_mul_i.robid].xcpt     <= complete_mul_i.xcpt;
-            entries[complete_mul_i.robid].sbid     <= complete_mul_i.sbid;
+        // Complete muldiv
+        if (complete_muldiv_i.valid) begin
+            entries[complete_muldiv_i.robid].complete <= 1;
+            entries[complete_muldiv_i.robid].result   <= complete_muldiv_i.result;
+            entries[complete_muldiv_i.robid].xcpt     <= complete_muldiv_i.xcpt;
+            entries[complete_muldiv_i.robid].sbid     <= complete_muldiv_i.sbid;
         end
     end
 

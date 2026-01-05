@@ -10,6 +10,7 @@ module stage_2d #(
     // Pipeline input/output
     input  signals_fetch_t         _i,
     output signals_decode_t        _o,
+    output signals_muldiv_in_t     _o_muldiv,
     // Write-back
     input logic                    rd_we_i,
     input logic [$clog2(NREG)-1:0] rd_addr_i,
@@ -32,13 +33,13 @@ module stage_2d #(
     // rob
     input  robid_t                  robid_i
 );
-    `define PROPAGATE(signal) assign _o.signal = _i.signal
 
     logic [$clog2(NREG)-1:0] rs1_addr, rs2_addr;
-    logic is_wb, is_st;
+    logic is_wb, is_st, is_muldiv;
     mux_pc_sel_e pc_sel;
     logic [XLEN-1:0] rf_rs1_data, rf_rs2_data;
     logic noop_q;
+
 
     always_ff @(posedge clk) begin
         if (!reset_n) begin
@@ -52,33 +53,58 @@ module stage_2d #(
         end
     end
 
-    `PROPAGATE(pc);
-    assign rs1_addr_o = rs1_addr;
-    assign rs2_addr_o = rs2_addr;
+    assign is_st_o = is_st;
+    assign rs1_addr_o  = rs1_addr;
+    assign rs2_addr_o  = rs2_addr;
 
+    // ALUMEM
+    assign _o.pc       = _i.pc;
     assign _o.rs1_data = (bypass_rs1_sel_i == '1) ? bypass_rs1_data_i : rf_rs1_data;
     assign _o.rs2_data = (bypass_rs2_sel_i == '1) ? bypass_rs2_data_i : rf_rs2_data;
 
     assign _o.bypass_4m_3e_sel = bypass_4m_3e_sel_i;
+    assign _o.robid            = robid_i;
+    assign _o.xcpt             = 0;
 
-    assign _o.robid = robid_i;
-    assign _o.xcpt  = 0;
-
-    assign is_st_o = is_st;
+    // MULDIV
+    assign _o_muldiv.rs1   = (bypass_rs1_sel_i == '1) ? bypass_rs1_data_i : rf_rs1_data;
+    assign _o_muldiv.rs2   = (bypass_rs2_sel_i == '1) ? bypass_rs2_data_i : rf_rs2_data;
+    assign _o_muldiv.robid = robid_i;
 
     always_comb begin
-        if (noop_i | noop_q | stall_i) begin
-            _o.valid  = 0;
-            _o.is_wb  = 0;
-            _o.is_st  = 0;
-            _o.pc_sel = MUX_PC_NEXT;
-            _o.ins = 32'h00000033; // noop (add x0, x0, x0)
+        if ((noop_i | noop_q | stall_i)) begin
+            // NOOP BOTH WAYS
+            // alumem fu
+            _o.valid        = 0;
+            _o.is_wb        = 0;
+            _o.is_st        = 0;
+            _o.pc_sel       = MUX_PC_NEXT;
+            _o.ins          = 32'h00000033; // noop (add x0, x0, x0)
+            // muldiv fu
+            _o_muldiv.valid = 0;
+            _o.ins          = 32'h00000033; // noop (add x0, x0, x0)
+        end else if (is_muldiv) begin
+            // ISSUE MULDIV
+            // alumem fu
+            _o.valid        = 0;
+            _o.is_wb        = 0;
+            _o.is_st        = 0;
+            _o.pc_sel       = MUX_PC_NEXT;
+            _o.ins          = 32'h00000033; // noop (add x0, x0, x0)
+            // muldiv fu
+            _o_muldiv.valid = _i.valid;
+            _o.ins          = _i.ins;
         end else begin
-            _o.valid  = _i.valid;
-            _o.is_wb  = is_wb;
-            _o.is_st  = is_st;
-            _o.pc_sel = pc_sel;
-            _o.ins    = _i.ins;
+            // ISSUE ALUMEM
+            // alumem fu
+            _o.valid        = _i.valid;
+            _o.is_wb        = is_wb;
+            _o.is_st        = is_st;
+            _o.pc_sel       = pc_sel;
+            _o.ins          = _i.ins;
+            // muldiv fu
+            _o_muldiv.valid = 0;
+            _o_muldiv.ins   = 32'h00000033; // noop (add x0, x0, x0)
         end
     end
 
@@ -108,7 +134,10 @@ module stage_2d #(
 
         .compare_op_o(_o.compare_op),
         .memop_width_o(_o.memop_width),
-        .ld_unsigned_o(_o.ld_unsigned)
+        .ld_unsigned_o(_o.ld_unsigned),
+
+        .is_muldiv_o(is_muldiv),
+        .muldiv_op_o(_o_muldiv.op)
     );
 
     rv_regfile #(

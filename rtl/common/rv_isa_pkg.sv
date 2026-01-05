@@ -19,20 +19,28 @@ package rv_isa_pkg;
     // funct3 for OP/IMM/BRANCH/LOAD/STORE
     localparam logic [2:0] F3_ADDI   = 3'b000;
     localparam logic [2:0] F3_ADDSUB = 3'b000;
+    localparam logic [2:0] F3_MUL    = 3'b000;
     localparam logic [2:0] F3_SLLI   = 3'b001;
     localparam logic [2:0] F3_SLL    = 3'b001;
+    localparam logic [2:0] F3_MULH   = 3'b001;
     localparam logic [2:0] F3_SLTI   = 3'b010;
     localparam logic [2:0] F3_SLT    = 3'b010;
+    localparam logic [2:0] F3_MULHSU = 3'b010;
     localparam logic [2:0] F3_SLTIU  = 3'b011;
     localparam logic [2:0] F3_SLTU   = 3'b011;
+    localparam logic [2:0] F3_MULHU  = 3'b011;
     localparam logic [2:0] F3_XORI   = 3'b100;
     localparam logic [2:0] F3_XOR    = 3'b100;
+    localparam logic [2:0] F3_DIV    = 3'b100;
     localparam logic [2:0] F3_SRI    = 3'b101;
     localparam logic [2:0] F3_SR     = 3'b101;
+    localparam logic [2:0] F3_DIVU   = 3'b101;
     localparam logic [2:0] F3_ORI    = 3'b110;
     localparam logic [2:0] F3_OR     = 3'b110;
+    localparam logic [2:0] F3_REM    = 3'b110;
     localparam logic [2:0] F3_ANDI   = 3'b111;
     localparam logic [2:0] F3_AND    = 3'b111;
+    localparam logic [2:0] F3_REMU   = 3'b111;
 
     // funct3 for BEQ/BNE/BLT/BGE/BLTU
     localparam logic [2:0] F3_BEQ    = 3'b000;
@@ -59,6 +67,7 @@ package rv_isa_pkg;
     localparam logic [6:0] F7_SUB    = 7'b0100000;
     localparam logic [6:0] F7_SRA    = 7'b0100000;
     localparam logic [6:0] F7_SRL    = 7'b0000000;
+    localparam logic [6:0] F7_MULDIV = 7'b0000001;
 
     // EXCEPTIONS and INTERRUPTS: interrupt bit is the MSB of mcause
     localparam logic [31:0] MCAUSE_INTERRUPT_BIT     = 32'h8000_0000;

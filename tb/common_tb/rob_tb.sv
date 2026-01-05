@@ -10,8 +10,8 @@ module tb (
 
     issue_req_t issue_req_i;
     issue_rsp_t issue_rsp_o;
-    complete_t  complete_emw_i;
-    complete_t  complete_mul_i;
+    complete_t  complete_alumem_i;
+    complete_t  complete_muldiv_i;
     commit_t    commit_o;
     commit_rf_t commit_rf_o;
     commit_sb_t commit_sb_o;
@@ -90,9 +90,9 @@ module tb (
         noop();
         @(posedge clk);
         @(posedge clk);
-        complete_emw(robid2, 'hcafecafe, '0, 0);
+        complete_alumem(robid2, 'hcafecafe, '0, 0);
         @(posedge clk);
-        complete_emw(robid1, 'hfe0fe0fe, '0, 1); // xcpt!!!
+        complete_alumem(robid1, 'hfe0fe0fe, '0, 1); // xcpt!!!
         @(posedge clk);
         noop();
         @(posedge clk);
@@ -106,9 +106,9 @@ module tb (
         noop();
         @(posedge clk);
         @(posedge clk);
-        complete_emw(robid2, 'hbeefbeef, '0, 0);
+        complete_alumem(robid2, 'hbeefbeef, '0, 0);
         @(posedge clk);
-        complete_emw(robid1, 'hdeaddead, '0, 0);
+        complete_alumem(robid1, 'hdeaddead, '0, 0);
         @(posedge clk);
         noop();
         @(posedge clk);
@@ -161,7 +161,7 @@ module tb (
                 if (issued[robid] > 0) begin
                     issued[robid] -= 1;
                 end else begin
-                    complete_emw(robid, $urandom(), $urandom()[2:0], 0);
+                    complete_alumem(robid, $urandom(), $urandom()[2:0], 0);
                     issued.delete(robid);
                 end
             end
@@ -191,29 +191,29 @@ module tb (
         issue_req_i.is_st   = is_st;
     endtask
 
-    task complete_emw (
+    task complete_alumem (
         input robid_t robid,
         input logic[XLEN-1:0] result,
         input sbid_t sbid,
         input logic xcpt
     );
-        complete_emw_i.valid  = 1;
-        complete_emw_i.robid  = robid;
-        complete_emw_i.result = result;
-        complete_emw_i.sbid   = sbid;
-        complete_emw_i.xcpt   = xcpt;
+        complete_alumem_i.valid  = 1;
+        complete_alumem_i.robid  = robid;
+        complete_alumem_i.result = result;
+        complete_alumem_i.sbid   = sbid;
+        complete_alumem_i.xcpt   = xcpt;
     endtask
 
-    task complete_mul (
+    task complete_muldiv (
         input robid_t robid,
         input logic[XLEN-1:0] result,
         input logic xcpt
     );
-        complete_mul_i.valid  = 1;
-        complete_mul_i.robid  = robid;
-        complete_mul_i.result = result;
-        complete_mul_i.sbid   = '0;
-        complete_emw_i.xcpt   = xcpt;
+        complete_muldiv_i.valid  = 1;
+        complete_muldiv_i.robid  = robid;
+        complete_muldiv_i.result = result;
+        complete_muldiv_i.sbid   = '0;
+        complete_alumem_i.xcpt   = xcpt;
     endtask
 
     task peek_rs1 (
@@ -232,7 +232,7 @@ module tb (
 
     task noop ();
         issue_req_i.valid    = 0;
-        complete_emw_i.valid = 0;
+        complete_alumem_i.valid = 0;
         cam_req_rs1_i.valid    = 0;
         cam_req_rs2_i.valid    = 0;
     endtask

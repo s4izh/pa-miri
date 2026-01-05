@@ -47,10 +47,14 @@ module gandul# (
     dmem_if_out_t dmem_if_out;
 
     // Hazard control
+    // Detection
     logic rs1_valid, rs2_valid;
     logic [$clog2(N_PHY_REG)-1:0] rs1_addr, rs2_addr;
+    // Control
     logic noop_1f, noop_2d, noop_3e, noop_4m, noop_5w;
     logic stall_1f, stall_2d, stall_3e, stall_4m;
+    logic noop_muldiv;
+    logic stall_muldiv;
     logic data_hazard;
     // Signals from 2d to forwarding unit (to avoid UNOPTFLAT)
     logic is_st_2d;
@@ -80,16 +84,18 @@ module gandul# (
     assign rob_trap_valid = rob_commit.valid & rob_commit.xcpt;
     assign frontend_trap_valid = trap_valid_1f | trap_valid_2d;
 
-    assign noop_1f  = jump_or_branch_3e | frontend_trap_valid | rob_trap_valid;
-    assign noop_2d  = jump_or_branch_3e | frontend_trap_valid | rob_trap_valid;
-    assign noop_3e  = rob_trap_valid;
-    assign noop_4m  = rob_trap_valid;
-    assign noop_5w  = rob_trap_valid;
+    assign noop_1f     = jump_or_branch_3e | frontend_trap_valid | rob_trap_valid;
+    assign noop_2d     = jump_or_branch_3e | frontend_trap_valid | rob_trap_valid;
+    assign noop_3e     = rob_trap_valid;
+    assign noop_4m     = rob_trap_valid;
+    assign noop_5w     = rob_trap_valid;
+    assign noop_muldiv = rob_trap_valid;
 
-    assign stall_1f = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
-    assign stall_2d = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
-    assign stall_3e = waiting_for_memory_4m | (~icache_dreq_ready & jump_or_branch_3e);
-    assign stall_4m = waiting_for_memory_4m;
+    assign stall_1f     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
+    assign stall_2d     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
+    assign stall_3e     = waiting_for_memory_4m | (~icache_dreq_ready & jump_or_branch_3e);
+    assign stall_4m     = waiting_for_memory_4m;
+    assign stall_muldiv = 0;
 
     // Data memory interface
     assign dmem_if_in.valid = dmem_valid_i;
@@ -112,9 +118,9 @@ module gandul# (
 
     // // === COMPLETE ===
     // From wb in normal FU
-    complete_t  rob_complete_emw;
+    complete_t  rob_complete_alumem;
     // From wb in muldiv FU
-    complete_t  rob_complete_mul;
+    complete_t  rob_complete_muldiv;
 
     // // === COMMIT ===
     // To pc_sel
@@ -141,19 +147,22 @@ module gandul# (
     assign rob_issue_req.rd_addr = s_2d_d.rd_addr;
     assign rob_issue_req.is_st   = s_2d_d.is_st;
 
-    // Complete emw
-    assign rob_complete_emw.valid  = s_5w_d.valid;
-    assign rob_complete_emw.robid  = s_5w_d.robid;
-    assign rob_complete_emw.result = s_5w_d.rd_data;
-    assign rob_complete_emw.xcpt   = s_5w_d.xcpt;
-    assign rob_complete_emw.sbid   = s_5w_d.sbid;
+    // Complete alumem
+    assign rob_complete_alumem.valid  = s_5w_d.valid;
+    assign rob_complete_alumem.robid  = s_5w_d.robid;
+    assign rob_complete_alumem.result = s_5w_d.rd_data;
+    assign rob_complete_alumem.xcpt   = s_5w_d.xcpt;
+    assign rob_complete_alumem.sbid   = s_5w_d.sbid;
 
-    // TODO: Complete mul
-    // assign rob_complete_emw.valid  =
-    // assign rob_complete_emw.robid  =
-    // assign rob_complete_emw.result =
-    // assign rob_complete_emw.xcpt   =
-    // assign rob_complete_emw.sbid   =
+    // Complete muldiv
+    signals_muldiv_in_t  muldiv_input;
+    signals_muldiv_out_t muldiv_output;
+
+    assign rob_complete_muldiv.valid  = muldiv_output.valid;
+    assign rob_complete_muldiv.robid  = muldiv_output.robid;
+    assign rob_complete_muldiv.result = muldiv_output.result;
+    assign rob_complete_muldiv.xcpt   = muldiv_output.xcpt;
+    assign rob_complete_muldiv.sbid   = '0;
 
     // CAM
     assign rob_cam_req_rs1.valid = rs1_valid;
@@ -169,8 +178,8 @@ module gandul# (
         .issue_req_i(rob_issue_req),
         .issue_rsp_o(rob_issue_rsp),
 
-        .complete_emw_i(rob_complete_emw),
-        .complete_mul_i(rob_complete_mul),
+        .complete_alumem_i(rob_complete_alumem),
+        .complete_muldiv_i(rob_complete_muldiv),
 
         .can_commit_xcpt_i(~(stall_1f | stall_2d)),
         .commit_o(rob_commit),
@@ -270,6 +279,7 @@ module gandul# (
         // Pipeline input/output
         ._i(s_1f_q),
         ._o(s_2d_d),
+        ._o_muldiv(muldiv_input),
         // Write-back
         .rd_we_i(rob_commit_rf.rd_we),
         .rd_addr_i(rob_commit_rf.rd_addr),
@@ -396,6 +406,21 @@ module gandul# (
     assign s_5w_d.rd_addr = s_4m_q.rd_addr;
     assign s_5w_d.robid   = s_4m_q.robid;
     assign s_5w_d.xcpt    = s_4m_q.xcpt;
+
+
+    // =========================================================================
+    // = Multiplication and Division Functional Unit
+    // =========================================================================
+    muldiv_fu #(
+        .OP_DELAY(5)
+    ) muldiv_fu_inst (
+        .clk,
+        .reset_n,
+        ._i(muldiv_input),
+        ._o(muldiv_output),
+        .noop_i(noop_muldiv),
+        .stall_i(stall_muldiv)
+    );
 
     // =========================================================================
     // = Hazards and bypasses

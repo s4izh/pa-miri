@@ -12,6 +12,7 @@
 $(PROJ_DIR)/rtl/gandul/stage_2d.sv
 $(PROJ_DIR)/rtl/gandul/stage_3e.sv
 $(PROJ_DIR)/rtl/gandul/stage_4m.sv
+$(PROJ_DIR)/rtl/gandul/muldiv_fu.sv
 $(PROJ_DIR)/rtl/gandul/hazard_unit.sv
 $(PROJ_DIR)/rtl/gandul/fwd_unit.sv
 $(PROJ_DIR)/rtl/gandul/gandul.sv

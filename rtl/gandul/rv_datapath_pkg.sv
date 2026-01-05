@@ -137,25 +137,32 @@ package rv_datapath_pkg;
         logic [`BITS_CACHELINE-1:0] data;
     } dmem_if_in_t;
 
-    typedef enum logic {
+    typedef enum logic[2:0] {
         MULDIV_OP_MUL,
-        MULDIV_OP_DIV
+        MULDIV_OP_MULH,
+        MULDIV_OP_MULHSU,
+        MULDIV_OP_MULHU,
+        MULDIV_OP_DIV,
+        MULDIV_OP_DIVU,
+        MULDIV_OP_REM,
+        MULDIV_OP_REMU
     } muldiv_op_e;
 
     typedef struct packed {
         logic                       valid;
+        logic [`XLEN-1:0]           ins;
         muldiv_op_e                 op;
         logic [`XLEN-1:0]           rs1;
         logic [`XLEN-1:0]           rs2;
         robid_t                     robid;
-    } signals_muldiv_op_t;
+    } signals_muldiv_in_t;
 
     typedef struct packed {
         logic                       valid;
         logic                       xcpt;
         logic [`XLEN-1:0]           result;
         robid_t                     robid;
-    } signals_muldiv_result_t;
+    } signals_muldiv_out_t;
 
 endpackage
 

@@ -33,7 +33,10 @@ module rv_decoder #(
 
     output compare_op_e      compare_op_o,
     output memop_width_e     memop_width_o,
-    output logic             ld_unsigned_o
+    output logic             ld_unsigned_o,
+
+    output logic             is_muldiv_o,
+    output muldiv_op_e       muldiv_op_o
 );
     logic [6:0] opcode;
     logic [2:0] funct3;
@@ -125,6 +128,8 @@ module rv_decoder #(
         compare_op_o    = COMPARE_OP_NONE;
         ld_unsigned_o   = 1'b0;
         memop_width_o   = MEMOP_WIDTH_32;
+        is_muldiv_o        = 0;
+        muldiv_op_o     = MULDIV_OP_MUL;
 
         case (opcode)
             // x[rd] = sext(immediate[31:12] << 12)
@@ -235,30 +240,47 @@ module rv_decoder #(
                 endcase
             end
 
-            OPCODE_OP: begin // ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND
+            OPCODE_OP: begin // ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND, MUL..., DIV...
                 is_wb_o     = 1'b1;
                 // ALU operation depends on funct3 and funct7
-                case (funct3)
-                    F3_ADDSUB: begin
-                        if (funct7 == F7_SUB)
-                            alu_op_o = ALU_SUB;
-                        else
-                            alu_op_o = ALU_ADD;
+                case(funct7)
+                    F7_ADD: begin // , F3_SRL
+                        case (funct3)
+                            F3_ADDSUB: alu_op_o = ALU_ADD;
+                            F3_SLL:    alu_op_o = ALU_SLL;
+                            F3_SLT:    alu_op_o = ALU_SLT;
+                            F3_SLTU:   alu_op_o = ALU_SLTU;
+                            F3_XOR:    alu_op_o = ALU_XOR;
+                            F3_SR:     alu_op_o = ALU_SRL;
+                            F3_OR:     alu_op_o = ALU_OR;
+                            F3_AND:    alu_op_o = ALU_AND;
+                            default:   illegal_ins_o = 1'b1;
+                        endcase
                     end
-                    F3_SLL:    alu_op_o = ALU_SLL;
-                    F3_SLT:    alu_op_o = ALU_SLT;
-                    F3_SLTU:   alu_op_o = ALU_SLTU;
-                    F3_XOR:    alu_op_o = ALU_XOR;
-                    F3_SR: begin
-                        if (funct7 == F7_SRA)
-                            alu_op_o = ALU_SRA;
-                        else
-                            alu_op_o = ALU_SRL;
+                    F7_SUB: begin // , F3_SRA
+                        case (funct3)
+                            F3_ADDSUB: alu_op_o = ALU_SUB;
+                            F3_SR:     alu_op_o = ALU_SRA;
+                            default:   illegal_ins_o = 1'b1;
+                        endcase
                     end
-                    F3_OR:     alu_op_o = ALU_OR;
-                    F3_AND:    alu_op_o = ALU_AND;
-                    default:   illegal_ins_o = 1'b1;
+                    F7_MULDIV: begin
+                        is_muldiv_o = 1;
+                        case (funct3)
+                            F3_MUL:    muldiv_op_o = MULDIV_OP_MUL;
+                            F3_MULH:   muldiv_op_o = MULDIV_OP_MULH;
+                            F3_MULHSU: muldiv_op_o = MULDIV_OP_MULHSU;
+                            F3_MULHU:  muldiv_op_o = MULDIV_OP_MULHU;
+                            F3_DIV:    muldiv_op_o = MULDIV_OP_DIV;
+                            F3_DIVU:   muldiv_op_o = MULDIV_OP_DIVU;
+                            F3_REM:    muldiv_op_o = MULDIV_OP_REM;
+                            F3_REMU:   muldiv_op_o = MULDIV_OP_REMU;
+                            default: illegal_ins_o = 1'b1;
+                        endcase
+                    end
+                    default: illegal_ins_o = 1'b1;
                 endcase
+
             end
 
             // we can ignore fences and others for now
