@@ -106,6 +106,11 @@ module gandul# (
     assign dmem_addr_o  = dmem_if_out.addr;
     assign dmem_data_o  = dmem_if_out.data;
 
+    // Muldiv functional unit
+    signals_muldiv_in_t  muldiv_input;
+    signals_muldiv_out_t muldiv_output;
+
+
     // =========================================================================
     // = Reorder Buffer
     // =========================================================================
@@ -140,12 +145,12 @@ module gandul# (
     // To stage_2d
     cam_rsp_t   rob_cam_rsp_rs2;
 
-    assign rob_issue_req.valid   = s_2d_d.valid; // & ~xcpt_illegal_ins
+    assign rob_issue_req.valid   = s_2d_d.valid | muldiv_input.valid; // & ~xcpt_illegal_ins
     assign rob_issue_req.pc      = s_1f_q.pc;
-    assign rob_issue_req.dbg_ins = s_1f_q.ins;
-    assign rob_issue_req.rd_we   = s_2d_d.is_wb;
+    assign rob_issue_req.dbg_ins = muldiv_input.valid ? muldiv_input.ins : s_1f_q.ins;
+    assign rob_issue_req.rd_we   = muldiv_input.valid ? 1 : s_2d_d.is_wb;
     assign rob_issue_req.rd_addr = s_2d_d.rd_addr;
-    assign rob_issue_req.is_st   = s_2d_d.is_st;
+    assign rob_issue_req.is_st   = muldiv_input.valid ? 0 : s_2d_d.is_st;
 
     // Complete alumem
     assign rob_complete_alumem.valid  = s_5w_d.valid;
@@ -155,9 +160,6 @@ module gandul# (
     assign rob_complete_alumem.sbid   = s_5w_d.sbid;
 
     // Complete muldiv
-    signals_muldiv_in_t  muldiv_input;
-    signals_muldiv_out_t muldiv_output;
-
     assign rob_complete_muldiv.valid  = muldiv_output.valid;
     assign rob_complete_muldiv.robid  = muldiv_output.robid;
     assign rob_complete_muldiv.result = muldiv_output.result;
