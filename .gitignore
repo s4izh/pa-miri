@@ -51,4 +51,6 @@ tags
 *.a
 
 build.ninja
+.ninja_log
 *.tar.gz
+
