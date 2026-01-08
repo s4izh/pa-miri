@@ -1,5 +1,5 @@
 module muldiv_fu #(
-    parameter int OP_DELAY = 5
+    parameter int OP_DELAY = 6
 ) (
     input  logic                clk,
     input  logic                reset_n,

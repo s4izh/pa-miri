@@ -165,16 +165,17 @@ module rob #(
         // Default
         cam_rsp_rs1_o = '0;
 
-        if (~empty & (cam_req_rs1_i.addr != '0)) begin
+        if (~empty & (cam_req_rs1_i.addr != '0) & ~committing_xcpt) begin
             // Go from tail-1 (youngest) til head (oldest) and check
             // RS1
             for (robid_t i = tail_q; i != head_q && ~found; --i) begin
-                found = (entries[i-1].rd_addr == cam_req_rs1_i.addr) & entries[i-1].complete & ~entries[i-1].xcpt;
+                found = (entries[i-1].rd_addr == cam_req_rs1_i.addr) & ~entries[i-1].xcpt;
                 found_robid = i-1;
             end
             // Final asssign
-            cam_rsp_rs1_o.valid = found;
-            cam_rsp_rs1_o.value = entries[found_robid].result;
+            cam_rsp_rs1_o.valid    = found;
+            cam_rsp_rs1_o.complete = entries[found_robid].complete;
+            cam_rsp_rs1_o.value    = entries[found_robid].result;
         end
     end
     // RS2
@@ -187,16 +188,17 @@ module rob #(
         // Default
         cam_rsp_rs2_o = '0;
 
-        if (~empty & (cam_req_rs2_i.addr != '0)) begin
+        if (~empty & (cam_req_rs2_i.addr != '0) & ~committing_xcpt) begin
             // Go from tail-1 (youngest) til head (oldest) and check
             // RS1
             for (robid_t i = tail_q; i != head_q && ~found; --i) begin
-                found = (entries[i-1].rd_addr == cam_req_rs2_i.addr) & entries[i-1].complete & ~entries[i-1].xcpt;
+                found = (entries[i-1].rd_addr == cam_req_rs2_i.addr) & ~entries[i-1].xcpt;
                 found_robid = i-1;
             end
             // Final asssign
-            cam_rsp_rs2_o.valid = found;
-            cam_rsp_rs2_o.value = entries[found_robid].result;
+            cam_rsp_rs2_o.valid    = found;
+            cam_rsp_rs2_o.complete = entries[found_robid].complete;
+            cam_rsp_rs2_o.value    = entries[found_robid].result;
         end
     end
 

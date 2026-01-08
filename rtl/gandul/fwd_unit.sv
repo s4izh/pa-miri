@@ -26,8 +26,10 @@ module fwd_unit #(
 
     // rob inputs
     input  logic            rob_cam_rs1_valid_i,
+    input  logic            rob_cam_rs1_complete_i,
     input  logic [XLEN-1:0] rob_cam_rs1_data_i,
     input  logic            rob_cam_rs2_valid_i,
+    input  logic            rob_cam_rs2_complete_i,
     input  logic [XLEN-1:0] rob_cam_rs2_data_i,
 
     output logic            bypass_rs1_2d_sel_o,
@@ -39,7 +41,7 @@ module fwd_unit #(
 );
 
     logic rd_3e_not_zero, rd_4m_not_zero, rd_5w_not_zero;
-    logic hazard_ld;
+    logic hazard_ld, hazard_rob_rs1, hazard_rob_rs2;
 
     assign rd_3e_not_zero = (rd_3e_i != '0);
     assign rd_4m_not_zero = (rd_4m_i != '0);
@@ -64,6 +66,7 @@ module fwd_unit #(
     always_comb begin
         bypass_rs1_2d_sel_o  =  0;
         bypass_rs1_2d_data_o = '0;
+        hazard_rob_rs1       =  0;
 
         if ((rs1_2d_i == rd_3e_i) && rd_3e_not_zero && rs1_valid_2d_i && rd_is_wb_3e_i) begin
             bypass_rs1_2d_sel_o  = 1;
@@ -74,15 +77,19 @@ module fwd_unit #(
         end else if ((rs1_2d_i == rd_5w_i) && rd_5w_not_zero && rs1_valid_2d_i && rd_is_wb_5w_i) begin
             bypass_rs1_2d_sel_o  = 1;
             bypass_rs1_2d_data_o = data_5w_i;
-        end else if (rob_cam_rs1_valid_i) begin
+        end else if (rob_cam_rs1_valid_i & rob_cam_rs1_complete_i) begin
             bypass_rs1_2d_sel_o  = 1;
             bypass_rs1_2d_data_o = rob_cam_rs1_data_i;
+        end else if (rob_cam_rs1_valid_i & ~rob_cam_rs1_complete_i) begin
+            hazard_rob_rs1 = 1;
         end
+        // else, registers
     end
 
     always_comb begin
         bypass_rs2_2d_sel_o  =  0;
         bypass_rs2_2d_data_o = '0;
+        hazard_rob_rs2       =  0;
 
         if ((rs2_2d_i == rd_3e_i) && rd_3e_not_zero && rs2_valid_2d_i && rd_is_wb_3e_i) begin
             bypass_rs2_2d_sel_o  = 1;
@@ -93,13 +100,16 @@ module fwd_unit #(
         end else if ((rs2_2d_i == rd_5w_i) && rd_5w_not_zero && rs2_valid_2d_i && rd_is_wb_5w_i) begin
             bypass_rs2_2d_sel_o  = 1;
             bypass_rs2_2d_data_o = data_5w_i;
-        end else if (rob_cam_rs2_valid_i) begin
+        end else if (rob_cam_rs2_valid_i & rob_cam_rs2_complete_i) begin
             bypass_rs2_2d_sel_o  = 1;
             bypass_rs2_2d_data_o = rob_cam_rs2_data_i;
+        end else if (rob_cam_rs2_valid_i & ~rob_cam_rs2_complete_i) begin
+            hazard_rob_rs2 = 1;
         end
+        // else, registers
     end
 
-    assign fwd_unit_hazard_o = hazard_ld;
+    assign fwd_unit_hazard_o = hazard_ld | hazard_rob_rs1 | hazard_rob_rs2;
 
 
 endmodule

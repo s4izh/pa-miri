@@ -10,7 +10,8 @@ module gandul# (
     parameter int N_PHY_REG = 32,
     parameter int WAYS = 4,
     parameter int SETS = 4,
-    parameter int BITS_CACHELINE = 128
+    parameter int BITS_CACHELINE = 128,
+    parameter int MULDIV_OP_DELAY = 6
 )(
     input  logic clk,
     input  logic reset_n,
@@ -93,7 +94,7 @@ module gandul# (
 
     assign stall_1f     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
     assign stall_2d     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
-    assign stall_3e     = waiting_for_memory_4m | (~icache_dreq_ready & jump_or_branch_3e);
+    assign stall_3e     = waiting_for_memory_4m | (~icache_dreq_ready & jump_or_branch_3e); // TOCHECK
     assign stall_4m     = waiting_for_memory_4m;
     assign stall_muldiv = 0;
 
@@ -414,7 +415,7 @@ module gandul# (
     // = Multiplication and Division Functional Unit
     // =========================================================================
     muldiv_fu #(
-        .OP_DELAY(5)
+        .OP_DELAY(MULDIV_OP_DELAY)
     ) muldiv_fu_inst (
         .clk,
         .reset_n,
@@ -462,8 +463,10 @@ module gandul# (
         .data_5w_i(s_5w_d.rd_data),
         // rob inputs
         .rob_cam_rs1_valid_i(rob_cam_rsp_rs1.valid),
+        .rob_cam_rs1_complete_i(rob_cam_rsp_rs1.complete),
         .rob_cam_rs1_data_i(rob_cam_rsp_rs1.value),
         .rob_cam_rs2_valid_i(rob_cam_rsp_rs2.valid),
+        .rob_cam_rs2_complete_i(rob_cam_rsp_rs2.complete),
         .rob_cam_rs2_data_i(rob_cam_rsp_rs2.value),
         // outputs
         .bypass_rs1_2d_sel_o(bypass_rs1_2d_sel),

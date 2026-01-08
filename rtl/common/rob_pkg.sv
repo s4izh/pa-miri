@@ -64,6 +64,7 @@ package rob_pkg;
 
     typedef struct packed {
         logic             valid;
+        logic             complete;
         logic [`XLEN-1:0] value;
     } cam_rsp_t;
 
