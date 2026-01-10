@@ -92,6 +92,9 @@ module gandul# (
     assign noop_5w     = rob_trap_valid;
     assign noop_muldiv = rob_trap_valid;
 
+    logic rob_can_commit_xcpt;
+    assign rob_can_commit_xcpt = ~(waiting_for_memory_4m | ~icache_dreq_ready | ~rob_issue_rsp.ready);
+
     assign stall_1f     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
     assign stall_2d     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
     assign stall_3e     = waiting_for_memory_4m | (~icache_dreq_ready & jump_or_branch_3e); // TOCHECK
@@ -184,7 +187,7 @@ module gandul# (
         .complete_alumem_i(rob_complete_alumem),
         .complete_muldiv_i(rob_complete_muldiv),
 
-        .can_commit_xcpt_i(~(stall_1f | stall_2d)),
+        .can_commit_xcpt_i(rob_can_commit_xcpt),
         .commit_o(rob_commit),
         .commit_rf_o(rob_commit_rf),
         .commit_sb_o(rob_commit_sb),

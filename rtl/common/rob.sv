@@ -165,7 +165,7 @@ module rob #(
         // Default
         cam_rsp_rs1_o = '0;
 
-        if (~empty & (cam_req_rs1_i.addr != '0) & ~committing_xcpt) begin
+        if (~empty & (cam_req_rs1_i.addr != '0)) begin
             // Go from tail-1 (youngest) til head (oldest) and check
             // RS1
             for (robid_t i = tail_q; i != head_q && ~found; --i) begin
@@ -188,7 +188,7 @@ module rob #(
         // Default
         cam_rsp_rs2_o = '0;
 
-        if (~empty & (cam_req_rs2_i.addr != '0) & ~committing_xcpt) begin
+        if (~empty & (cam_req_rs2_i.addr != '0)) begin
             // Go from tail-1 (youngest) til head (oldest) and check
             // RS1
             for (robid_t i = tail_q; i != head_q && ~found; --i) begin
