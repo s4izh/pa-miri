@@ -456,14 +456,17 @@ module gandul# (
         .rd_is_wb_3e_i(s_3e_d.is_wb),
         .is_ld_3e_i(s_3e_d.is_ld),
         .data_3e_i(s_3e_d.alu_result), // I think that if 3E is PC_NEXT (JAL), this is wrong
+        .robid_3e_i(s_3e_d.robid),
         // stage 4 inputs
         .rd_4m_i(s_4m_d.rd_addr),
         .rd_is_wb_4m_i(s_4m_d.is_wb),
         .data_4m_i(fwd_data_4m), // TODO: proper mux this in stage 4
+        .robid_4m_i(s_4m_d.robid),
         // stage 5 inputs
         .rd_5w_i(s_5w_d.rd_addr),
         .rd_is_wb_5w_i(s_5w_d.is_wb),
         .data_5w_i(s_5w_d.rd_data),
+        .robid_5w_i(s_5w_d.robid),
         // rob inputs
         .rob_cam_rs1_i(rob_cam_rsp_rs1),
         .rob_cam_rs2_i(rob_cam_rsp_rs2),

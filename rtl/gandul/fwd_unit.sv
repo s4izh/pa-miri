@@ -13,16 +13,19 @@ module fwd_unit #(
     input  logic              rd_is_wb_3e_i,
     input  logic              is_ld_3e_i,
     input  logic [XLEN-1:0]   data_3e_i,
+    input  robid_t            robid_3e_i,
 
     // stage 4m inputs
     input  logic [4:0]        rd_4m_i,
     input  logic              rd_is_wb_4m_i,
     input  logic [XLEN-1:0]   data_4m_i,
+    input  robid_t            robid_4m_i,
 
     // stage 5w inputs
     input  logic [4:0]        rd_5w_i,
     input  logic              rd_is_wb_5w_i,
     input  logic [XLEN-1:0]   data_5w_i,
+    input  robid_t            robid_5w_i,
 
     // rob inputs
     input  rob_pkg::cam_rsp_t rob_cam_rs1_i,
@@ -65,20 +68,24 @@ module fwd_unit #(
         bypass_rs1_2d_data_o = '0;
         hazard_rob_rs1       =  0;
 
-        if ((rs1_2d_i == rd_3e_i) && rd_3e_not_zero && rs1_valid_2d_i && rd_is_wb_3e_i) begin
-            bypass_rs1_2d_sel_o  = 1;
-            bypass_rs1_2d_data_o = data_3e_i;
-        end else if ((rs1_2d_i == rd_4m_i) && rd_4m_not_zero && rs1_valid_2d_i && rd_is_wb_4m_i) begin
-            bypass_rs1_2d_sel_o  = 1;
-            bypass_rs1_2d_data_o = data_4m_i;
-        end else if ((rs1_2d_i == rd_5w_i) && rd_5w_not_zero && rs1_valid_2d_i && rd_is_wb_5w_i) begin
-            bypass_rs1_2d_sel_o  = 1;
-            bypass_rs1_2d_data_o = data_5w_i;
-        end else if (rob_cam_rs1_i.valid & rob_cam_rs1_i.complete) begin
-            bypass_rs1_2d_sel_o  = 1;
-            bypass_rs1_2d_data_o = rob_cam_rs1_i.value;
-        end else if (rob_cam_rs1_i.valid & ~rob_cam_rs1_i.complete) begin
-            hazard_rob_rs1 = 1;
+        if (rob_cam_rs1_i.valid) begin
+            if (rob_cam_rs1_i.complete) begin
+                bypass_rs1_2d_sel_o  = 1;
+                bypass_rs1_2d_data_o = rob_cam_rs1_i.value;
+            end else begin
+                if ((rob_cam_rs1_i.robid == robid_3e_i) & rd_is_wb_3e_i) begin
+                    bypass_rs1_2d_sel_o  = 1;
+                    bypass_rs1_2d_data_o = data_3e_i;
+                end else if ((rob_cam_rs1_i.robid == robid_4m_i) & rd_is_wb_4m_i) begin
+                    bypass_rs1_2d_sel_o  = 1;
+                    bypass_rs1_2d_data_o = data_4m_i;
+                end else if ((rob_cam_rs1_i.robid == robid_5w_i) & rd_is_wb_5w_i) begin
+                    bypass_rs1_2d_sel_o  = 1;
+                    bypass_rs1_2d_data_o = data_5w_i;
+                end else begin
+                    hazard_rob_rs1 = 1;
+                end
+            end
         end
         // else, registers
     end
@@ -88,20 +95,24 @@ module fwd_unit #(
         bypass_rs2_2d_data_o = '0;
         hazard_rob_rs2       =  0;
 
-        if ((rs2_2d_i == rd_3e_i) && rd_3e_not_zero && rs2_valid_2d_i && rd_is_wb_3e_i) begin
-            bypass_rs2_2d_sel_o  = 1;
-            bypass_rs2_2d_data_o = data_3e_i;
-        end else if ((rs2_2d_i == rd_4m_i) && rd_4m_not_zero && rs2_valid_2d_i && rd_is_wb_4m_i) begin
-            bypass_rs2_2d_sel_o  = 1;
-            bypass_rs2_2d_data_o = data_4m_i;
-        end else if ((rs2_2d_i == rd_5w_i) && rd_5w_not_zero && rs2_valid_2d_i && rd_is_wb_5w_i) begin
-            bypass_rs2_2d_sel_o  = 1;
-            bypass_rs2_2d_data_o = data_5w_i;
-        end else if (rob_cam_rs2_i.valid & rob_cam_rs2_i.complete) begin
-            bypass_rs2_2d_sel_o  = 1;
-            bypass_rs2_2d_data_o = rob_cam_rs2_i.value;
-        end else if (rob_cam_rs2_i.valid & ~rob_cam_rs2_i.complete) begin
-            hazard_rob_rs2 = 1;
+        if (rob_cam_rs2_i.valid) begin
+            if (rob_cam_rs2_i.complete) begin
+                bypass_rs2_2d_sel_o  = 1;
+                bypass_rs2_2d_data_o = rob_cam_rs2_i.value;
+            end else begin
+                if ((rob_cam_rs2_i.robid == robid_3e_i) & rd_is_wb_3e_i) begin
+                    bypass_rs2_2d_sel_o  = 1;
+                    bypass_rs2_2d_data_o = data_3e_i;
+                end else if ((rob_cam_rs2_i.robid == robid_4m_i) & rd_is_wb_4m_i) begin
+                    bypass_rs2_2d_sel_o  = 1;
+                    bypass_rs2_2d_data_o = data_4m_i;
+                end else if ((rob_cam_rs2_i.robid == robid_5w_i) & rd_is_wb_5w_i) begin
+                    bypass_rs2_2d_sel_o  = 1;
+                    bypass_rs2_2d_data_o = data_5w_i;
+                end else begin
+                    hazard_rob_rs2 = 1;
+                end
+            end
         end
         // else, registers
     end
