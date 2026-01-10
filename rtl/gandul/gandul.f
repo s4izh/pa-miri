@@ -5,6 +5,7 @@
 -f $(PROJ_DIR)/rtl/common/alu.f
 -f $(PROJ_DIR)/rtl/common/sign_extender.f
 -f $(PROJ_DIR)/rtl/common/decoupling_reg.f
+-f $(PROJ_DIR)/rtl/common/memory_arbitrer.f
 -f $(PROJ_DIR)/rtl/gandul/rv_decoder.f
 -f $(PROJ_DIR)/rtl/gandul/rv_datapath_pkg.f
 $(PROJ_DIR)/rtl/gandul/stage_2d.sv

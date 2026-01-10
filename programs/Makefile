@@ -9,6 +9,7 @@ ELF_FILE      := $(BUILD_DIR)/$(TARGET).elf
 O_FILE        := $(BUILD_DIR)/$(TARGET).o
 ROM_HEX_FILE  := $(BUILD_DIR)/$(TARGET).rom.hex
 SRAM_HEX_FILE := $(BUILD_DIR)/$(TARGET).sram.hex
+MEM_HEX_FILE  := $(BUILD_DIR)/$(TARGET).mem.hex
 MAP_FILE      := $(BUILD_DIR)/$(TARGET).map
 ASM_FILE      := $(BUILD_DIR)/$(TARGET).asm
 BIN_FILE      := $(BUILD_DIR)/$(TARGET).bin
@@ -28,9 +29,13 @@ IMAGE_NAME  := $(DOCKER_TOOLCHAIN_IMAGE)
 DOCKER_USER_FLAGS := --rm --user "$$(id -u):$$(id -g)" -v "$${PROJ_DIR}:$${PROJ_DIR}" --workdir "$$(pwd)"
 DOCKER_IMAGE_CHECK = $(shell docker images -q $(IMAGE_NAME) 2> /dev/null)
 
-CC      := docker run $(DOCKER_USER_FLAGS) $(IMAGE_NAME) $(TOOL_PREFIX)gcc
-OBJCOPY := docker run $(DOCKER_USER_FLAGS) $(IMAGE_NAME) $(TOOL_PREFIX)objcopy
-OBJDUMP := docker run $(DOCKER_USER_FLAGS) $(IMAGE_NAME) $(TOOL_PREFIX)objdump
+# CC      := docker run $(DOCKER_USER_FLAGS) $(IMAGE_NAME) $(TOOL_PREFIX)gcc
+# OBJCOPY := docker run $(DOCKER_USER_FLAGS) $(IMAGE_NAME) $(TOOL_PREFIX)objcopy
+# OBJDUMP := docker run $(DOCKER_USER_FLAGS) $(IMAGE_NAME) $(TOOL_PREFIX)objdump
+
+CC      := riscv32-none-elf-gcc
+OBJCOPY := riscv32-none-elf-objcopy
+OBJDUMP := riscv32-none-elf-objdump
 
 .PHONY: all hex asm clean
 
@@ -52,6 +57,14 @@ $(SRAM_HEX_FILE): $(ELF_FILE) | docker-image-build
 	@echo "Converting ELF to intermediate HEX (SRAM)..."
 	@mkdir -p $(dir $@)
 	$(OBJCOPY) -O verilog --verilog-data-width 16 --only-section=.data* --only-section=.sdata* --only-section=.bss* --only-section=.sbss* $< $(BUILD_DIR)/$(TARGET).tmp.hex
+	@echo "Formatting final SRAM.HEX file..."
+	@cat $(BUILD_DIR)/$(TARGET).tmp.hex | tr ' ' '\n' | tr -d '\r' > $@
+	@rm -f $(BUILD_DIR)/$(TARGET).tmp.hex
+
+$(MEM_HEX_FILE): $(ELF_FILE) | docker-image-build
+	@echo "Converting ELF to intermediate HEX (SRAM)..."
+	@mkdir -p $(dir $@)
+	$(OBJCOPY) -O verilog --verilog-data-width 16 $< $(BUILD_DIR)/$(TARGET).tmp.hex
 	@echo "Formatting final SRAM.HEX file..."
 	@cat $(BUILD_DIR)/$(TARGET).tmp.hex | tr ' ' '\n' | tr -d '\r' > $@
 	@rm -f $(BUILD_DIR)/$(TARGET).tmp.hex

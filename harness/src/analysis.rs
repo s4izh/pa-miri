@@ -23,6 +23,7 @@ pub struct SimMetrics {
 pub enum SimStatus {
     Pass,
     Fail,
+    Timeout,
     Crash, // Log exists but results line missing
 }
 
@@ -67,7 +68,12 @@ pub fn run_analysis(root: &Path, log_targets: &[String], baseline: Option<&str>)
             metrics.result_code = cap[1].parse().unwrap_or(1);
             metrics.cycles = cap[2].parse().unwrap_or(0);
             metrics.instructions = cap[3].parse().unwrap_or(0);
-            metrics.status = if metrics.result_code == 0 { SimStatus::Pass } else { SimStatus::Fail };
+            metrics.status = match metrics.result_code {
+                0 => SimStatus::Pass,
+                1 => SimStatus::Fail,
+                2 => SimStatus::Timeout,
+                _ => SimStatus::Crash,
+            };
             if metrics.instructions > 0 { metrics.cpi = metrics.cycles as f64 / metrics.instructions as f64; }
         }
         all_results.push(metrics);
@@ -93,14 +99,14 @@ pub fn run_analysis(root: &Path, log_targets: &[String], baseline: Option<&str>)
         }
 
         if !software.is_empty() {
+            let has_failures = results.iter().any(|r| r.status != SimStatus::Pass);
+            if has_failures {
+                print_failure_report(&results, root);
+            }
             print_comparison_table(&software, baseline);
             print_metrics_table(&software);
-            print_failure_report(&software, root);
-            let has_failures = results.iter().any(|r| r.status != SimStatus::Pass);
             if !has_failures {
                 println!("\n{}", "ALL TESTS PASSED!".green().bold());
-            } else {
-                print_failure_report(&results, root);
             }
         }
     }
@@ -132,6 +138,7 @@ fn print_metrics_table(results: &[SimMetrics]) {
         let status_str = match r.status {
             SimStatus::Pass => "PASS".green(),
             SimStatus::Fail => "FAIL".red(),
+            SimStatus::Timeout => "TIMEOUT".yellow(),
             SimStatus::Crash => "CRASH".on_red().white(),
         };
         println!("{:<40} {:<30} {:<10} {:<10} {:<6.2} {:<6}", 

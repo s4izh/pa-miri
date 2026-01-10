@@ -135,10 +135,10 @@ module tb (
     int instr_count = 0;
     always @(posedge clk) begin
         if (reset_n) begin
-            ++cycle_count;
             if (dut_instr_retired_signal) begin
                 instr_count <= instr_count + 1;
             end
+            ++cycle_count;
             if (tohost_written) begin
                 if (tohost_value == 0) begin
                     $display("** SIMULATION PASSED **: 'tohost' was written with 0.");

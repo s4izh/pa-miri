@@ -53,6 +53,16 @@ harness.add_tool({
             outputs = {
                 { name = "sram", filename = "sram.hex" }
             }
+        },
+        {
+            name = "mem",
+            command = "riscv32-none-elf-objcopy -O verilog --verilog-data-width 16 $elf $out_dir/sramunified.tmp && " ..
+                      "cat $out_dir/sramunified.tmp | tr -s ' ' '\\n' | tr -d '\\r' > $mem && " ..
+                      "rm $out_dir/sramunified.tmp",
+            inputs = { "elf" },
+            outputs = {
+                { name = "mem", filename = "mem.hex" }
+            }
         }
     }
 })
@@ -100,14 +110,21 @@ harness.add_simulator({
 harness.add_testbench({
     name = "rv_pa3.anyrom",
     filelist = "sim/rv_pa3/anyrom/filelist.f",
-    run_template = "$bin $plusargs +VCD_FILE=waves.fst +ROM_FILE=$rom +SRAM_FILE=$sram +TIMEOUT=10000",
+    run_template = "$bin $plusargs +VCD_FILE=waves.fst +ROM_FILE=$rom +SRAM_FILE=$sram +TIMEOUT_CYCLES=10000",
+    sw_deps = {}
+})
+
+harness.add_testbench({
+    name = "gandul.anyrom",
+    filelist = "sim/gandul/anyrom/filelist.f",
+    run_template = "$bin $plusargs +VCD_FILE=waves.fst +SRAM_FILE=$mem +TIMEOUT_CYCLES=10000",
     sw_deps = {}
 })
 
 harness.add_testbench({
     name = "rv_pa3.cosim",
     filelist = "sim/rv_pa3/cosim/filelist.f",
-    run_template = "$bin $plusargs +VCD_FILE=waves.fst +ROM_FILE=$rom +SRAM_FILE=$sram +TIMEOUT=10000",
+    run_template = "$bin $plusargs +VCD_FILE=waves.fst +ROM_FILE=$rom +SRAM_FILE=$sram +TIMEOUT_CYCLES=10000",
     vars = {
           COSIM_DPI_LIB = harness.abspath(cosim.outputs.lib)
     },
@@ -117,14 +134,14 @@ harness.add_testbench({
 harness.add_testbench({
     name = "common.rob",
     filelist = "sim/common/rob/filelist.f",
-    run_template = "$bin $plusargs +VCD_FILE=waves.fst +TIMEOUT=10000",
+    run_template = "$bin $plusargs +VCD_FILE=waves.fst +TIMEOUT_CYCLES=10000",
     sw_deps = {}
 })
 
 harness.add_testbench({
     name = "common.store_buffer",
     filelist = "sim/common/store_buffer/filelist.f",
-    run_template = "$bin $plusargs +VCD_FILE=waves.fst +TIMEOUT=10000",
+    run_template = "$bin $plusargs +VCD_FILE=waves.fst +TIMEOUT_CYCLES=10000",
     sw_deps = {}
 })
 
@@ -180,5 +197,13 @@ harness.add_experiment({
     testbench = "common.store_buffer",
     param_sets = { "base" },
     suites = {}, -- standalone HW test, no software suite involved
+    simulators = { "verilator" }
+})
+
+harness.add_experiment({
+    name = "gandul",
+    testbench = "gandul.anyrom",
+    param_sets = { "base" },
+    suites = { "isa" }, -- standalone HW test, no software suite involved
     simulators = { "verilator" }
 })
