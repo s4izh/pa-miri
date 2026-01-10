@@ -66,6 +66,7 @@ package rob_pkg;
         logic             valid;
         logic             complete;
         logic [`XLEN-1:0] value;
+        robid_t           robid;
     } cam_rsp_t;
 
 endpackage

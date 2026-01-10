@@ -1,43 +1,40 @@
 module fwd_unit #(
     parameter int XLEN = 32
 ) (
-    input  logic [4:0] rs1_2d_i,
-    input  logic [4:0] rs2_2d_i,
-    input  logic       rs1_valid_2d_i,
-    input  logic       rs2_valid_2d_i,
-    input  logic       is_st_2d_i,
+    input  logic [4:0]        rs1_2d_i,
+    input  logic [4:0]        rs2_2d_i,
+    input  logic              rs1_valid_2d_i,
+    input  logic              rs2_valid_2d_i,
+    input  logic              is_st_2d_i,
 
     // stage 3e inputs
-    input  logic            valid_3e_i,
-    input  logic [4:0]      rd_3e_i,
-    input  logic            rd_is_wb_3e_i,
-    input  logic            is_ld_3e_i,
-    input  logic [XLEN-1:0] data_3e_i,
+    input  logic              valid_3e_i,
+    input  logic [4:0]        rd_3e_i,
+    input  logic              rd_is_wb_3e_i,
+    input  logic              is_ld_3e_i,
+    input  logic [XLEN-1:0]   data_3e_i,
 
     // stage 4m inputs
-    input  logic [4:0]      rd_4m_i,
-    input  logic            rd_is_wb_4m_i,
-    input  logic [XLEN-1:0] data_4m_i,
+    input  logic [4:0]        rd_4m_i,
+    input  logic              rd_is_wb_4m_i,
+    input  logic [XLEN-1:0]   data_4m_i,
 
     // stage 5w inputs
-    input  logic [4:0]      rd_5w_i,
-    input  logic            rd_is_wb_5w_i,
-    input  logic [XLEN-1:0] data_5w_i,
+    input  logic [4:0]        rd_5w_i,
+    input  logic              rd_is_wb_5w_i,
+    input  logic [XLEN-1:0]   data_5w_i,
 
     // rob inputs
-    input  logic            rob_cam_rs1_valid_i,
-    input  logic            rob_cam_rs1_complete_i,
-    input  logic [XLEN-1:0] rob_cam_rs1_data_i,
-    input  logic            rob_cam_rs2_valid_i,
-    input  logic            rob_cam_rs2_complete_i,
-    input  logic [XLEN-1:0] rob_cam_rs2_data_i,
+    input  rob_pkg::cam_rsp_t rob_cam_rs1_i,
+    input  rob_pkg::cam_rsp_t rob_cam_rs2_i,
 
-    output logic            bypass_rs1_2d_sel_o,
-    output logic            bypass_rs2_2d_sel_o,
-    output logic [XLEN-1:0] bypass_rs1_2d_data_o,
-    output logic [XLEN-1:0] bypass_rs2_2d_data_o,
-    output logic            bypass_4m_3e_sel_o,
-    output logic            fwd_unit_hazard_o
+    // bypass outputs
+    output logic              bypass_rs1_2d_sel_o,
+    output logic              bypass_rs2_2d_sel_o,
+    output logic [XLEN-1:0]   bypass_rs1_2d_data_o,
+    output logic [XLEN-1:0]   bypass_rs2_2d_data_o,
+    output logic              bypass_4m_3e_sel_o,
+    output logic              fwd_unit_hazard_o
 );
 
     logic rd_3e_not_zero, rd_4m_not_zero, rd_5w_not_zero;
@@ -77,10 +74,10 @@ module fwd_unit #(
         end else if ((rs1_2d_i == rd_5w_i) && rd_5w_not_zero && rs1_valid_2d_i && rd_is_wb_5w_i) begin
             bypass_rs1_2d_sel_o  = 1;
             bypass_rs1_2d_data_o = data_5w_i;
-        end else if (rob_cam_rs1_valid_i & rob_cam_rs1_complete_i) begin
+        end else if (rob_cam_rs1_i.valid & rob_cam_rs1_i.complete) begin
             bypass_rs1_2d_sel_o  = 1;
-            bypass_rs1_2d_data_o = rob_cam_rs1_data_i;
-        end else if (rob_cam_rs1_valid_i & ~rob_cam_rs1_complete_i) begin
+            bypass_rs1_2d_data_o = rob_cam_rs1_i.value;
+        end else if (rob_cam_rs1_i.valid & ~rob_cam_rs1_i.complete) begin
             hazard_rob_rs1 = 1;
         end
         // else, registers
@@ -100,10 +97,10 @@ module fwd_unit #(
         end else if ((rs2_2d_i == rd_5w_i) && rd_5w_not_zero && rs2_valid_2d_i && rd_is_wb_5w_i) begin
             bypass_rs2_2d_sel_o  = 1;
             bypass_rs2_2d_data_o = data_5w_i;
-        end else if (rob_cam_rs2_valid_i & rob_cam_rs2_complete_i) begin
+        end else if (rob_cam_rs2_i.valid & rob_cam_rs2_i.complete) begin
             bypass_rs2_2d_sel_o  = 1;
-            bypass_rs2_2d_data_o = rob_cam_rs2_data_i;
-        end else if (rob_cam_rs2_valid_i & ~rob_cam_rs2_complete_i) begin
+            bypass_rs2_2d_data_o = rob_cam_rs2_i.value;
+        end else if (rob_cam_rs2_i.valid & ~rob_cam_rs2_i.complete) begin
             hazard_rob_rs2 = 1;
         end
         // else, registers

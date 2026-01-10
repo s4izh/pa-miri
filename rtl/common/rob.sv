@@ -176,6 +176,7 @@ module rob #(
             cam_rsp_rs1_o.valid    = found;
             cam_rsp_rs1_o.complete = entries[found_robid].complete;
             cam_rsp_rs1_o.value    = entries[found_robid].result;
+            cam_rsp_rs1_o.robid    = found_robid;
         end
     end
     // RS2
@@ -199,6 +200,7 @@ module rob #(
             cam_rsp_rs2_o.valid    = found;
             cam_rsp_rs2_o.complete = entries[found_robid].complete;
             cam_rsp_rs2_o.value    = entries[found_robid].result;
+            cam_rsp_rs2_o.robid    = found_robid;
         end
     end
 

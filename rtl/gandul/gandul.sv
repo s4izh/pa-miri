@@ -465,12 +465,8 @@ module gandul# (
         .rd_is_wb_5w_i(s_5w_d.is_wb),
         .data_5w_i(s_5w_d.rd_data),
         // rob inputs
-        .rob_cam_rs1_valid_i(rob_cam_rsp_rs1.valid),
-        .rob_cam_rs1_complete_i(rob_cam_rsp_rs1.complete),
-        .rob_cam_rs1_data_i(rob_cam_rsp_rs1.value),
-        .rob_cam_rs2_valid_i(rob_cam_rsp_rs2.valid),
-        .rob_cam_rs2_complete_i(rob_cam_rsp_rs2.complete),
-        .rob_cam_rs2_data_i(rob_cam_rsp_rs2.value),
+        .rob_cam_rs1_i(rob_cam_rsp_rs1),
+        .rob_cam_rs2_i(rob_cam_rsp_rs2),
         // outputs
         .bypass_rs1_2d_sel_o(bypass_rs1_2d_sel),
         .bypass_rs2_2d_sel_o(bypass_rs2_2d_sel),
