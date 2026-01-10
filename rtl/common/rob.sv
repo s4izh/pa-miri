@@ -155,22 +155,24 @@ module rob #(
     end
 
     // CAM lookup for younger instructions to use my values
-    // RS1
+    // RS2
     always_comb begin
         logic   found;
         robid_t found_robid;
-        found       = 0;
-        found_robid = '0;
-
         // Default
         cam_rsp_rs1_o = '0;
 
+        found       = 0;
+        found_robid = '0;
         if (~empty & (cam_req_rs1_i.addr != '0)) begin
-            // Go from tail-1 (youngest) til head (oldest) and check
+            // Go from head (oldest) til tail-1 (youngest) and overwrite the
+            // value with the youngest valid entry
             // RS1
-            for (robid_t i = tail_q; i != head_q && ~found; --i) begin
-                found = (entries[i-1].rd_addr == cam_req_rs1_i.addr) & ~entries[i-1].xcpt;
-                found_robid = i-1;
+            for (robid_t i = head_q; i != tail_q; ++i) begin
+                if ((entries[i].rd_addr == cam_req_rs1_i.addr) & ~entries[i].xcpt) begin
+                    found = 1;
+                    found_robid = i;
+                end
             end
             // Final asssign
             cam_rsp_rs1_o.valid    = found;
@@ -183,18 +185,20 @@ module rob #(
     always_comb begin
         logic   found;
         robid_t found_robid;
-        found       = 0;
-        found_robid = '0;
-
         // Default
         cam_rsp_rs2_o = '0;
 
+        found       = 0;
+        found_robid = '0;
         if (~empty & (cam_req_rs2_i.addr != '0)) begin
-            // Go from tail-1 (youngest) til head (oldest) and check
+            // Go from head (oldest) til tail-1 (youngest) and overwrite the
+            // value with the youngest valid entry
             // RS1
-            for (robid_t i = tail_q; i != head_q && ~found; --i) begin
-                found = (entries[i-1].rd_addr == cam_req_rs2_i.addr) & ~entries[i-1].xcpt;
-                found_robid = i-1;
+            for (robid_t i = head_q; i != tail_q; ++i) begin
+                if ((entries[i].rd_addr == cam_req_rs2_i.addr) & ~entries[i].xcpt) begin
+                    found = 1;
+                    found_robid = i;
+                end
             end
             // Final asssign
             cam_rsp_rs2_o.valid    = found;
