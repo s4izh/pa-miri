@@ -115,31 +115,44 @@ module tb (
     logic [XLEN-1:0] ins;
     assign ins = dut.hart0_inst.s_1f_d.ins;
 
+
+    `define ROB_COMMIT dut.hart0_inst.rob_commit
+    `define ROB_COMMIT_RF dut.hart0_inst.rob_commit_rf
+    logic dut_instr_retired_signal, dut_noop_retired_signal;
+    assign dut_instr_retired_signal = `ROB_COMMIT.valid && `ROB_COMMIT.dbg_ins != 32'h00000033;
+    assign dut_noop_retired_signal  = `ROB_COMMIT.valid && `ROB_COMMIT.dbg_ins == 32'h00000033;
+
     int cycle_count = 0;
+    int instr_count = 0;
     always @(posedge clk) begin
         if (reset_n) begin
+            if (dut_instr_retired_signal) begin
+                instr_count <= instr_count + 1;
+            end
             ++cycle_count;
             if (tohost_written) begin
                 if (tohost_value == 0) begin
                     $display("** SIMULATION PASSED **: 'tohost' was written with 0.");
-                    $finish;
+                    $display("TESTBENCH_RESULTS: res=0, clk=%0d, ins=%0d", cycle_count, instr_count);
                 end else begin
-                    $fatal(1, "Test FAILED! Incorrect 'tohost' value. Expected 0, got %0d.", tohost_value);
+                    $display("Test FAILED! Incorrect 'tohost' value. Expected 0, got %0d.", tohost_value);
+                    $display("TESTBENCH_RESULTS: res=1, clk=%0d, ins=%0d", cycle_count, instr_count);
                 end
+                $finish;
             end else if (cycle_count >= TIMEOUT_CYCLES) begin
-                $fatal(1, "Test FAILED! Timeout reached (%0d cycles) without writing to 'tohost'.", TIMEOUT_CYCLES);
+                $display("Test FAILED! Timeout reached (%0d cycles) without writing to 'tohost'.", TIMEOUT_CYCLES);
+                $display("TESTBENCH_RESULTS: res=2, clk=%0d, ins=%0d", cycle_count, instr_count);
+                $finish;
             end
         end
     end
 
     always @(posedge clk) begin
-        `define ROB_COMMIT dut.hart0_inst.rob_commit
-        `define ROB_COMMIT_RF dut.hart0_inst.rob_commit_rf
         if (reset_n) begin
-            if (`ROB_COMMIT.valid && `ROB_COMMIT.dbg_ins == 32'h00000033) begin
+            if (dut_noop_retired_signal) begin
                 $display("NOOP COMMITTED: {pc: 0x%08x, robid: 0x%08x}",
                     `ROB_COMMIT.pc, `ROB_COMMIT.dbg_robid);
-            end else if (`ROB_COMMIT.valid && `ROB_COMMIT.dbg_ins != 32'h00000033) begin
+            end else if (dut_instr_retired_signal) begin
                 int unsigned pc, ins, rd, trap;
                 string disasm;
                 int errors;
@@ -179,7 +192,9 @@ module tb (
                     $display("CORRECT - 0x%08x: %s - RESULT: 0x%08x", pc, disasm, rd);
                 end else begin
                     $display("INCORRECT - 0x%08x: %s", pc, disasm);
-                    $fatal(1, "Test FAILED! Due to %0d errors.", errors);
+                    $display("Test FAILED! Due to %0d errors.", errors);
+                    $display("TESTBENCH_RESULTS: res=1, clk=%0d, ins=%0d", cycle_count, instr_count);
+                    $finish;
                 end
             end
         end

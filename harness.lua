@@ -75,7 +75,7 @@ harness.add_suite({
     tool = "riscv_gcc",
     plusargs = {},
     default_vars = {
-        flags = "-march=rv32i -mabi=ilp32",
+        flags = "-march=rv32im -mabi=ilp32",
         ld = "programs/link.ld"
     },
     program_overrides = {},
@@ -89,7 +89,7 @@ harness.add_suite({
     tool = "riscv_gcc",
     plusargs = {},
     default_vars = {
-        flags = "-march=rv32i -mabi=ilp32 -O3",
+        flags = "-march=rv32im -mabi=ilp32 -O3",
         ld = "programs/link.ld"
     },
     program_overrides = {},
@@ -125,6 +125,16 @@ harness.add_testbench({
     name = "rv_pa3.cosim",
     filelist = "sim/rv_pa3/cosim/filelist.f",
     run_template = "$bin $plusargs +VCD_FILE=waves.fst +ROM_FILE=$rom +SRAM_FILE=$sram +TIMEOUT_CYCLES=10000",
+    vars = {
+          COSIM_DPI_LIB = harness.abspath(cosim.outputs.lib)
+    },
+    sw_deps = { cosim.outputs.lib },
+})
+
+harness.add_testbench({
+    name = "gandul.cosim",
+    filelist = "sim/gandul/cosim/filelist.f",
+    run_template = "$bin $plusargs +VCD_FILE=waves.fst +SRAM_FILE=$mem +TIMEOUT_CYCLES=10000",
     vars = {
           COSIM_DPI_LIB = harness.abspath(cosim.outputs.lib)
     },
@@ -177,7 +187,7 @@ harness.add_experiment({
 })
 
 harness.add_experiment({
-    name = "cosim",
+    name = "rv_pa3_cosim",
     testbench = "rv_pa3.cosim",
     param_sets = { "base" },
     suites = { "isa" },
@@ -205,5 +215,13 @@ harness.add_experiment({
     testbench = "gandul.anyrom",
     param_sets = { "base" },
     suites = { "isa" }, -- standalone HW test, no software suite involved
+    simulators = { "verilator" }
+})
+
+harness.add_experiment({
+    name = "gandul_cosim",
+    testbench = "gandul.cosim",
+    param_sets = { "base" },
+    suites = { "isa" },
     simulators = { "verilator" }
 })

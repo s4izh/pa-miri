@@ -137,9 +137,9 @@ module rob #(
         commit_sb_o = '0;
         commit_o.dbg_robid = head_q;
         commit_o.dbg_ins   = entries[head_q].dbg_ins;
+        commit_o.pc        = entries[head_q].pc;
         if (committing_head_q) begin
             commit_o.valid  = 1;
-            commit_o.pc     = entries[head_q].pc;
             commit_o.xcpt   = entries[head_q].xcpt;
             if (~entries[head_q].xcpt) begin
                 if (entries[head_q].is_st) begin
