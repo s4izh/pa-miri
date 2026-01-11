@@ -230,6 +230,51 @@ trap_t cosim_execute(cosim_t *soc, decoded_instruction_t *di) {
 		case INSTRUCTION_OP_AND:
 			soc->hart.gpr[di->rd] = soc->hart.gpr[di->rs1] & soc->hart.gpr[di->rs2];
 			break;
+        // Muldiv (M extension)
+        case INSTRUCTION_OP_MUL:
+			soc->hart.gpr[di->rd] = ((i64)soc->hart.gpr[di->rs1] * (i64)soc->hart.gpr[di->rs2]);
+            break;
+        case INSTRUCTION_OP_MULH:
+            i64 tmp;
+            tmp = (i32)soc->hart.gpr[di->rs1] * (i32)soc->hart.gpr[di->rs2];
+            tmp = tmp >> 32;
+			soc->hart.gpr[di->rd] = tmp;
+            break;
+        case INSTRUCTION_OP_MULHSU:
+			soc->hart.gpr[di->rd] = ((i64)soc->hart.gpr[di->rs1] * (u64)soc->hart.gpr[di->rs2]) >> 32;
+            break;
+        case INSTRUCTION_OP_MULHU:
+			soc->hart.gpr[di->rd] = ((u64)soc->hart.gpr[di->rs1] * (u64)soc->hart.gpr[di->rs2]) >> 32;
+            break;
+        case INSTRUCTION_OP_DIV:
+            if (soc->hart.gpr[di->rs2] == 0) {
+				trap = TRAP_ERR;
+            } else {
+                soc->hart.gpr[di->rd] = ((i32)soc->hart.gpr[di->rs1] / (i32)soc->hart.gpr[di->rs2]);
+            }
+            break;
+        case INSTRUCTION_OP_DIVU:
+            if (soc->hart.gpr[di->rs2] == 0) {
+				trap = TRAP_ERR;
+            } else {
+                soc->hart.gpr[di->rd] = ((u32)soc->hart.gpr[di->rs1] / (u32)soc->hart.gpr[di->rs2]);
+            }
+            break;
+        case INSTRUCTION_OP_REM:
+            if (soc->hart.gpr[di->rs2] == 0) {
+				trap = TRAP_ERR;
+            } else {
+                soc->hart.gpr[di->rd] = ((i32)soc->hart.gpr[di->rs1] % (i32)soc->hart.gpr[di->rs2]);
+            }
+            break;
+        case INSTRUCTION_OP_REMU:
+            if (soc->hart.gpr[di->rs2] == 0) {
+				trap = TRAP_ERR;
+            } else {
+                soc->hart.gpr[di->rd] = ((u32)soc->hart.gpr[di->rs1] % (u32)soc->hart.gpr[di->rs2]);
+            }
+            break;
+        // Unimplemented
 		case INSTRUCTION_OP_FENCE:
 		case INSTRUCTION_OP_FENCE_I:
 		case INSTRUCTION_OP_ECALL:

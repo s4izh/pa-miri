@@ -10,7 +10,7 @@ local config = {
     -- toolchain configuration
     docker_image = "riscv-toolchain",
     tool_prefix = "riscv32-unknown-elf-",
-    arch_flags = "-march=rv32i -mabi=ilp32 -Iprograms",
+    arch_flags = "-march=rv32im -mabi=ilp32 -Iprograms",
 
     -- orchestrator/simulation configuration
     orchestrator_test = "rv_pa1.anyrom",

@@ -7,6 +7,12 @@
 #include <sys/types.h>
 #include "cosim.hpp"
 
+extern "C" int cosim_dpi_init_unified(
+    char *sram_path,
+    uint32_t pc_reset,
+    uint32_t pc_xcpt,
+    uint32_t mem_dlen
+);
 
 extern "C" int cosim_dpi_init(
     char *rom_path,

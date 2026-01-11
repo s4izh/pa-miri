@@ -3,13 +3,15 @@ import rv_branch_compare_pkg::*;
 import memory_controller_pkg::*;
 import alu_pkg::*;
 import rv_isa_pkg::*;
+import rob_pkg::*;
 
 module gandul# (
     parameter int XLEN = 32,
     parameter int N_PHY_REG = 32,
     parameter int WAYS = 4,
     parameter int SETS = 4,
-    parameter int BITS_CACHELINE = 128
+    parameter int BITS_CACHELINE = 128,
+    parameter int MULDIV_OP_DELAY = 6
 )(
     input  logic clk,
     input  logic reset_n,
@@ -30,7 +32,7 @@ module gandul# (
     // pc
     logic [XLEN-1:0] pc;
     // trap control signals
-    logic trap_valid, xcpt_illegal_ins, xcpt_icache, xcpt_dcache;
+    logic frontend_trap_valid, rob_trap_valid, xcpt_illegal_ins, xcpt_icache;
     // branch control
     logic taken_branch;
     // mux selectors
@@ -46,10 +48,14 @@ module gandul# (
     dmem_if_out_t dmem_if_out;
 
     // Hazard control
+    // Detection
     logic rs1_valid, rs2_valid;
     logic [$clog2(N_PHY_REG)-1:0] rs1_addr, rs2_addr;
-    logic noop_1f, noop_2d, noop_3e, noop_4m;
+    // Control
+    logic noop_1f, noop_2d, noop_3e, noop_4m, noop_5w;
     logic stall_1f, stall_2d, stall_3e, stall_4m;
+    logic noop_muldiv;
+    logic stall_muldiv;
     logic data_hazard;
     // Signals from 2d to forwarding unit (to avoid UNOPTFLAT)
     logic is_st_2d;
@@ -63,12 +69,6 @@ module gandul# (
     logic icache_dreq_ready;
     logic [XLEN-1:0] icache_drsp_data;
 
-    // local assigns
-    // assign trap_valid =
-    //     imem_trap_i.valid |
-    //     (dmem_trap_i.valid & s_4m_d.valid) |
-    //     (xcpt_illegal_ins & s_2d_d.valid);
-
     // are we jumping or branching in the execute stage?
     logic jump_or_branch_3e;
     assign jump_or_branch_3e = (taken_branch || pc_sel[1]) && s_2d_q.valid;
@@ -76,23 +76,30 @@ module gandul# (
     // use s_1f_q.valid (input to decode) instead of s_2d_d.valid (output of decode)
     // this avoids the circular loop where trap -> noop -> s_2d_d.valid=0 -> trap=0
     // we must manually mask with jump_or_branch_3e because a branch should kill the trap
-    logic trap_valid_1f, trap_valid_2d, trap_valid_4m;
+    logic trap_valid_1f, trap_valid_2d;
 
+    // TODO: change all of this for rob outputs
     assign trap_valid_1f = xcpt_icache & s_1f_d.valid & ~jump_or_branch_3e;
     assign trap_valid_2d = xcpt_illegal_ins & s_1f_q.valid & ~jump_or_branch_3e;
-    assign trap_valid_4m = xcpt_dcache & s_3e_q.valid;
 
-    assign trap_valid = trap_valid_1f | trap_valid_2d | trap_valid_4m;
+    assign rob_trap_valid = rob_commit.valid & rob_commit.xcpt;
+    assign frontend_trap_valid = trap_valid_1f | trap_valid_2d;
 
-    assign noop_1f  = jump_or_branch_3e | trap_valid;
-    assign noop_2d  = jump_or_branch_3e | trap_valid;
-    assign noop_3e  = trap_valid_4m;
-    assign noop_4m  = trap_valid_4m;
+    assign noop_1f     = jump_or_branch_3e | frontend_trap_valid | rob_trap_valid;
+    assign noop_2d     = jump_or_branch_3e | frontend_trap_valid | rob_trap_valid;
+    assign noop_3e     = rob_trap_valid;
+    assign noop_4m     = rob_trap_valid;
+    assign noop_5w     = rob_trap_valid;
+    assign noop_muldiv = rob_trap_valid;
 
-    assign stall_1f = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard;
-    assign stall_2d = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard;
-    assign stall_3e = waiting_for_memory_4m | ~icache_dreq_ready;
-    assign stall_4m = waiting_for_memory_4m;
+    logic rob_can_commit_xcpt;
+    assign rob_can_commit_xcpt = ~(waiting_for_memory_4m | ~icache_dreq_ready | ~rob_issue_rsp.ready);
+
+    assign stall_1f     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
+    assign stall_2d     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
+    assign stall_3e     = waiting_for_memory_4m | (~icache_dreq_ready & jump_or_branch_3e); // TOCHECK
+    assign stall_4m     = waiting_for_memory_4m;
+    assign stall_muldiv = 0;
 
     // Data memory interface
     assign dmem_if_in.valid = dmem_valid_i;
@@ -103,6 +110,94 @@ module gandul# (
     assign dmem_addr_o  = dmem_if_out.addr;
     assign dmem_data_o  = dmem_if_out.data;
 
+    // Muldiv functional unit
+    signals_muldiv_in_t  muldiv_input;
+    signals_muldiv_out_t muldiv_output;
+
+
+    // =========================================================================
+    // = Reorder Buffer
+    // =========================================================================
+
+    // // === ISSUE ===
+    // From stage_2d
+    issue_req_t rob_issue_req;
+    // To stage_2d
+    issue_rsp_t rob_issue_rsp;
+
+    // // === COMPLETE ===
+    // From wb in normal FU
+    complete_t  rob_complete_alumem;
+    // From wb in muldiv FU
+    complete_t  rob_complete_muldiv;
+
+    // // === COMMIT ===
+    // To pc_sel
+    commit_t    rob_commit;
+    // To regfile
+    commit_rf_t rob_commit_rf;
+    // To store-buffer
+    commit_sb_t rob_commit_sb;
+
+    // // === CAM ===
+    // From stage_2d
+    cam_req_t   rob_cam_req_rs1;
+    // To stage_2d
+    cam_rsp_t   rob_cam_rsp_rs1;
+    // From stage_2d
+    cam_req_t   rob_cam_req_rs2;
+    // To stage_2d
+    cam_rsp_t   rob_cam_rsp_rs2;
+
+    assign rob_issue_req.valid   = s_2d_d.valid | muldiv_input.valid; // & ~xcpt_illegal_ins
+    assign rob_issue_req.pc      = s_1f_q.pc;
+    assign rob_issue_req.dbg_ins = muldiv_input.valid ? muldiv_input.ins : s_1f_q.ins;
+    assign rob_issue_req.rd_we   = muldiv_input.valid ? 1 : s_2d_d.is_wb;
+    assign rob_issue_req.rd_addr = s_2d_d.rd_addr;
+    assign rob_issue_req.is_st   = muldiv_input.valid ? 0 : s_2d_d.is_st;
+
+    // Complete alumem
+    assign rob_complete_alumem.valid  = s_5w_d.valid;
+    assign rob_complete_alumem.robid  = s_5w_d.robid;
+    assign rob_complete_alumem.result = s_5w_d.rd_data;
+    assign rob_complete_alumem.xcpt   = s_5w_d.xcpt;
+    assign rob_complete_alumem.sbid   = s_5w_d.sbid;
+
+    // Complete muldiv
+    assign rob_complete_muldiv.valid  = muldiv_output.valid;
+    assign rob_complete_muldiv.robid  = muldiv_output.robid;
+    assign rob_complete_muldiv.result = muldiv_output.result;
+    assign rob_complete_muldiv.xcpt   = muldiv_output.xcpt;
+    assign rob_complete_muldiv.sbid   = '0;
+
+    // CAM
+    assign rob_cam_req_rs1.valid = rs1_valid;
+    assign rob_cam_req_rs1.addr  = rs1_addr;
+    assign rob_cam_req_rs2.valid = rs2_valid;
+    assign rob_cam_req_rs2.addr  = rs2_addr;
+
+
+    rob rob_inst (
+        .clk,
+        .reset_n,
+
+        .issue_req_i(rob_issue_req),
+        .issue_rsp_o(rob_issue_rsp),
+
+        .complete_alumem_i(rob_complete_alumem),
+        .complete_muldiv_i(rob_complete_muldiv),
+
+        .can_commit_xcpt_i(rob_can_commit_xcpt),
+        .commit_o(rob_commit),
+        .commit_rf_o(rob_commit_rf),
+        .commit_sb_o(rob_commit_sb),
+
+        .cam_req_rs1_i(rob_cam_req_rs1),
+        .cam_rsp_rs1_o(rob_cam_rsp_rs1),
+        .cam_req_rs2_i(rob_cam_req_rs2),
+        .cam_rsp_rs2_o(rob_cam_rsp_rs2)
+    );
+
     // =========================================================================
     // = Stage 1: Fetch
     // =========================================================================
@@ -111,7 +206,7 @@ module gandul# (
         if (!reset_n) begin
             pc <= 'h1000;
         end else begin
-            if (trap_valid) begin
+            if (frontend_trap_valid | rob_trap_valid) begin
                 pc <= 'h2000;
             end else begin
                 if (!stall_1f) begin
@@ -142,7 +237,7 @@ module gandul# (
         .clk,
         .reset_n,
         // Data req
-        .dreq_valid_i(reset_n & !(trap_valid_2d | trap_valid_4m)),
+        .dreq_valid_i(reset_n & !(trap_valid_2d)),
         .dreq_ready_o(icache_dreq_ready),
         .dreq_addr_i(pc),
         .dreq_width_i(MEMOP_WIDTH_32),
@@ -161,7 +256,7 @@ module gandul# (
     assign s_1f_d.valid = icache_dreq_ready;
     assign s_1f_d.pc = pc;
     always_comb begin
-        if (noop_1f | stall_1f | !(icache_dreq_ready)) begin
+        if (noop_1f | stall_1f) begin
             s_1f_d.ins = 32'h00000033; // noop (add x0, x0, x0)
         end else begin
             s_1f_d.ins = icache_drsp_data;
@@ -190,10 +285,11 @@ module gandul# (
         // Pipeline input/output
         ._i(s_1f_q),
         ._o(s_2d_d),
+        ._o_muldiv(muldiv_input),
         // Write-back
-        .rd_we_i(s_5w_d.is_wb),
-        .rd_addr_i(s_5w_d.rd_addr),
-        .rd_data_i(s_5w_d.rd_data),
+        .rd_we_i(rob_commit_rf.rd_we),
+        .rd_addr_i(rob_commit_rf.rd_addr),
+        .rd_data_i(rob_commit_rf.rd_data),
         // Exceptions
         .xcpt_illegal_ins_o(xcpt_illegal_ins),
         // Hazard detection
@@ -208,7 +304,8 @@ module gandul# (
         .rs1_valid_o(rs1_valid),
         .rs2_addr_o(rs2_addr),
         .rs2_valid_o(rs2_valid),
-        .is_st_o(is_st_2d)
+        .is_st_o(is_st_2d),
+        .robid_i(rob_issue_rsp.robid)
     );
 
     decoupling_reg #(
@@ -272,8 +369,7 @@ module gandul# (
         // Trap
         .noop_i(noop_4m),
         .stall_i(stall_4m),
-        .waiting_for_memory_o(waiting_for_memory_4m),
-        .dcache_xcpt_o(xcpt_dcache)
+        .waiting_for_memory_o(waiting_for_memory_4m)
     );
 
     decoupling_reg #(
@@ -302,9 +398,35 @@ module gandul# (
         endcase
     end
 
-    assign s_5w_d.ins     = s_4m_q.ins;
-    assign s_5w_d.is_wb   = s_4m_q.is_wb && s_4m_q.valid;
+    always_comb begin
+        if (noop_5w) begin
+            s_5w_d.valid = 0;
+            s_5w_d.is_wb = 0;
+            s_5w_d.ins   = 32'h00000033;
+        end else begin
+            s_5w_d.valid = s_4m_q.valid;
+            s_5w_d.is_wb = s_4m_q.is_wb;
+            s_5w_d.ins   = s_4m_q.ins;
+        end
+    end
     assign s_5w_d.rd_addr = s_4m_q.rd_addr;
+    assign s_5w_d.robid   = s_4m_q.robid;
+    assign s_5w_d.xcpt    = s_4m_q.xcpt;
+
+
+    // =========================================================================
+    // = Multiplication and Division Functional Unit
+    // =========================================================================
+    muldiv_fu #(
+        .OP_DELAY(MULDIV_OP_DELAY)
+    ) muldiv_fu_inst (
+        .clk,
+        .reset_n,
+        ._i(muldiv_input),
+        ._o(muldiv_output),
+        .noop_i(noop_muldiv),
+        .stall_i(stall_muldiv)
+    );
 
     // =========================================================================
     // = Hazards and bypasses
@@ -320,15 +442,6 @@ module gandul# (
         end
     end
 
-    // hazard_unit hazard_unit_inst (
-    //     .jump_or_branch_3e_i(jump_or_branch_3e),
-    //     .trap_i(trap_valid),
-    //     .data_hazard_i(data_hazard),
-    //     .noop_o(noop),
-    //     .stall_o(stall)
-    // );
-
-
     fwd_unit #(
         .XLEN(XLEN)
     ) fwd_unit_inst (
@@ -338,18 +451,25 @@ module gandul# (
         .rs2_valid_2d_i(rs2_valid),
         .is_st_2d_i(is_st_2d),
         // stage 3 inputs
+        .valid_3e_i(s_2d_q.valid),
         .rd_3e_i(s_3e_d.rd_addr),
         .rd_is_wb_3e_i(s_3e_d.is_wb),
         .is_ld_3e_i(s_3e_d.is_ld),
         .data_3e_i(s_3e_d.alu_result), // I think that if 3E is PC_NEXT (JAL), this is wrong
+        .robid_3e_i(s_3e_d.robid),
         // stage 4 inputs
         .rd_4m_i(s_4m_d.rd_addr),
         .rd_is_wb_4m_i(s_4m_d.is_wb),
         .data_4m_i(fwd_data_4m), // TODO: proper mux this in stage 4
+        .robid_4m_i(s_4m_d.robid),
         // stage 5 inputs
         .rd_5w_i(s_5w_d.rd_addr),
         .rd_is_wb_5w_i(s_5w_d.is_wb),
         .data_5w_i(s_5w_d.rd_data),
+        .robid_5w_i(s_5w_d.robid),
+        // rob inputs
+        .rob_cam_rs1_i(rob_cam_rsp_rs1),
+        .rob_cam_rs2_i(rob_cam_rsp_rs2),
         // outputs
         .bypass_rs1_2d_sel_o(bypass_rs1_2d_sel),
         .bypass_rs2_2d_sel_o(bypass_rs2_2d_sel),

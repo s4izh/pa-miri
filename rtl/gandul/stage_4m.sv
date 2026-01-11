@@ -18,14 +18,14 @@ module stage_4m #(
     input logic          stall_i,
     input logic          noop_i,
 
-    output logic         waiting_for_memory_o,
-    output logic         dcache_xcpt_o
+    output logic         waiting_for_memory_o
 );
     `define PROPAGATE(signal) assign _o.signal = _i.signal
 
     logic [XLEN-1:0] data_sign_extended;
     logic [XLEN-1:0] drsp_data;
     logic            dreq_ready;
+    logic            dcache_xcpt;
 
     assign waiting_for_memory_o = ~dreq_ready;
 
@@ -39,12 +39,20 @@ module stage_4m #(
             _o.is_wb  = _i.is_wb;
             _o.ins    = _i.ins;
         end
+
+        if (_i.xcpt) begin
+            _o.xcpt = _i.xcpt;
+        end else begin
+            _o.xcpt = dcache_xcpt;
+        end
+
     end
 
     `PROPAGATE(pc);
     `PROPAGATE(wb_sel);
     `PROPAGATE(rd_addr);
     `PROPAGATE(alu_result);
+    `PROPAGATE(robid);
 
     sign_extender #(
         .XLEN(XLEN)
@@ -71,7 +79,7 @@ module stage_4m #(
         .dreq_width_i(_i.memop_width),
 
         .drsp_data_o(drsp_data),
-        .drsp_xcpt_o(dcache_xcpt_o),
+        .drsp_xcpt_o(dcache_xcpt),
 
         .freq_valid_o(dmem_o.valid),
         .freq_we_o(dmem_o.we),

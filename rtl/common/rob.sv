@@ -1,57 +1,48 @@
 // https://www.youtube.com/watch?v=9yo3yhUijQs
+import rob_pkg::*;
 
 module rob #(
-    parameter int XLEN = 32,
-    parameter int N_ENTRIES = 8,
-
-    parameter type rob_id_t = logic[$clog2(N_ENTRIES)-1:0]
+    parameter int XLEN = `XLEN,
+    parameter int N_ENTRIES = `N_ENTRIES_ROB
 ) (
     input logic clk,
     input logic reset_n,
-
-    // Issue interface
-    input  logic            issue_valid_i,
-    input  logic [XLEN-1:0] issue_pc_i,
-    input  logic            issue_rd_we_i,
-    input  logic [4:0]      issue_rd_addr_i,
-    input  logic            issue_st_we_i,
-    input  logic [XLEN-1:0] issue_st_data_i,
-    output logic            issue_robid_valid_o,
-    output rob_id_t         issue_robid_o,
-
-    // writable at a latter time
-    // input  logic [XLEN-1:0] complete_st_addr_i,
-    // input  logic            complete_st_addr_i,
-    // input  logic            complete_xcpt_i,
-    // input  rob_id_t         complete_xcpt_robid_i,
-
-    // Complete interface
-    input  logic            complete_valid_i,
-    input  rob_id_t         complete_rob_id_i,
-    input  logic [XLEN-1:0] complete_rd_data_i,
-
-    // Commit interface
-    output logic            commit_we_o,
-    output logic [4:0]      commit_rd_addr_o,
-    output logic [XLEN-1:0] commit_rd_data_o
+    // Request to issue new instruction
+    input  issue_req_t issue_req_i,
+    output issue_rsp_t issue_rsp_o,
+    // Complete instruction from alu-memory fu
+    input  complete_t  complete_alumem_i,
+    // Complete instruction from multiply fu
+    input  complete_t  complete_muldiv_i,
+    // Commit xcpt control
+    input  logic       can_commit_xcpt_i,
+    // Commit general (general info)
+    output commit_t    commit_o,
+    // Commit to register file
+    output commit_rf_t commit_rf_o,
+    // Commit to store_buffer
+    output commit_sb_t commit_sb_o,
+    // Peek youngest rs1 value
+    input  cam_req_t   cam_req_rs1_i,
+    output cam_rsp_t   cam_rsp_rs1_o,
+    // Peek youngest rs2 value
+    input  cam_req_t   cam_req_rs2_i,
+    output cam_rsp_t   cam_rsp_rs2_o
 );
-    // Define a type for reorder buffer
-
+    // Define a type for a reorder buffer entry
     typedef struct packed {
-        logic               valid;
-        logic [XLEN-1:0]    pc;
-
-        logic               rd_we;
-        logic [4:0]         rd_addr;
-        logic               rd_data_valid;
-        logic [XLEN-1:0]    rd_data;
-
-        logic               st_we;
-        logic               st_addr_valid;
-        logic [XLEN-1:0]    st_addr;
-        logic [XLEN-1:0]    st_data;
-        // valid bits for reg/data + control bits
-        logic               xcpt;
+        logic [XLEN-1:0] pc;
+        logic [XLEN-1:0] dbg_ins;
+        // rf
+        logic            rd_we;
+        logic [4:0]      rd_addr;
+        // sb
+        logic            is_st;
+        sbid_t           sbid;
+        // complete
+        logic            complete;
+        logic [XLEN-1:0] result;
+        logic            xcpt;
     } rob_entry_t;
 
     // Tail points to the youngest entry
@@ -59,59 +50,162 @@ module rob #(
     // Therefore, instructions are instroduced through the tail,
     // and completed through the head
     //      ........
-    //    | rob_id 3 | <- head
+    //    | rob_id 3 | <- head_q
     //    | rob_id 4 |
     //    | rob_id 5 |
     //    | rob_id 6 |
-    //    | rob_id 7 | <- tail
+    //    | rob_id 7 | <- tail_q
     //      ........
-    rob_id_t tail, head;
+    robid_t tail_d, tail_q, head_d, head_q;
     rob_entry_t [N_ENTRIES-1:0] entries;
+    logic empty, full;
+    assign empty = (tail_q == head_q);
+    assign full = (tail_q+1 == head_q) | ((&tail_q) & (head_q == '0));
 
-    // Write to entries and control head and tail
-    always @(posedge clk) begin
+    logic committing_xcpt;
+    logic committing_head_q, issuing_tail_q;
+    assign committing_head_q = entries[head_q].complete & ~empty & ((entries[head_q].xcpt & can_commit_xcpt_i) | ~entries[head_q].xcpt);
+    assign committing_xcpt   = committing_head_q & entries[head_q].xcpt;
+    assign issuing_tail_q    = ~committing_xcpt & issue_req_i.valid & ~full;
+
+    // Control head_q and tail_q ff
+    always_ff @(posedge clk) begin
         if (!reset_n) begin
-            head <= '0;
-            tail <= '0;
+            head_q <= '0;
+            tail_q <= '0;
         end else begin
-            if (issue_valid_i) begin
-                // Increase the tail pointer, and offer the new rob_id to the
-                // newly issued instruction
-                entries[tail].pc            <= issue_pc_i;
-                entries[tail].rd_we         <= issue_rd_we_i;
-                entries[tail].rd_addr       <= issue_rd_addr_i;
-                entries[tail].rd_data_valid <= 0;
-                entries[tail].st_we         <= issue_st_we_i;
-                entries[tail].xcpt          <= 0;
-                issue_robid_valid_o         <= 1;
-                issue_robid_o               <= tail;
-                tail                        <= tail + 1;
-            end else begin
-                issue_robid_valid_o         <= 0;
-            end
-
-            if (complete_valid_i) begin
-                // Find the entry completed and mark it as so in the
-                // corresponding rob entry
-                // TOCHECK: complete_rob_id_i should be between tail and head
-                entries[complete_rob_id_i].rd_data_valid    <= 1;
-                entries[complete_rob_id_i].rd_data          <= complete_rd_data_i;
-            end
-
-            if (entries[head].rd_data_valid) begin
-                // An instruction has finished. We commit and write to the RF
-                commit_we_o         <= entries[head].rd_we;
-                commit_rd_addr_o    <= entries[head].rd_addr;
-                commit_rd_data_o    <= entries[head].rd_data;
-                entries[head].valid <= 0;
-                head                <= head + 1;
-            end else begin
-                commit_we_o         <= 0;
-            end
-
-            // TODO: CAM lookup for younger instructions to use my value
+            head_q <= head_d;
+            tail_q <= tail_d;
         end
     end
 
+    // Control head_d
+    always_comb begin
+        head_d = head_q;
+        if (committing_head_q) begin
+            head_d = head_q + 1;
+        end
+    end
+
+    // Control tail_d
+    always_comb begin
+        tail_d = tail_q;
+        if (committing_xcpt) begin
+            tail_d = head_d;
+        end else if (issue_req_i.valid & ~full) begin
+            tail_d = tail_q + 1;
+        end
+    end
+
+    assign issue_rsp_o.robid = tail_q;
+    assign issue_rsp_o.ready = ~full;
+
+    // Issue and complete logic
+    always_ff @(posedge clk) begin
+        // Issue
+        if (issuing_tail_q) begin
+            entries[tail_q].pc       <= issue_req_i.pc;
+            entries[tail_q].dbg_ins  <= issue_req_i.dbg_ins;
+            entries[tail_q].rd_we    <= issue_req_i.rd_we;
+            entries[tail_q].rd_addr  <= issue_req_i.rd_addr;
+            entries[tail_q].is_st    <= issue_req_i.is_st;
+            entries[tail_q].sbid     <= '0;
+            entries[tail_q].complete <= 0;
+            entries[tail_q].result   <= '0;
+            entries[tail_q].xcpt     <= 0;
+        end
+        // Complete alumem
+        if (complete_alumem_i.valid) begin
+            entries[complete_alumem_i.robid].complete <= 1;
+            entries[complete_alumem_i.robid].result   <= complete_alumem_i.result;
+            entries[complete_alumem_i.robid].xcpt     <= complete_alumem_i.xcpt;
+            entries[complete_alumem_i.robid].sbid     <= complete_alumem_i.sbid;
+        end
+        // Complete muldiv
+        if (complete_muldiv_i.valid) begin
+            entries[complete_muldiv_i.robid].complete <= 1;
+            entries[complete_muldiv_i.robid].result   <= complete_muldiv_i.result;
+            entries[complete_muldiv_i.robid].xcpt     <= complete_muldiv_i.xcpt;
+            entries[complete_muldiv_i.robid].sbid     <= complete_muldiv_i.sbid;
+        end
+    end
+
+    // Commit logic
+    always_comb begin
+        commit_o = '0;
+        commit_rf_o = '0;
+        commit_sb_o = '0;
+        commit_o.dbg_robid = head_q;
+        commit_o.dbg_ins   = entries[head_q].dbg_ins;
+        commit_o.pc        = entries[head_q].pc;
+        if (committing_head_q) begin
+            commit_o.valid  = 1;
+            commit_o.xcpt   = entries[head_q].xcpt;
+            if (~entries[head_q].xcpt) begin
+                if (entries[head_q].is_st) begin
+                    commit_sb_o.valid = 1;
+                    commit_sb_o.sbid  = entries[head_q].sbid;
+                end else begin
+                    commit_rf_o.rd_we   = entries[head_q].rd_we;
+                    commit_rf_o.rd_addr = entries[head_q].rd_addr;
+                    commit_rf_o.rd_data = entries[head_q].result;
+                end
+            end
+        end
+    end
+
+    // CAM lookup for younger instructions to use my values
+    // RS2
+    always_comb begin
+        logic   found;
+        robid_t found_robid;
+        // Default
+        cam_rsp_rs1_o = '0;
+
+        found       = 0;
+        found_robid = '0;
+        if (~empty & (cam_req_rs1_i.addr != '0)) begin
+            // Go from head (oldest) til tail-1 (youngest) and overwrite the
+            // value with the youngest valid entry
+            // RS1
+            for (robid_t i = head_q; i != tail_q; ++i) begin
+                if ((entries[i].rd_addr == cam_req_rs1_i.addr) & ~entries[i].xcpt) begin
+                    found = 1;
+                    found_robid = i;
+                end
+            end
+            // Final asssign
+            cam_rsp_rs1_o.valid    = found;
+            cam_rsp_rs1_o.complete = entries[found_robid].complete;
+            cam_rsp_rs1_o.value    = entries[found_robid].result;
+            cam_rsp_rs1_o.robid    = found_robid;
+        end
+    end
+    // RS2
+    always_comb begin
+        logic   found;
+        robid_t found_robid;
+        // Default
+        cam_rsp_rs2_o = '0;
+
+        found       = 0;
+        found_robid = '0;
+        if (~empty & (cam_req_rs2_i.addr != '0)) begin
+            // Go from head (oldest) til tail-1 (youngest) and overwrite the
+            // value with the youngest valid entry
+            // RS1
+            for (robid_t i = head_q; i != tail_q; ++i) begin
+                if ((entries[i].rd_addr == cam_req_rs2_i.addr) & ~entries[i].xcpt) begin
+                    found = 1;
+                    found_robid = i;
+                end
+            end
+            // Final asssign
+            cam_rsp_rs2_o.valid    = found;
+            cam_rsp_rs2_o.complete = entries[found_robid].complete;
+            cam_rsp_rs2_o.value    = entries[found_robid].result;
+            cam_rsp_rs2_o.robid    = found_robid;
+        end
+    end
 
 endmodule

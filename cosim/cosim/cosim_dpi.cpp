@@ -8,6 +8,33 @@
 // Global instance
 static cosim_t g_cosim;
 
+extern "C" int cosim_dpi_init_unified(
+        char *sram_path,
+        uint32_t pc_reset,
+        uint32_t pc_xcpt,
+        uint32_t mem_dlen
+) {
+    FILE *rom_fd, *sram_fd;
+
+    // Set struct things
+    g_cosim.hart.pc = pc_reset;
+    g_cosim.pc_reset = pc_reset;
+    g_cosim.hart.csr.mtvec = pc_xcpt;
+    g_cosim.is_unified_mem = true;
+    // Open sram file
+    if ((sram_fd = fopen(sram_path, "r")) == NULL) {
+        return -1;
+    }
+    // Read sram
+    if (read_file_to_map(sram_fd, &g_cosim.dmem, mem_dlen/8) != 0) {
+        return -1;
+    }
+    // Close files
+    fclose(sram_fd);
+    // All ok
+    return 0;
+}
+
 extern "C" int cosim_dpi_init(
         char *rom_path,
         char *sram_path,
@@ -21,6 +48,7 @@ extern "C" int cosim_dpi_init(
     g_cosim.hart.pc = pc_reset;
     g_cosim.pc_reset = pc_reset;
     g_cosim.hart.csr.mtvec = pc_xcpt;
+    g_cosim.is_unified_mem = false;
     // Open rom file
     if ((rom_fd = fopen(rom_path, "r")) == NULL) {
         return -1;
@@ -63,12 +91,13 @@ extern "C" unsigned int cosim_dpi_step(
         unsigned int *rd
 ) {
     decoded_instruction_t di;
-    char buffer[32];
     int pc_now;
     *pc = g_cosim.hart.pc;
-    *ins = g_cosim.imem[(*pc)>>2];
+    if (g_cosim.is_unified_mem) *ins = g_cosim.dmem[(*pc)>>2];
+    else                        *ins = g_cosim.imem[(*pc)>>2];
     di = rve_decode_instruction(*ins);
 #if 0
+    char buffer[32];
     if (di.valid) {
         rve_decoded_format_to_buffer(&di, buffer, sizeof(buffer));
         u32 column_width = 25;
