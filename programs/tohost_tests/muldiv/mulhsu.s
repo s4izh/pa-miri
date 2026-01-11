@@ -5,6 +5,7 @@
 _start:
     li t0, 10
     li t1, 33
+    mulhsu t2, t0, t1
     li t0, -10
     li t1, 33
     mulhsu t2, t0, t1
