@@ -40,7 +40,7 @@ harness.add_tool({
         },
         {
             name = "link",
-            command = "riscv32-none-elf-gcc $flags -T $ld -nostdlib -Wl,-Map,$map $obj $crt_obj -o $elf",
+            command = "riscv32-none-elf-gcc $flags -T $ld -nostdlib -Wl,-Map,$map $crt_obj $obj -o $elf",
             inputs = { "obj" },
             outputs = {
                 { name = "elf", filename = "prog.elf" },
@@ -62,6 +62,7 @@ harness.add_tool({
         {
             name = "sram",
             command = "riscv32-none-elf-objcopy -O verilog --verilog-data-width 16 " ..
+                      "--only-section=.rodata* " ..
                       "--only-section=.data* " ..
                       "--only-section=.sdata* " ..
                       "--only-section=.bss* " ..
@@ -269,9 +270,17 @@ harness.add_experiment({
 })
 
 harness.add_experiment({
-    name = "gandul_cosim",
+    name = "gandul-cosim",
     testbench = "gandul.cosim",
     param_sets = { "base" },
     suites = { "isa" },
+    simulators = { "verilator" }
+})
+
+harness.add_experiment({
+    name = "gandul-cosim-benchmarks",
+    testbench = "gandul.cosim",
+    param_sets = { "base" },
+    suites = { "benchmarks" },
     simulators = { "verilator" }
 })
