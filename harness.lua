@@ -9,6 +9,10 @@ end
 -- should be harness.env(key = value table) instead
 harness.set_build_dir(build_dir)
 
+local cfg = {
+    cflags_base = "-march=rv32im -mabi=ilp32 -Iprograms "
+}
+
 local cosim = harness.add_task({
     tasks_namespace = "cosim",
     name = "build_dpi",
@@ -26,10 +30,10 @@ local cosim = harness.add_task({
 local crt = harness.add_task({
     name = "compile_crt",
     tasks_namespace = "env",
-    command = "riscv32-none-elf-gcc $flags -c programs/crt.s -o $abs_out_dir/crt.o",
+    command = "riscv32-none-elf-gcc $cflags -c programs/crt.s -o $abs_out_dir/crt.o",
     inputs = { "programs/crt.s" },
     vars = {
-        flags = "-march=rv32im -mabi=ilp32 -Iprograms"
+        cflags = "-march=rv32im -mabi=ilp32 -Iprograms"
     },
     outputs = {
         obj = "crt.o"
@@ -41,7 +45,7 @@ harness.add_tool({
     actions = {
         {
             name = "compile",
-            command = "riscv32-none-elf-gcc $flags -Iprograms -c $in -o $obj",
+            command = "riscv32-none-elf-gcc $cflags -c $in -o $obj",
             inputs = {},
             outputs = {
                 { name = "obj", filename = "prog.o" }
@@ -49,7 +53,7 @@ harness.add_tool({
         },
         {
             name = "link",
-            command = "riscv32-none-elf-gcc $flags -T $ld -nostdlib -Wl,-Map,$map $crt_obj $obj -o $elf",
+            command = "riscv32-none-elf-gcc $cflags -T $ld -nostdlib -Wl,-Map,$map $crt_obj $obj -o $elf",
             inputs = { "obj" },
             outputs = {
                 { name = "elf", filename = "prog.elf" },
@@ -112,7 +116,7 @@ harness.add_suite({
     tool = "riscv_gcc",
     plusargs = {},
     default_vars = {
-        flags = "-march=rv32im -mabi=ilp32",
+        cflags = cfg.cflags_base,
         ld = "programs/link.ld"
     },
     program_overrides = {},
@@ -126,7 +130,7 @@ harness.add_suite({
     tool = "riscv_gcc",
     plusargs = {},
     default_vars = {
-        flags = "-march=rv32im -mabi=ilp32 -O3",
+        cflags = cfg.cflags_base .. "-O3",
         ld = "programs/link.ld"
     },
     program_overrides = {},
@@ -140,7 +144,7 @@ harness.add_suite({
     tool = "riscv_gcc",
     plusargs = {},
     default_vars = {
-        flags = "-march=rv32im -mabi=ilp32",
+        cflags = cfg.cflags_base,
         ld = "programs/link.ld",
         crt_obj = harness.abspath(crt.outputs.obj) 
     },
