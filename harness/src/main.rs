@@ -93,7 +93,7 @@ fn main() -> anyhow::Result<()> {
                     if matches!(cli.command, Commands::Simulate(_)) && !targets.is_empty() {
                         let ninja_str = ninja::generate(&config, &all_hw, &all_sw, &all_sim);
                         std::fs::write(proj_root.join("build.ninja"), ninja_str)?;
-                        let _ = run_ninja(&proj_root, &targets, true);
+                        let _ = run_ninja(&proj_root, &targets, true, None);
                     }
                     analysis::run_analysis(&proj_root, &targets, args.baseline.as_deref())?;
                 }
@@ -130,7 +130,7 @@ fn main() -> anyhow::Result<()> {
                     if !final_targets.is_empty() {
                         let ninja_str = ninja::generate(&config, &all_hw, &all_sw, &all_sim);
                         std::fs::write(proj_root.join("build.ninja"), ninja_str)?;
-                        let _ = run_ninja(&proj_root, &final_targets, false);
+                        let _ = run_ninja(&proj_root, &final_targets, false, None);
                     }
                 }
                 _ => unreachable!()
@@ -209,29 +209,37 @@ fn detect_proj_root() -> Option<PathBuf> {
     None
 }
 
-// fn run_ninja(root: &Path, targets: &[String]) -> anyhow::Result<()> {
-//     let status = Command::new("ninja")
-//         .current_dir(root)
-//         .args(targets)
-//         .status()?;
-//     if !status.success() {
-//         anyhow::bail!("Ninja failed to complete build.");
-//     }
-//     Ok(())
-// }
-
-fn run_ninja(root: &Path, targets: &[String], keep_going: bool) -> anyhow::Result<()> {
+fn run_ninja(
+    root: &Path, 
+    targets: &[String], 
+    keep_going: bool, 
+    nprocs: Option<usize>
+) -> anyhow::Result<()> {
     let mut cmd = Command::new("ninja");
     cmd.current_dir(root).args(targets);
 
+    let jobs = match nprocs {
+        Some(j) => j,
+        None => std::thread::available_parallelism()
+            .map(|n| n.get())
+            .unwrap_or(1),
+    };
+
+    println!("Running up to jobs {} in parallel", jobs);
+    
+    cmd.arg("-j").arg(jobs.to_string());
+
     if keep_going {
-        cmd.arg("-k").arg("0"); // Tell Ninja to keep going even if one sim fails
+        // -k 0 tells Ninja to keep going as much as possible
+        cmd.arg("-k").arg("0"); 
     }
 
+    // 3. Execute
     let status = cmd.status()?;
     if !status.success() && !keep_going {
-        anyhow::bail!("Ninja failed.");
+        anyhow::bail!("Ninja failed with exit code: {:?}", status.code());
     }
+    
     Ok(())
 }
 
