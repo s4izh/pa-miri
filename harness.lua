@@ -1,10 +1,19 @@
-harness.set_build_dir("build")
+-- TODO have a table to relate env variables to config variables
+-- and verify that they are all set with a function internally
+-- I essentially want the api to be harness.env and pass a config table with the variables
+build_dir = os.getenv("BUILD_DIR")
+if not build_dir then
+    error("BUILD_DIR not set")
+end
+
+-- should be harness.env(key = value table) instead
+harness.set_build_dir(build_dir)
 
 local cosim = harness.add_task({
     tasks_namespace = "cosim",
     name = "build_dpi",
     source_dir = "cosim",
-    command = "BUILD_DIR=$abs_out_dir make -C $source_dir $abs_out_dir/cosim_dpi.a",
+    command = "git submodule init && git submodule update && BUILD_DIR=$abs_out_dir make -C $source_dir $abs_out_dir/cosim_dpi.a",
     inputs = harness.list_files("cosim/**"),
     vars = {
         debug = "0"
@@ -280,7 +289,7 @@ harness.add_experiment({
 harness.add_experiment({
     name = "gandul-cosim-benchmarks",
     testbench = "gandul.cosim",
-    param_sets = { "base" },
+    param_sets = { "base", "unified" },
     suites = { "benchmarks" },
     simulators = { "verilator" }
 })

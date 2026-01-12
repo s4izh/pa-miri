@@ -105,6 +105,7 @@ pub struct Experiment {
 #[derive(Clone, Debug)]
 pub struct Config {
     pub build_dir: String,
+    // pub proj_dir: String,
     pub tools: HashMap<String, Tool>,
     pub simulators: HashMap<String, Simulator>,
     pub suites: HashMap<String, Suite>,
