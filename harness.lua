@@ -115,7 +115,7 @@ harness.add_suite({
     pattern = "**/*.s",
     tool = "riscv_gcc",
     plusargs = {},
-    default_vars = {
+    vars = {
         cflags = cfg.cflags_base,
         ld = "programs/link.ld"
     },
@@ -129,7 +129,7 @@ harness.add_suite({
     pattern = "**/*.s",
     tool = "riscv_gcc",
     plusargs = {},
-    default_vars = {
+    vars = {
         cflags = cfg.cflags_base .. "-O3",
         ld = "programs/link.ld"
     },
@@ -143,7 +143,7 @@ harness.add_suite({
     pattern = "**/*.c",
     tool = "riscv_gcc",
     plusargs = {},
-    default_vars = {
+    vars = {
         cflags = cfg.cflags_base,
         ld = "programs/link.ld",
         crt_obj = harness.abspath(crt.outputs.obj) 

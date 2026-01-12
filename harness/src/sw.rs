@@ -54,7 +54,7 @@ pub fn resolve_suite(
             // resolve the silo directory
             let sw_dir = silo.sw_dir(suite_name, &rel_path);
 
-            let mut context_vars = suite.default_vars.clone();
+            let mut context_vars = suite.vars.clone();
             // use program_id for overrides
             if let Some(ov) = suite.program_overrides.get(&program_id) {
                 context_vars.extend(ov.vars.clone());

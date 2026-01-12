@@ -52,7 +52,7 @@ pub struct Suite {
     pub base_dir: PathBuf,
     pub pattern: String,
     pub tool: String, 
-    pub default_vars: HashMap<String, String>,
+    pub vars: HashMap<String, String>,
     pub plusargs: Vec<String>,
     #[serde(default)]
     pub program_overrides: HashMap<String, ProgramOverride>,

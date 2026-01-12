@@ -31,5 +31,5 @@ function harness.add_param_set(config) end
 ---@param dir string
 function harness.set_build_dir(dir) end
 
----@param config {name: string, base_dir: string, pattern: string, tool?: string, logical_name?: string, default_vars: table<string, string>, plusargs: string[]}
+---@param config {name: string, base_dir: string, pattern: string, tool?: string, logical_name?: string, vars: table<string, string>, plusargs: string[]}
 function harness.add_suite(config) end

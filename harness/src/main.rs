@@ -322,7 +322,7 @@ fn setup_config(root: &Path) -> anyhow::Result<(Config, silo::SiloResolver)> {
         pattern: "**/*.s".into(),
         tool: "riscv_gcc".into(),
         plusargs: Vec::new(),
-        default_vars: HashMap::from([
+        vars: HashMap::from([
             ("flags".into(), "-march=rv32i -mabi=ilp32".into()),
             ("ld".into(), "programs/link.ld".into()),
         ]),
