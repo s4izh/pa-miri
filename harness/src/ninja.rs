@@ -53,6 +53,10 @@ pub fn generate(
         let outs = job.artifact_paths.values().map(|p| p.to_string_lossy()).collect::<Vec<_>>().join(" ");
         
         let mut deps = vec![job.silo_dir.join("top.f").to_string_lossy().to_string()];
+        for rtl_file in &job.rtl_inputs {
+            deps.push(rtl_file.to_string_lossy().to_string());
+        }
+
         for ext_dep in &job.external_deps {
             deps.push(ext_dep.to_string_lossy().to_string());
         }

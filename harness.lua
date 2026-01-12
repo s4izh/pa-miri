@@ -214,14 +214,21 @@ harness.add_testbench({
 -- Parameter set definitions
 harness.add_param_set({
     name = "base",
-    defines = { UNIFIED = "0" },
+    defines = { DELAYER_LEN = "5" },
     plusargs = {},
     sim_templates = {}
 })
 
 harness.add_param_set({
-    name = "unified",
-    defines = { UNIFIED = "1" },
+    name = "delayer_10",
+    defines = { DELAYER_LEN = "10" },
+    plusargs = {},
+    sim_templates = {}
+})
+
+harness.add_param_set({
+    name = "delayer_1",
+    defines = { DELAYER_LEN = "1" },
     plusargs = {},
     sim_templates = {}
 })
@@ -229,7 +236,7 @@ harness.add_param_set({
 harness.add_experiment({
     name = "regression",
     testbench = "rv_pa3.anyrom",
-    param_sets = { "base", "unified" },
+    param_sets = { "base", "delayer_1", "delayer_10" },
     suites = { "isa" },
     simulators = { "verilator" }
 })
@@ -293,7 +300,7 @@ harness.add_experiment({
 harness.add_experiment({
     name = "gandul-cosim-benchmarks",
     testbench = "gandul.cosim",
-    param_sets = { "base", "unified" },
+    param_sets = { "base", "delayer_1", "delayer_10" },
     suites = { "benchmarks" },
     simulators = { "verilator" }
 })

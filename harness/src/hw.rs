@@ -12,6 +12,7 @@ pub struct HardwareJob {
     pub silo_dir: PathBuf,
     pub artifact_paths: HashMap<String, PathBuf>,
     pub external_deps: Vec<PathBuf>, // Strictly for inputs like .a files
+    pub rtl_inputs: Vec<PathBuf>,
 }
 
 pub fn resolve_hardware(
@@ -56,11 +57,34 @@ pub fn resolve_hardware(
         }
 
         let resolved_f_path = hw_common_dir.join("resolved.f");
-        fs::write(&resolved_f_path, rendered_content)?;
+        fs::write(&resolved_f_path, &rendered_content)?;
 
         let mut svh = String::from("// Generated\n");
-        for (k, v) in &ps.defines { svh.push_str(&format!("`define {} {}\n", k, v)); }
+        svh.push_str("`ifndef HARNESS_PARAMS_SVH\n");
+        svh.push_str("`define HARNESS_PARAMS_SVH\n\n");
+
+        for (k, v) in &ps.defines { 
+            svh.push_str(&format!("`define {} {}\n", k, v)); 
+        }
+
+        svh.push_str("\n`endif // HARNESS_PARAMS_SVH\n");
+
         fs::write(hw_common_dir.join("harness_params.svh"), svh)?;
+
+        let mut rtl_inputs = Vec::new();
+        rtl_inputs.push(hw_common_dir.join("harness_params.svh"));
+        rtl_inputs.push(resolved_f_path.clone());
+
+        for line in rendered_content.lines() {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with("//") || line.starts_with('+') || line.starts_with('-') {
+                continue;
+            }
+            let path = PathBuf::from(line);
+            if path.exists() {
+                rtl_inputs.push(path);
+            }
+        }
 
         for sim_name in &binding.simulators {
             let silo_dir = silo.hw_dir(&tb.name, ps_name, sim_name);
@@ -84,6 +108,7 @@ pub fn resolve_hardware(
                 silo_dir,
                 artifact_paths,
                 external_deps: tb.sw_deps.clone(), 
+                rtl_inputs: rtl_inputs.clone(),
             });
         }
     }

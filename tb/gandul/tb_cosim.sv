@@ -1,3 +1,5 @@
+`include "harness_params.svh"
+
 module tb (
     input logic clk,
     input logic reset_n
@@ -31,7 +33,7 @@ module tb (
     ) dut (.*);
 
     valid_delayer #(
-        .N(5)
+        .N(`DELAYER_LEN)
     ) valid_delayer_d_inst (
         .clk,
         .valid_i(mem_valid_o),
