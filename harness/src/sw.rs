@@ -68,7 +68,8 @@ pub fn resolve_suite(
             }
 
             let mut resolved_actions = Vec::new();
-            for action in &tool.actions {
+            for (i, action) in tool.actions.clone().into_iter().enumerate() {
+
                 let mut n_vars = HashMap::new();
 
                 if action.command.contains("$out_dir") {
@@ -88,7 +89,7 @@ pub fn resolve_suite(
                     }
                 }
 
-                let phys_ins = if action.inputs.is_empty() {
+                let mut phys_ins = if action.inputs.is_empty() {
                     vec![entry.clone()]
                 } else {
                     action
@@ -97,6 +98,13 @@ pub fn resolve_suite(
                         .map(|name| artifact_paths.get(name).unwrap().clone())
                         .collect()
                 };
+
+                // add all the external dependencies to the first action
+                if action.name == "link" {
+                    for dep in &suite.sw_deps {
+                        phys_ins.push(dep.to_path_buf());
+                    }
+                }
 
                 let phys_outs = action
                     .outputs
