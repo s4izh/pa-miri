@@ -158,13 +158,6 @@ harness.add_testbench({
 })
 
 harness.add_testbench({
-    name = "gandul.anyrom",
-    filelist = "sim/gandul/anyrom/filelist.f",
-    run_template = "$bin $plusargs +VCD_FILE=waves.fst +SRAM_FILE=$mem +TIMEOUT_CYCLES=10000",
-    sw_deps = {}
-})
-
-harness.add_testbench({
     name = "rv_pa3.cosim",
     filelist = "sim/rv_pa3/cosim/filelist.f",
     run_template = "$bin $plusargs +VCD_FILE=waves.fst +ROM_FILE=$rom +SRAM_FILE=$sram +TIMEOUT_CYCLES=10000",
@@ -172,6 +165,13 @@ harness.add_testbench({
           COSIM_DPI_LIB = harness.abspath(cosim.outputs.lib)
     },
     sw_deps = { cosim.outputs.lib },
+})
+
+harness.add_testbench({
+    name = "gandul.anyrom",
+    filelist = "sim/gandul/anyrom/filelist.f",
+    run_template = "$bin $plusargs +VCD_FILE=waves.fst +SRAM_FILE=$mem +TIMEOUT_CYCLES=10000",
+    sw_deps = {}
 })
 
 harness.add_testbench({
