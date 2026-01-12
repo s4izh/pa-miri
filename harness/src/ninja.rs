@@ -52,6 +52,7 @@ pub fn generate(
     for job in hw_jobs {
         let outs = job.artifact_paths.values().map(|p| p.to_string_lossy()).collect::<Vec<_>>().join(" ");
         
+        // dependencies are relative for Ninja's graph tracking
         let mut deps = vec![job.silo_dir.join("top.f").to_string_lossy().to_string()];
         for rtl_file in &job.rtl_inputs {
             deps.push(rtl_file.to_string_lossy().to_string());
@@ -62,7 +63,12 @@ pub fn generate(
         }
 
         n.push_str(&format!("build {}: {}_compile {}\n", outs, job.simulator, deps.join(" ")));
-        n.push_str(&format!("  filelist = {}/top.f\n  out_dir = {}\n\n", job.silo_dir.display(), job.silo_dir.display()));
+        // n.push_str(&format!("  filelist = {}/top.f\n  out_dir = {}\n\n", job.silo_dir.display(), job.silo_dir.display()));
+        
+        // use absolute paths for command variables ($filelist, $out_dir)
+        // this ensures containers (which might have a different CWD) can find the files.
+        let abs_silo = std::env::current_dir().unwrap().join(&job.silo_dir);
+        n.push_str(&format!("  filelist = {}/top.f\n  out_dir = {}\n\n", abs_silo.display(), abs_silo.display()));
     }
 
     n.push_str("# SOFTWARE\n");

@@ -93,7 +93,7 @@ fn main() -> anyhow::Result<()> {
                     if matches!(cli.command, Commands::Simulate(_)) && !targets.is_empty() {
                         let ninja_str = ninja::generate(&config, &all_hw, &all_sw, &all_sim);
                         std::fs::write(proj_root.join("build.ninja"), ninja_str)?;
-                        let _ = run_ninja(&proj_root, &targets, true, None);
+                        let _ = run_ninja(&proj_root, &targets, true, args.jobs);
                     }
                     analysis::run_analysis(&proj_root, &targets, args.baseline.as_deref())?;
                 }
@@ -130,7 +130,7 @@ fn main() -> anyhow::Result<()> {
                     if !final_targets.is_empty() {
                         let ninja_str = ninja::generate(&config, &all_hw, &all_sw, &all_sim);
                         std::fs::write(proj_root.join("build.ninja"), ninja_str)?;
-                        let _ = run_ninja(&proj_root, &final_targets, false, None);
+                        let _ = run_ninja(&proj_root, &final_targets, false, args.jobs);
                     }
                 }
                 _ => unreachable!()

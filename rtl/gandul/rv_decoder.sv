@@ -1,3 +1,6 @@
+`ifndef _RV_DECODER_
+`define _RV_DECODER_
+
 import rv_isa_pkg::*;
 import rv_datapath_pkg::*;
 import rv_branch_compare_pkg::*;
@@ -296,3 +299,5 @@ module rv_decoder #(
     end
 
 endmodule
+
+`endif

@@ -104,6 +104,14 @@ harness.add_tool({
             outputs = {
                 { name = "mem", filename = "mem.hex" }
             }
+        },
+        {
+            name = "dump",
+            command = "riscv32-none-elf-objdump -d $elf > $out_dir/prog.dump ",
+            inputs = { "elf" },
+            outputs = {
+                { name = "dump", filename = "prog.dump" }
+            }
         }
     }
 })
@@ -158,6 +166,26 @@ harness.add_simulator({
     compile_rule = "verilator -j 8 --cc --binary --build -O3 --trace-fst --trace-structs --timing -f $filelist --top-module top_tb_wrapper --Mdir $out_dir -o Vtop",
     outputs = {
         { name = "bin", filename = "Vtop" }
+    },
+    default_run_rule = "$bin $plusargs"
+})
+
+harness.add_simulator({
+    name = "vsim",
+    compile_rule = 
+        "rm -rf $out_dir/work && " ..
+        
+        "tools/vsim_container.sh " ..
+        "\"vlog -sv -createlib -timescale \\\"1ns/1ps\\\" -work $out_dir/work -f $filelist -l $out_dir/compile.log\" && " ..
+        
+        "echo '#!/bin/sh' > $out_dir/run_vsim && " ..
+        
+        "echo 'exec tools/vsim_container.sh vsim -c -work $out_dir/work -do \"log -r /*; run -all; quit\" top_tb_wrapper \"$$@\"' >> $out_dir/run_vsim && " ..
+        
+        "chmod +x $out_dir/run_vsim",
+
+    outputs = {
+        { name = "bin", filename = "run_vsim" }
     },
     default_run_rule = "$bin $plusargs"
 })
@@ -292,7 +320,7 @@ harness.add_experiment({
 harness.add_experiment({
     name = "gandul-cosim",
     testbench = "gandul.cosim",
-    param_sets = { "base" },
+    param_sets = { "base", "delayer_1", "delayer_10" },
     suites = { "isa" },
     simulators = { "verilator" }
 })

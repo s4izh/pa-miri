@@ -54,6 +54,7 @@ pub fn resolve_hardware(
         let mut rendered_content = original_content;
         for (key, val) in &replacements {
             rendered_content = rendered_content.replace(&format!("$({})", key), val);
+            rendered_content = rendered_content.replace(&format!("${}", key), val);
         }
 
         let resolved_f_path = hw_common_dir.join("resolved.f");

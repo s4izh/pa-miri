@@ -46,6 +46,10 @@ pub struct ExperimentArgs {
     /// Baseline Hardware (ParamSet name) for speedup comparison
     #[arg(long)]
     pub baseline: Option<String>,
+
+    /// Number of parallel jobs
+    #[arg(short = 'j', long)]
+    pub jobs: Option<usize>,
 }
 
 #[derive(Args)]

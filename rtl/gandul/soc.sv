@@ -1,3 +1,6 @@
+`ifndef _SOC_M_
+`define _SOC_M_
+
 import memory_controller_pkg::*;
 import rv_isa_pkg::*;
 
@@ -93,3 +96,5 @@ module soc #(
     );
 
 endmodule
+
+`endif
