@@ -99,14 +99,19 @@ pub fn run_analysis(root: &Path, log_targets: &[String], baseline: Option<&str>)
         }
 
         if !software.is_empty() {
-            let has_failures = results.iter().any(|r| r.status != SimStatus::Pass);
-            if has_failures {
+            let total: u32 = results.iter().map(|r| 1).sum();
+            let passed: u32 = results.iter().map(|r| if r.status == SimStatus::Pass { 1 } else { 0 }).sum();
+            if passed > 0 {
                 print_failure_report(&results, root);
             }
             print_comparison_table(&software, baseline);
             print_metrics_table(&software);
-            if !has_failures {
+            if passed == 0 {
                 println!("\n{}", "ALL TESTS PASSED!".green().bold());
+            }
+            else {
+                let failures_str = format!("{}", total - passed);
+                println!("\n{} {}", failures_str.red().bold(), "TESTS FAILED, check the previous output".red().bold());
             }
         }
     }
