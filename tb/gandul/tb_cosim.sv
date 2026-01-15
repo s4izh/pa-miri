@@ -107,12 +107,19 @@ module tb (
     end
 
 
+    // logic                tohost_written;
+    // logic [MEM_DLEN-1:0] tohost_aligned_cacheline;
+    // logic [XLEN-1:0]     tohost_value;
+    // assign tohost_written = &{mem_addr_o, mem_we_o}; // and reduction
+    // assign tohost_aligned_cacheline = mem_data_o >> (((MEM_DLEN/XLEN)-1) * XLEN);
+    // assign tohost_value = tohost_aligned_cacheline[XLEN-1:0];
+
     logic                tohost_written;
-    logic [MEM_DLEN-1:0] tohost_aligned_cacheline;
     logic [XLEN-1:0]     tohost_value;
-    assign tohost_written = &{mem_addr_o, mem_we_o}; // and reduction
-    assign tohost_aligned_cacheline = mem_data_o >> (((MEM_DLEN/XLEN)-1) * XLEN);
-    assign tohost_value = tohost_aligned_cacheline[XLEN-1:0];
+    assign tohost_written           = dut.hart0_inst.stage_4m_inst.dcache_inst.dreq_valid_i &
+                                      dut.hart0_inst.stage_4m_inst.dcache_inst.dreq_we_i    &
+                                     (dut.hart0_inst.stage_4m_inst.dcache_inst.dreq_addr_i == 32'hffff_fffc);
+    assign tohost_value             = dut.hart0_inst.stage_4m_inst.dcache_inst.dreq_data_i;
 
     logic [XLEN-1:0] ins;
     assign ins = dut.hart0_inst.s_1f_d.ins;
