@@ -62,14 +62,14 @@ module dcache #(
     logic [WAYS-1:0] hits;
 
     // Replacement index of the set of the current request address
-    logic [$clog2(WAYS)-1:0] current_replace_idx;
-    assign current_replace_idx = sets[dreq_addr_set_id].replace_idx;
+    logic [$clog2(WAYS)-1:0] current_set_replace_idx;
+    assign current_set_replace_idx = sets[dreq_addr_set_id].replace_idx;
 
     // Valid/dirty of the line to substitute
     logic current_valid_and_dirty;
     assign current_valid_and_dirty =
-        sets[dreq_addr_set_id].ways[current_replace_idx].valid &
-        sets[dreq_addr_set_id].ways[current_replace_idx].dirty;
+        sets[dreq_addr_set_id].ways[current_set_replace_idx].valid &
+        sets[dreq_addr_set_id].ways[current_set_replace_idx].dirty;
 
     // FSM transitions
     logic idle_to_read, idle_to_evict, evict_to_read, read_to_idle;
@@ -120,8 +120,8 @@ module dcache #(
                         fsm_state <= FSM_EVICT;
                         freq_valid = 1;
                         freq_we    = 1;
-                        freq_addr  = {sets[dreq_addr_set_id].ways[$clog2(hits)].tag, dreq_addr_i[BITS_SET+BITS_OFFSET-1:0]};
-                        freq_data  = sets[dreq_addr_set_id].ways[$clog2(hits)].data;
+                        freq_addr  = {sets[dreq_addr_set_id].ways[current_set_replace_idx].tag, dreq_addr_i[BITS_SET+BITS_OFFSET-1:0]};
+                        freq_data  = sets[dreq_addr_set_id].ways[current_set_replace_idx].data;
                     end else begin
                         if (dreq_we_i) begin
                             sets[dreq_addr_set_id].ways[$clog2(hits)].dirty <= 1;
@@ -137,22 +137,22 @@ module dcache #(
                         // change
                         fsm_state <= FSM_IDLE;
                         freq_valid = 0;
-                        sets[dreq_addr_set_id].replace_idx                             <= current_replace_idx + 1;
-                        sets[dreq_addr_set_id].ways[current_replace_idx].valid         <= 1;
-                        sets[dreq_addr_set_id].ways[current_replace_idx].tag           <= dreq_addr_tag;
-                            sets[dreq_addr_set_id].ways[current_replace_idx].dirty <= dreq_we_i;
+                        sets[dreq_addr_set_id].replace_idx                             <= current_set_replace_idx + 1;
+                        sets[dreq_addr_set_id].ways[current_set_replace_idx].valid         <= 1;
+                        sets[dreq_addr_set_id].ways[current_set_replace_idx].tag           <= dreq_addr_tag;
+                            sets[dreq_addr_set_id].ways[current_set_replace_idx].dirty <= dreq_we_i;
                         if (dreq_we_i) begin
-                            sets[dreq_addr_set_id].ways[current_replace_idx].data  <= frsp_data_i & ~dreq_data_mask_i |
+                            sets[dreq_addr_set_id].ways[current_set_replace_idx].data  <= frsp_data_i & ~dreq_data_mask_i |
                                                                                   dreq_data_i & dreq_data_mask_i;
                         end else begin
-                            sets[dreq_addr_set_id].ways[current_replace_idx].data  <= frsp_data_i;
+                            sets[dreq_addr_set_id].ways[current_set_replace_idx].data  <= frsp_data_i;
                         end
                     end
                     // no change
                 end
                 FSM_EVICT: begin
                     if (evict_to_read) begin
-                        sets[dreq_addr_set_id].ways[current_replace_idx].dirty <= 0;
+                        sets[dreq_addr_set_id].ways[current_set_replace_idx].dirty <= 0;
                         fsm_state <= FSM_READ;
                         freq_valid = 1;
                         freq_we    = 0;
