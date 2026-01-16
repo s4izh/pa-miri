@@ -123,6 +123,11 @@ module dcache #(
                         freq_addr  = {sets[dreq_addr_set_id].ways[$clog2(hits)].tag, dreq_addr_i[BITS_SET+BITS_OFFSET-1:0]};
                         freq_data  = sets[dreq_addr_set_id].ways[$clog2(hits)].data;
                     end else begin
+                        if (dreq_we_i) begin
+                            sets[dreq_addr_set_id].ways[$clog2(hits)].dirty <= 1;
+                            sets[dreq_addr_set_id].ways[$clog2(hits)].data  <=
+                                sets[dreq_addr_set_id].ways[$clog2(hits)].data & ~dreq_data_mask_i | dreq_data_i & dreq_data_mask_i;
+                        end
                         // no change
                         freq_valid = 0;
                     end
