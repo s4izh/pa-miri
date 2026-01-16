@@ -169,7 +169,7 @@ module rob #(
             // value with the youngest valid entry
             // RS1
             for (robid_t i = head_q; i != tail_q; ++i) begin
-                if ((entries[i].rd_addr == cam_req_rs1_i.addr) & ~entries[i].xcpt) begin
+                if ((entries[i].rd_addr == cam_req_rs1_i.addr) & ~entries[i].xcpt & entries[i].rd_we) begin
                     found = 1;
                     found_robid = i;
                 end
@@ -195,7 +195,7 @@ module rob #(
             // value with the youngest valid entry
             // RS1
             for (robid_t i = head_q; i != tail_q; ++i) begin
-                if ((entries[i].rd_addr == cam_req_rs2_i.addr) & ~entries[i].xcpt) begin
+                if ((entries[i].rd_addr == cam_req_rs2_i.addr) & ~entries[i].xcpt & entries[i].rd_we) begin
                     found = 1;
                     found_robid = i;
                 end
