@@ -10,7 +10,7 @@ end
 harness.set_build_dir(build_dir)
 
 local cfg = {
-    cflags_base = "-march=rv32im -mabi=ilp32 -Iprograms "
+    cflags_base = "-march=rv32im -mabi=ilp32 -Iprograms -g"
 }
 
 local cosim = harness.add_task({
@@ -33,7 +33,7 @@ local crt = harness.add_task({
     command = "riscv32-none-elf-gcc $cflags -c programs/crt.s -o $abs_out_dir/crt.o",
     inputs = { "programs/crt.s" },
     vars = {
-        cflags = "-march=rv32im -mabi=ilp32 -Iprograms"
+        cflags = "-march=rv32im -mabi=ilp32 -Iprograms -g"
     },
     outputs = {
         obj = "crt.o"
@@ -107,7 +107,7 @@ harness.add_tool({
         },
         {
             name = "dump",
-            command = "riscv32-none-elf-objdump -d $elf > $out_dir/prog.dump ",
+            command = "riscv32-none-elf-objdump -S $elf > $out_dir/prog.dump ",
             inputs = { "elf" },
             outputs = {
                 { name = "dump", filename = "prog.dump" }
