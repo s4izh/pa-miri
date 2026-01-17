@@ -9,11 +9,16 @@ module tb (
     import "DPI-C" function int cosim_dpi_init(string rom_path, string sram_path, int unsigned pc_reset, int unsigned pc_xcpt, int unsigned mem_dlen);
     import "DPI-C" function int unsigned cosim_dpi_step(output int unsigned pc, output int unsigned ins, output int unsigned rd);
 
+
     parameter int DEFAULT_TIMEOUT_CYCLES = 1000;
 
     parameter int XLEN = 32;
-    parameter int MEM_ALEN = 12;
-    parameter int MEM_DLEN = 128;
+
+    parameter int MEM_SIZE_KB = 2*1024;
+    parameter int MEM_DLEN    = 128;
+    parameter int MEM_NLINES  = (MEM_SIZE_KB*1024)/MEM_DLEN;
+    parameter int MEM_ALEN    = $clog2(MEM_NLINES);
+
     parameter int CACHE_WAYS = 4;
     parameter int CACHE_SETS = 4;
 
