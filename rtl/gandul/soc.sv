@@ -10,6 +10,7 @@ module soc #(
     parameter int MEM_DLEN = 128,
     parameter int CACHE_WAYS = 4,
     parameter int CACHE_SETS = 4
+
 ) (
     input  logic clk,
     input  logic reset_n,

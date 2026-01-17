@@ -1,4 +1,4 @@
-module dcache #(
+module dcache_engine_wb #(
     parameter int XLEN = 32,
     parameter int WAYS = 4,
 

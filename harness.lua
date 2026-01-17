@@ -242,21 +242,40 @@ harness.add_testbench({
 -- Parameter set definitions
 harness.add_param_set({
     name = "base",
-    defines = { DELAYER_LEN = "5" },
+    defines = {
+        DELAYER_LEN = "5",
+        DCACHE_STORE_POLICY_WB = ""
+    },
+    plusargs = {},
+    sim_templates = {}
+})
+
+harness.add_param_set({
+    name = "base_wt",
+    defines = {
+        DELAYER_LEN = "5",
+        DCACHE_STORE_POLICY_WT = ""
+    },
     plusargs = {},
     sim_templates = {}
 })
 
 harness.add_param_set({
     name = "delayer_10",
-    defines = { DELAYER_LEN = "10" },
+    defines = {
+        DELAYER_LEN = "10",
+        DCACHE_STORE_POLICY_WB = "0"
+    },
     plusargs = {},
     sim_templates = {}
 })
 
 harness.add_param_set({
     name = "delayer_1",
-    defines = { DELAYER_LEN = "1" },
+    defines = {
+        DELAYER_LEN = "1",
+        DCACHE_STORE_POLICY_WB = "0"
+    },
     plusargs = {},
     sim_templates = {}
 })
@@ -320,7 +339,7 @@ harness.add_experiment({
 harness.add_experiment({
     name = "gandul-cosim",
     testbench = "gandul.cosim",
-    param_sets = { "base", "delayer_1", "delayer_10" },
+    param_sets = { "base", "base_wt", "delayer_1", "delayer_10" },
     suites = { "isa" },
     simulators = { "verilator" }
 })
@@ -328,7 +347,7 @@ harness.add_experiment({
 harness.add_experiment({
     name = "gandul-cosim-benchmarks",
     testbench = "gandul.cosim",
-    param_sets = { "base", "delayer_1", "delayer_10" },
+    param_sets = { "base", "base_wt", "delayer_1", "delayer_10" },
     suites = { "benchmarks" },
     simulators = { "verilator" }
 })
