@@ -10,7 +10,7 @@ end
 harness.set_build_dir(build_dir)
 
 local cfg = {
-    cflags_base = "-march=rv32im -mabi=ilp32 -Iprograms "
+    cflags_base = "-march=rv32im -mabi=ilp32 -Iprograms -g"
 }
 
 local cosim = harness.add_task({
@@ -33,7 +33,7 @@ local crt = harness.add_task({
     command = "riscv32-none-elf-gcc $cflags -c programs/crt.s -o $abs_out_dir/crt.o",
     inputs = { "programs/crt.s" },
     vars = {
-        cflags = "-march=rv32im -mabi=ilp32 -Iprograms"
+        cflags = "-march=rv32im -mabi=ilp32 -Iprograms -g"
     },
     outputs = {
         obj = "crt.o"
@@ -107,7 +107,7 @@ harness.add_tool({
         },
         {
             name = "dump",
-            command = "riscv32-none-elf-objdump -d $elf > $out_dir/prog.dump ",
+            command = "riscv32-none-elf-objdump -S $elf > $out_dir/prog.dump ",
             inputs = { "elf" },
             outputs = {
                 { name = "dump", filename = "prog.dump" }
@@ -218,7 +218,7 @@ harness.add_testbench({
 harness.add_testbench({
     name = "gandul.cosim",
     filelist = "sim/gandul/cosim/filelist.f",
-    run_template = "$bin $plusargs +VCD_FILE=waves.fst +SRAM_FILE=$mem +TIMEOUT_CYCLES=10000",
+    run_template = "$bin $plusargs +VCD_FILE=waves.fst +SRAM_FILE=$mem +TIMEOUT_CYCLES=1000000",
     vars = {
           COSIM_DPI_LIB = harness.abspath(cosim.outputs.lib)
     },
@@ -242,21 +242,40 @@ harness.add_testbench({
 -- Parameter set definitions
 harness.add_param_set({
     name = "base",
-    defines = { DELAYER_LEN = "5" },
+    defines = {
+        DELAYER_LEN = "5",
+        DCACHE_STORE_POLICY_WB = ""
+    },
+    plusargs = {},
+    sim_templates = {}
+})
+
+harness.add_param_set({
+    name = "base_wt",
+    defines = {
+        DELAYER_LEN = "5",
+        DCACHE_STORE_POLICY_WT = ""
+    },
     plusargs = {},
     sim_templates = {}
 })
 
 harness.add_param_set({
     name = "delayer_10",
-    defines = { DELAYER_LEN = "10" },
+    defines = {
+        DELAYER_LEN = "10",
+        DCACHE_STORE_POLICY_WB = "0"
+    },
     plusargs = {},
     sim_templates = {}
 })
 
 harness.add_param_set({
     name = "delayer_1",
-    defines = { DELAYER_LEN = "1" },
+    defines = {
+        DELAYER_LEN = "1",
+        DCACHE_STORE_POLICY_WB = "0"
+    },
     plusargs = {},
     sim_templates = {}
 })
@@ -320,7 +339,7 @@ harness.add_experiment({
 harness.add_experiment({
     name = "gandul-cosim",
     testbench = "gandul.cosim",
-    param_sets = { "base", "delayer_1", "delayer_10" },
+    param_sets = { "base", "base_wt", "delayer_1", "delayer_10" },
     suites = { "isa" },
     simulators = { "verilator" }
 })
@@ -328,7 +347,7 @@ harness.add_experiment({
 harness.add_experiment({
     name = "gandul-cosim-benchmarks",
     testbench = "gandul.cosim",
-    param_sets = { "base", "delayer_1", "delayer_10" },
+    param_sets = { "base", "base_wt", "delayer_1", "delayer_10" },
     suites = { "benchmarks" },
     simulators = { "verilator" }
 })

@@ -1,4 +1,5 @@
-#define N 128
+// #define N 128
+#define N 16
 
 int main() {
     int i,j,k;

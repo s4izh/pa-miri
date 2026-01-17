@@ -1,4 +1,5 @@
 import memory_controller_pkg::*;
+`include "harness_params.svh"
 
 module dcache_wrapper #(
     parameter int XLEN = 32,
@@ -63,7 +64,11 @@ module dcache_wrapper #(
         .crsp_data_i(crsp_data)
     );
 
-    dcache #(
+`ifdef DCACHE_STORE_POLICY_WT
+    dcache_engine_wt #(
+`else
+    dcache_engine_wb #(
+`endif
         .XLEN(XLEN),
         .WAYS(WAYS),
         .SETS(SETS),
@@ -91,5 +96,4 @@ module dcache_wrapper #(
         .frsp_valid_i,
         .frsp_data_i
     );
-
 endmodule

@@ -1,4 +1,4 @@
-module dcache #(
+module dcache_engine_wb #(
     parameter int XLEN = 32,
     parameter int WAYS = 4,
 
@@ -37,12 +37,13 @@ module dcache #(
     logic [BITS_SET-1:0] dreq_addr_set_id;
     logic [BITS_TAG-1:0] dreq_addr_tag;
     assign dreq_addr_set_id = dreq_addr_i[BITS_SET+BITS_OFFSET-1:BITS_OFFSET];
-    assign dreq_addr_tag     = dreq_addr_i[XLEN-1:BITS_SET+BITS_OFFSET];
+    assign dreq_addr_tag    = dreq_addr_i[XLEN-1:BITS_SET+BITS_OFFSET];
 
     typedef struct {
-        logic                       valid;
-        logic [BITS_TAG-1:0]        tag;
-        logic [BITS_CACHELINE-1:0]  data;
+        logic                      valid;
+        logic                      dirty;
+        logic [BITS_TAG-1:0]       tag;
+        logic [BITS_CACHELINE-1:0] data;
     } way_t;
 
     typedef struct {
@@ -52,25 +53,37 @@ module dcache #(
 
     typedef enum {
         FSM_IDLE,
-        FSM_WAIT_READ,
-        FSM_WAIT_READ4WRITE,
-        FSM_WAIT_WRITE
+        FSM_READ,
+        FSM_EVICT
     } fsm_e;
 
     fsm_e fsm_state;
     set_t sets[SETS];
     logic [WAYS-1:0] hits;
 
-    logic idle_to_reads, idle_to_write,
-        read4write_to_write,
-        read_to_idle,
-        write_to_idle;
+    // Replacement index of the set of the current request address
+    logic [$clog2(WAYS)-1:0] current_set_replace_idx;
+    assign current_set_replace_idx = sets[dreq_addr_set_id].replace_idx;
 
-    assign idle_to_reads       = dreq_valid_i & ~(|hits);
-    assign idle_to_write       = dreq_valid_i &  (|hits) & dreq_we_i;
-    assign read4write_to_write = frsp_valid_i;
-    assign read_to_idle        = frsp_valid_i;
-    assign write_to_idle       = frsp_valid_i;
+    // Valid/dirty of the line to substitute
+    logic current_valid_and_dirty;
+    assign current_valid_and_dirty =
+        sets[dreq_addr_set_id].ways[current_set_replace_idx].valid &
+        sets[dreq_addr_set_id].ways[current_set_replace_idx].dirty;
+
+    // FSM transitions
+    logic idle_to_read, idle_to_evict, evict_to_read, read_to_idle;
+    // Idle -> Read - We want to read/write to the cache: the set does NOT
+    // have the line we want and the way to replace is not valid nor dirty.
+    assign idle_to_read  = dreq_valid_i & ~(|hits) & ~current_valid_and_dirty;
+    // Idle -> Evict - We want to read/write to the cache: the set does
+    // have the line we want and the way to replace is valid and dirty
+    assign idle_to_evict = dreq_valid_i & ~(|hits) & current_valid_and_dirty;
+    // Evict -> Read - Only transition to read once the dirty cache line has
+    // been fully written to the next memory level.
+    assign evict_to_read = frsp_valid_i;
+    // Read -> Idle - Transition only after our read request has finished
+    assign read_to_idle = frsp_valid_i;
 
     // FSM
     always @(posedge clk) begin
@@ -89,6 +102,7 @@ module dcache #(
             for (int l = 0; l < SETS; ++l) begin
                 for (int w = 0; w < WAYS; ++w) begin
                     sets[l].ways[w].valid <= 0;
+                    sets[l].ways[w].dirty <= 0;
                     sets[l].replace_idx   <= '0;
                 end
             end
@@ -97,67 +111,52 @@ module dcache #(
         end else begin
             case (fsm_state)
                 FSM_IDLE: begin
-                    if (idle_to_reads) begin
-                        if (dreq_we_i) begin
-                            fsm_state <= FSM_WAIT_READ4WRITE;
-                        end else begin
-                            fsm_state <= FSM_WAIT_READ;
-                        end
+                    if (idle_to_read) begin
+                        fsm_state <= FSM_READ;
                         freq_valid = 1;
                         freq_we    = 0;
                         freq_addr  = dreq_addr_i;
-                    end else if (idle_to_write) begin
-                        fsm_state <= FSM_WAIT_WRITE;
+                    end else if (idle_to_evict) begin
+                        fsm_state <= FSM_EVICT;
                         freq_valid = 1;
                         freq_we    = 1;
-                        freq_addr  = dreq_addr_i;
-                        freq_data  = drsp_data_o & ~dreq_data_mask_i | dreq_data_i & dreq_data_mask_i;
-                        sets[dreq_addr_set_id].ways[$clog2(hits)].data <= freq_data;
+                        freq_addr  = {sets[dreq_addr_set_id].ways[current_set_replace_idx].tag, dreq_addr_i[BITS_SET+BITS_OFFSET-1:0]};
+                        freq_data  = sets[dreq_addr_set_id].ways[current_set_replace_idx].data;
                     end else begin
+                        if (dreq_we_i) begin
+                            sets[dreq_addr_set_id].ways[$clog2(hits)].dirty <= 1;
+                            sets[dreq_addr_set_id].ways[$clog2(hits)].data  <=
+                                sets[dreq_addr_set_id].ways[$clog2(hits)].data & ~dreq_data_mask_i | dreq_data_i & dreq_data_mask_i;
+                        end
                         // no change
                         freq_valid = 0;
                     end
                 end
-                FSM_WAIT_READ: begin
+                FSM_READ: begin
                     if (read_to_idle) begin
-                        logic [$clog2(WAYS)-1:0] replace_idx_tmp;
                         // change
                         fsm_state <= FSM_IDLE;
                         freq_valid = 0;
-                        replace_idx_tmp = sets[dreq_addr_set_id].replace_idx;
-                        sets[dreq_addr_set_id].replace_idx                 <= replace_idx_tmp + 1;
-                        sets[dreq_addr_set_id].ways[replace_idx_tmp].valid <= 1;
-                        sets[dreq_addr_set_id].ways[replace_idx_tmp].tag   <= dreq_addr_tag;
-                        sets[dreq_addr_set_id].ways[replace_idx_tmp].data  <= frsp_data_i;
+                        sets[dreq_addr_set_id].replace_idx                             <= current_set_replace_idx + 1;
+                        sets[dreq_addr_set_id].ways[current_set_replace_idx].valid         <= 1;
+                        sets[dreq_addr_set_id].ways[current_set_replace_idx].tag           <= dreq_addr_tag;
+                            sets[dreq_addr_set_id].ways[current_set_replace_idx].dirty <= dreq_we_i;
+                        if (dreq_we_i) begin
+                            sets[dreq_addr_set_id].ways[current_set_replace_idx].data  <= frsp_data_i & ~dreq_data_mask_i |
+                                                                                  dreq_data_i & dreq_data_mask_i;
+                        end else begin
+                            sets[dreq_addr_set_id].ways[current_set_replace_idx].data  <= frsp_data_i;
+                        end
                     end
                     // no change
                 end
-                FSM_WAIT_READ4WRITE: begin
-                    if (read4write_to_write) begin
-                        logic [$clog2(WAYS)-1:0] replace_idx_tmp;
-                        logic [BITS_CACHELINE-1:0] merged_data_tmp;
-                        // change
-                        merged_data_tmp = frsp_data_i & ~dreq_data_mask_i | dreq_data_i & dreq_data_mask_i;
-                        replace_idx_tmp = sets[dreq_addr_set_id].replace_idx;
-                        sets[dreq_addr_set_id].replace_idx                 <= replace_idx_tmp + 1;
-                        sets[dreq_addr_set_id].ways[replace_idx_tmp].valid <= 1;
-                        sets[dreq_addr_set_id].ways[replace_idx_tmp].tag   <= dreq_addr_tag;
-                        sets[dreq_addr_set_id].ways[replace_idx_tmp].data  <= merged_data_tmp;
-
-                        fsm_state <= FSM_WAIT_WRITE;
+                FSM_EVICT: begin
+                    if (evict_to_read) begin
+                        sets[dreq_addr_set_id].ways[current_set_replace_idx].dirty <= 0;
+                        fsm_state <= FSM_READ;
                         freq_valid = 1;
-                        freq_we    = 1;
-                        freq_addr  = dreq_addr_i;
-                        freq_data  = merged_data_tmp;
-                    end
-                end
-                FSM_WAIT_WRITE: begin
-                    if (write_to_idle) begin
-                        fsm_state <= FSM_IDLE;
-                        freq_valid = 0;
                         freq_we    = 0;
-                        // freq_addr  = '0;
-                        // freq_data  = '0;
+                        freq_addr  = dreq_addr_i;
                     end
                 end
             endcase
@@ -171,9 +170,8 @@ module dcache #(
 
     // Ready
     assign dreq_ready_o =
-          ((fsm_state == FSM_IDLE) & ~(idle_to_reads | idle_to_write))
-        | ((fsm_state == FSM_WAIT_READ) & read_to_idle)
-        | ((fsm_state == FSM_WAIT_WRITE) & write_to_idle);
+          ((fsm_state == FSM_IDLE) & ~(idle_to_read | idle_to_evict))
+        | ((fsm_state == FSM_READ) & read_to_idle);
 
     // Hit detection
     always_comb begin
@@ -186,7 +184,7 @@ module dcache #(
 
     // Data to core with bypass
     logic drsp_bypass_valid;
-    assign drsp_bypass_valid = (fsm_state == FSM_WAIT_READ) & read_to_idle;
+    assign drsp_bypass_valid = (fsm_state == FSM_READ) & read_to_idle;
     always_comb begin
         if (drsp_bypass_valid) begin
             drsp_data_o = frsp_data_i;

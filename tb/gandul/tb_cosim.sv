@@ -9,11 +9,16 @@ module tb (
     import "DPI-C" function int cosim_dpi_init(string rom_path, string sram_path, int unsigned pc_reset, int unsigned pc_xcpt, int unsigned mem_dlen);
     import "DPI-C" function int unsigned cosim_dpi_step(output int unsigned pc, output int unsigned ins, output int unsigned rd);
 
+
     parameter int DEFAULT_TIMEOUT_CYCLES = 1000;
 
     parameter int XLEN = 32;
-    parameter int MEM_ALEN = 12;
-    parameter int MEM_DLEN = 128;
+
+    parameter int MEM_SIZE_KB = 2*1024;
+    parameter int MEM_DLEN    = 128;
+    parameter int MEM_NLINES  = (MEM_SIZE_KB*1024)/MEM_DLEN;
+    parameter int MEM_ALEN    = $clog2(MEM_NLINES);
+
     parameter int CACHE_WAYS = 4;
     parameter int CACHE_SETS = 4;
 
@@ -107,12 +112,19 @@ module tb (
     end
 
 
+    // logic                tohost_written;
+    // logic [MEM_DLEN-1:0] tohost_aligned_cacheline;
+    // logic [XLEN-1:0]     tohost_value;
+    // assign tohost_written = &{mem_addr_o, mem_we_o}; // and reduction
+    // assign tohost_aligned_cacheline = mem_data_o >> (((MEM_DLEN/XLEN)-1) * XLEN);
+    // assign tohost_value = tohost_aligned_cacheline[XLEN-1:0];
+
     logic                tohost_written;
-    logic [MEM_DLEN-1:0] tohost_aligned_cacheline;
     logic [XLEN-1:0]     tohost_value;
-    assign tohost_written = &{mem_addr_o, mem_we_o}; // and reduction
-    assign tohost_aligned_cacheline = mem_data_o >> (((MEM_DLEN/XLEN)-1) * XLEN);
-    assign tohost_value = tohost_aligned_cacheline[XLEN-1:0];
+    assign tohost_written           = dut.hart0_inst.stage_4m_inst.dcache_inst.dreq_valid_i &
+                                      dut.hart0_inst.stage_4m_inst.dcache_inst.dreq_we_i    &
+                                     (dut.hart0_inst.stage_4m_inst.dcache_inst.dreq_addr_i == 32'hffff_fffc);
+    assign tohost_value             = dut.hart0_inst.stage_4m_inst.dcache_inst.dreq_data_i;
 
     logic [XLEN-1:0] ins;
     assign ins = dut.hart0_inst.s_1f_d.ins;
