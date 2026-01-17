@@ -113,7 +113,7 @@ module gandul# (
 
     assign stall_1f     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready | stall_for_sb_full;
     assign stall_2d     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready | stall_for_sb_full;
-    assign stall_3e     = waiting_for_memory_4m | (~icache_dreq_ready & jump_or_branch_3e); 
+    assign stall_3e     = waiting_for_memory_4m | (~icache_dreq_ready & jump_or_branch_3e);
     assign stall_4m     = waiting_for_memory_4m;
     assign stall_muldiv = 0;
 
@@ -440,6 +440,7 @@ module gandul# (
     assign s_5w_d.rd_addr = s_4m_q.rd_addr;
     assign s_5w_d.robid   = s_4m_q.robid;
     assign s_5w_d.xcpt    = s_4m_q.xcpt;
+    assign s_5w_d.sbid    = s_4m_q.sbid;
 
 
     // =========================================================================
