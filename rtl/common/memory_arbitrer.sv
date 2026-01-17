@@ -42,23 +42,11 @@ module memory_arbitrer #(
     end
 
     always_comb begin
-        next_state = state;
-        case (state)
-            IDLE: begin
-                if (dc_freq_valid_i)      next_state = SERVING_D;
-                else if (ic_freq_valid_i) next_state = SERVING_I;
-            end
-            SERVING_D: if (mem_valid_i)   next_state = IDLE;
-            SERVING_I: if (mem_valid_i)   next_state = IDLE;
-            default:                      next_state = IDLE;
-        endcase
-    end
-
-    always_comb begin
         mem_valid_o   = 1'b0;
         mem_we_o    = 1'b0;
         mem_addr_o  = '0;
         mem_data_o = '0;
+        next_state = state;
 
         ic_frsp_valid_o = 1'b0;
         ic_frsp_data_o  = mem_data_i;
@@ -66,7 +54,24 @@ module memory_arbitrer #(
         dc_frsp_data_o  = mem_data_i;
 
         case (state)
+            IDLE: begin
+                if (dc_freq_valid_i) begin
+                    next_state = SERVING_D;
+                    mem_valid_o     = 1'b1;
+                    mem_we_o        = dc_freq_we_i;
+                    mem_addr_o      = {dc_freq_addr_i[XLEN-1:4], 4'b0000};
+                    mem_data_o      = dc_freq_data_i;
+                    dc_frsp_valid_o = mem_valid_i;
+                end else if (ic_freq_valid_i) begin
+                    next_state = SERVING_I;
+                    mem_valid_o     = 1'b1;
+                    mem_we_o        = 1'b0;
+                    mem_addr_o      = {ic_freq_addr_i[XLEN-1:4], 4'b0000};
+                    ic_frsp_valid_o = mem_valid_i;
+                end
+            end
             SERVING_D: begin
+                if (mem_valid_i)   next_state = IDLE;
                 mem_valid_o     = 1'b1;
                 mem_we_o        = dc_freq_we_i;
                 mem_addr_o      = {dc_freq_addr_i[XLEN-1:4], 4'b0000};
@@ -75,12 +80,12 @@ module memory_arbitrer #(
             end
 
             SERVING_I: begin
+                if (mem_valid_i)   next_state = IDLE;
                 mem_valid_o     = 1'b1;
                 mem_we_o        = 1'b0;
                 mem_addr_o      = {ic_freq_addr_i[XLEN-1:4], 4'b0000};
                 ic_frsp_valid_o = mem_valid_i;
             end
-            
             default: ;
         endcase
     end
