@@ -1,5 +1,6 @@
 // https://www.youtube.com/watch?v=9yo3yhUijQs
 import rob_pkg::*;
+import store_buffer_pkg::*;
 
 module rob #(
     parameter int XLEN = `XLEN,

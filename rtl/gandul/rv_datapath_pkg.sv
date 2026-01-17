@@ -10,6 +10,7 @@ package rv_datapath_pkg;
     import rv_branch_compare_pkg::*;
     import memory_controller_pkg::*;
     import rob_pkg::*;
+    import store_buffer_pkg::*;
 
     typedef enum logic [0:0] {
         MUX_ALU_OP1_RS1,
@@ -68,6 +69,7 @@ package rv_datapath_pkg;
         // ROB things
         robid_t           robid;
         logic             xcpt;
+        sbid_t            sbid;
         // PC
         logic [`XLEN-1:0] pc;
     } signals_decode_t;
@@ -89,6 +91,7 @@ package rv_datapath_pkg;
         // ROB things
         robid_t           robid;
         logic             xcpt;
+        sbid_t            sbid;
         // PC
         logic [`XLEN-1:0] pc;
     } signals_execute_t;

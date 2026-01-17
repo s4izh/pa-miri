@@ -1,32 +1,34 @@
 `ifndef _STORE_BUFFER_M_
 `define _STORE_BUFFER_M_
 
+`include "harness_params.svh"
+
+import store_buffer_pkg::*;
 import memory_controller_pkg::*;
 
 module store_buffer #(
     parameter int XLEN = 32,
     parameter int DEPTH = 8,
-    parameter int DRAIN_THRESHOLD = 6,
-    localparam int SB_IDX_W = $clog2(DEPTH)
+    parameter int DRAIN_THRESHOLD = 6
 ) (
     input logic clk,
     input logic reset_n,
 
     // --- dispatch (allocation) ---
     input  logic                alloc_en_i,
-    output logic [SB_IDX_W-1:0] alloc_idx_o,
+    output sbid_t               alloc_idx_o,
     output logic                sb_full_o,
 
     // --- execute (data update from store unit) ---
     input  logic                creq_en_i,
-    input  logic [SB_IDX_W-1:0] creq_idx_i,
+    input  sbid_t               creq_idx_i,
     input  logic [XLEN-1:0]     creq_addr_i,
     input  logic [XLEN-1:0]     creq_data_i,
     input  memop_width_e        creq_width_i,
 
     // --- commit (from ROB) ---
     input  logic                commit_en_i,
-    input  logic [SB_IDX_W-1:0] commit_idx_i,
+    input  sbid_t               commit_idx_i,
 
     // --- control ---
     input  logic                fence_i,
@@ -36,7 +38,7 @@ module store_buffer #(
     // --- forwarding / hazard interface ---
     input  logic [XLEN-1:0]     ld_addr_i,
     input  memop_width_e        ld_width_i,
-    input  logic [SB_IDX_W-1:0] ld_age_tag_i,
+    input  sbid_t               ld_age_tag_i,
     output logic                ld_hit_o,     
     output logic                ld_stall_o,   
     output logic [XLEN-1:0]     ld_data_o,
@@ -49,6 +51,7 @@ module store_buffer #(
     output logic              dreq_we_o,      
     output memop_width_e      dreq_width_o
 );
+    localparam int SB_IDX_W = $clog2(DEPTH);
 
     typedef struct packed {
         logic [XLEN-1:0] addr;
@@ -63,7 +66,7 @@ module store_buffer #(
     // head_ptr: oldest committed store, waiting for dcache
     // tail_ptr: next speculative slot to allocate
     // commit_ptr: next slot expected to be committed by ROB
-    logic [SB_IDX_W-1:0] head_ptr, tail_ptr, commit_ptr;
+    sbid_t head_ptr, tail_ptr, commit_ptr;
     logic [SB_IDX_W:0]   count;
 
     typedef enum logic { ST_IDLE, ST_DRAIN } state_e;
@@ -85,15 +88,15 @@ module store_buffer #(
 
     always_ff @(posedge clk) begin
 
-        logic [SB_IDX_W-1:0] next_head;
+        sbid_t next_head;
         next_head = head_ptr + 1'b1;
 
         if (!reset_n) begin
             tail_ptr       <= '0;
             head_ptr       <= '0;
-            commit_ptr <= '0;
-            count      <= '0;
-            state      <= ST_IDLE;
+            commit_ptr     <= '0;
+            count          <= '0;
+            state          <= ST_IDLE;
             for (int i = 0; i < DEPTH; i++) buffer[i] <= '0;
         end else if (flush_i) begin
             // reset allocation tail_ptr to the last committed instruction's next slot
@@ -127,7 +130,7 @@ module store_buffer #(
                 tail_ptr <= tail_ptr + 1'b1;
             end
 
-            // execution, data coming from alumem stage
+            // execution, data coming from alumem
             if (creq_en_i) begin
                 buffer[creq_idx_i].addr  <= creq_addr_i;
                 buffer[creq_idx_i].data  <= creq_data_i;
@@ -183,8 +186,11 @@ module store_buffer #(
     always_comb begin
         logic [3:0] ld_be;
         logic [3:0] st_be;
-        logic [SB_IDX_W-1:0] curr_idx;
+        sbid_t curr_idx;
         logic is_older;
+        logic [4:0]      shift_amt;
+        logic [1:0]      offset_diff;
+        logic [XLEN-1:0] raw_shifted_data;
 
         case (ld_width_i)
             MEMOP_WIDTH_8:  ld_be = 4'b0001 << ld_addr_i[1:0];
@@ -193,9 +199,11 @@ module store_buffer #(
             default:        ld_be = 4'b0000;
         endcase
 
-        ld_hit_o   = 1'b0;
-        ld_stall_o = 1'b0;
-        ld_data_o  = '0;
+        ld_hit_o     = 1'b0;
+        ld_stall_o   = 1'b0;
+        ld_data_o    = '0;
+        shift_amt    = '0;
+        offset_diff  = '0;
 
         for (int i = 1; i <= DEPTH; i++) begin
             curr_idx = ld_age_tag_i - i[SB_IDX_W-1:0];
@@ -204,7 +212,7 @@ module store_buffer #(
             if (head_ptr <= ld_age_tag_i) is_older = (curr_idx >= head_ptr && curr_idx < ld_age_tag_i);
             else                          is_older = (curr_idx >= head_ptr || curr_idx < ld_age_tag_i);
 
-            if (is_older && buffer[curr_idx].allocated) begin
+            if (is_older && buffer[curr_idx].allocated && buffer[curr_idx].valid) begin
                 case (buffer[curr_idx].width)
                     MEMOP_WIDTH_8:  st_be = 4'b0001 << buffer[curr_idx].addr[1:0];
                     MEMOP_WIDTH_16: st_be = 4'b0011 << buffer[curr_idx].addr[1:0];
@@ -214,55 +222,28 @@ module store_buffer #(
 
                 if (buffer[curr_idx].addr[XLEN-1:2] == ld_addr_i[XLEN-1:2]) begin
                     if ((st_be & ld_be) != 4'b0000) begin
-                        if (buffer[curr_idx].addr == ld_addr_i && st_be == ld_be) begin
-                            if (buffer[curr_idx].valid) begin
-                                ld_hit_o  = 1'b1;
-                                ld_data_o = buffer[curr_idx].data;
-                            end else begin
-                                ld_stall_o = 1'b1; // store address matches but data hasn't arrived
-                            end
+                        if ((st_be & ld_be) == ld_be) begin
+                            ld_hit_o  = 1'b1;
+
+                            offset_diff = ld_addr_i[1:0] - buffer[curr_idx].addr[1:0];
+                            shift_amt = {offset_diff, 3'b000};
+                            raw_shifted_data = buffer[curr_idx].data >> shift_amt;
+
+                            case (ld_width_i)
+                                MEMOP_WIDTH_8:  ld_data_o = { {(XLEN-8){1'b0}}, raw_shifted_data[7:0] };
+                                MEMOP_WIDTH_16: ld_data_o = { {(XLEN-16){1'b0}}, raw_shifted_data[15:0] };
+                                default:        ld_data_o = raw_shifted_data;
+                            endcase
                             break; 
                         end else begin
-                            ld_stall_o = 1'b1; // partial overlap or offset mismatch
+                            ld_stall_o = 1'b1; // partial overlap, wait till there isn't one
                             break; 
                         end
-                        // break; 
+                    end else begin
+                        // keep checking for an overlap
                     end
                 end
             end
-        end
-    end
-
-    always @(posedge clk) begin
-        if (reset_n) begin
-            $display("[%0t] SB | count:%0d | head_ptr:%0d | commit:%0d | tail_ptr:%0d | state:%s", 
-                     $time, count, head_ptr, commit_ptr, tail_ptr, (state == ST_IDLE ? "IDLE" : "DRAIN"));
-            
-            for (int i = 0; i < DEPTH; i++) begin
-                string marker = "";
-                if (i == 32'(head_ptr))       marker = {marker, " H"};
-                if (i == 32'(commit_ptr))     marker = {marker, " C"};
-                if (i == 32'(tail_ptr))       marker = {marker, " T"};
-
-                $display("  [%0d] Alloc:%b Valid:%b Comm:%b | Addr:0x%h | Data:0x%h | Width:%0d %s",
-                         i, buffer[i].allocated, buffer[i].valid, buffer[i].committed, 
-                         buffer[i].addr, buffer[i].data, buffer[i].width, marker);
-            end
-
-            if (dreq_valid_o) begin
-                $display("  >>> SENDING TO DCACHE: Addr:0x%h Data:0x%h Ready_i:%b", 
-                         dreq_addr_o, dreq_data_o, dreq_ready_i);
-            end
-
-            if (ld_hit_o) 
-                $display("  <<< FORWARD HIT: LdAddr:0x%h -> Data:0x%h", ld_addr_i, ld_data_o);
-            else if (ld_stall_o)
-                $display("  <<< FORWARD STALL: LdAddr:0x%h (Conflict in SB)", ld_addr_i);
-            
-            if (flush_i)
-                $display("  !!! SQUASH EVENT (flush_i asserted) !!!");
-
-            $display("-------------------------------------------------------------------------");
         end
     end
 

@@ -1,5 +1,6 @@
 import rv_datapath_pkg::*;
 import rob_pkg::*;
+import store_buffer_pkg::*;
 
 module stage_2d #(
     parameter int XLEN = 32,
@@ -31,7 +32,11 @@ module stage_2d #(
     output logic                    rs2_valid_o,
     output logic                    is_st_o,
     // rob
-    input  robid_t                  robid_i
+    input  robid_t                  robid_i,
+
+    // store buffer allocation interface
+    input  sbid_t                   sb_alloc_idx_i,
+    output logic                    sb_alloc_en_o
 );
 
     logic [$clog2(NREG)-1:0] rs1_addr, rs2_addr;
@@ -70,6 +75,10 @@ module stage_2d #(
     assign _o_muldiv.rs1   = (bypass_rs1_sel_i == '1) ? bypass_rs1_data_i : rf_rs1_data;
     assign _o_muldiv.rs2   = (bypass_rs2_sel_i == '1) ? bypass_rs2_data_i : rf_rs2_data;
     assign _o_muldiv.robid = robid_i;
+
+    // STORE BUFFER
+    assign _o.sbid       = sb_alloc_idx_i;
+    assign sb_alloc_en_o = _i.valid & is_st & ~stall_i & ~noop_i & ~noop_q;
 
     always_comb begin
         if ((noop_i | noop_q | stall_i)) begin

@@ -64,36 +64,42 @@ module dcache_wrapper #(
         .crsp_data_i(crsp_data)
     );
 
-`ifdef DCACHE_STORE_POLICY_WT
-    dcache_engine_wt #(
-`else
-    dcache_engine_wb #(
-`endif
-        .XLEN(XLEN),
-        .WAYS(WAYS),
-        .SETS(SETS),
+    `define DCACHE_PARAMS \
+        .XLEN(XLEN), \
+        .WAYS(WAYS), \
+        .SETS(SETS), \
         .BITS_CACHELINE(BITS_CACHELINE)
-    ) dcache_inst (
-        .clk,
-        .reset_n,
-        // Interface with core (d for data)
-        // Request
-        .dreq_valid_i(creq_valid),
-        .dreq_ready_o,
-        .dreq_addr_i(creq_addr),
-        .dreq_we_i(creq_we),
-        .dreq_data_i(creq_data),
-        .dreq_data_mask_i(creq_data_mask),
-        // Response
-        .drsp_data_o(crsp_data),
-        // Interface with memory (f for fill)
-        // Request to memory
-        .freq_valid_o,
-        .freq_we_o,
-        .freq_data_o,
-        .freq_addr_o,
-        // Response from memory
-        .frsp_valid_i,
-        .frsp_data_i
-    );
+
+    `define DCACHE_PORTS \
+        .clk(clk), \
+        .reset_n(reset_n), \
+        .dreq_valid_i(creq_valid), \
+        .dreq_ready_o(dreq_ready_o), \
+        .dreq_addr_i(creq_addr), \
+        .dreq_we_i(creq_we), \
+        .dreq_data_i(creq_data), \
+        .dreq_data_mask_i(creq_data_mask), \
+        .drsp_data_o(crsp_data), \
+        .freq_valid_o(freq_valid_o), \
+        .freq_we_o(freq_we_o), \
+        .freq_data_o(freq_data_o), \
+        .freq_addr_o(freq_addr_o), \
+        .frsp_valid_i(frsp_valid_i), \
+        .frsp_data_i(frsp_data_i)
+
+
+    localparam string POLICY = `DCACHE_STORE_POLICY;
+
+    generate
+        if (POLICY == "wt") begin : gen_wt
+            dcache_engine_wt #(`DCACHE_PARAMS) dcache_inst ( `DCACHE_PORTS );
+        end 
+        else begin : gen_wb
+            dcache_engine_wb #(`DCACHE_PARAMS) dcache_inst ( `DCACHE_PORTS );
+        end
+    endgenerate
+
+    `undef DCACHE_PARAMS
+    `undef DCACHE_PORTS
+
 endmodule

@@ -64,6 +64,8 @@ module stage_3e #(
     `PROPAGATE(robid);
     `PROPAGATE(xcpt);
 
+    `PROPAGATE(sbid);
+
     assign _o.rs2_data = (_i.bypass_4m_3e_sel) ? bypass_4m_3e_data_i : _i.rs2_data;
 
     // Outputs

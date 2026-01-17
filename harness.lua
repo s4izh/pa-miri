@@ -9,8 +9,22 @@ end
 -- should be harness.env(key = value table) instead
 harness.set_build_dir(build_dir)
 
+local function merge(...)
+    local tables_to_merge = {...}
+    local result = {}
+    for _, t in ipairs(tables_to_merge) do
+        if type(t) == "table" then
+            for k, v in pairs(t) do
+                result[k] = v
+            end
+        end
+    end
+    return result
+end
+
 local cfg = {
-    cflags_base = "-march=rv32im -mabi=ilp32 -Iprograms -g"
+    cflags_base = "-march=rv32im -mabi=ilp32 -Iprograms -g ",
+    toolchain_prefix = "riscv32-none-elf-"
 }
 
 local cosim = harness.add_task({
@@ -30,10 +44,10 @@ local cosim = harness.add_task({
 local crt = harness.add_task({
     name = "compile_crt",
     tasks_namespace = "env",
-    command = "riscv32-none-elf-gcc $cflags -c programs/crt.s -o $abs_out_dir/crt.o",
+    command = cfg.toolchain_prefix .. "gcc $cflags -c programs/crt.s -o $abs_out_dir/crt.o",
     inputs = { "programs/crt.s" },
     vars = {
-        cflags = "-march=rv32im -mabi=ilp32 -Iprograms -g"
+        cflags = cfg.cflags_base,
     },
     outputs = {
         obj = "crt.o"
@@ -45,7 +59,7 @@ harness.add_tool({
     actions = {
         {
             name = "compile",
-            command = "riscv32-none-elf-gcc $cflags -c $in -o $obj",
+            command = cfg.toolchain_prefix .. "gcc $cflags -c $in -o $obj",
             inputs = {},
             outputs = {
                 { name = "obj", filename = "prog.o" }
@@ -53,7 +67,7 @@ harness.add_tool({
         },
         {
             name = "link",
-            command = "riscv32-none-elf-gcc $cflags -T $ld -nostdlib -Wl,-Map,$map $crt_obj $obj -o $elf",
+            command = cfg.toolchain_prefix .. "gcc $cflags -T $ld -nostdlib -Wl,-Map,$map $crt_obj $obj -o $elf",
             inputs = { "obj" },
             outputs = {
                 { name = "elf", filename = "prog.elf" },
@@ -62,7 +76,7 @@ harness.add_tool({
         },
         {
             name = "rom",
-            command = "riscv32-none-elf-objcopy -O verilog --verilog-data-width 16 " ..
+            command = cfg.toolchain_prefix .. "objcopy -O verilog --verilog-data-width 16 " ..
                       "--only-section=.text* " ..
                       "$elf $out_dir/rom.tmp && " ..
                       "cat $out_dir/rom.tmp | tr -s ' ' '\\n' | tr -d '\\r' > $rom && " ..
@@ -74,7 +88,7 @@ harness.add_tool({
         },
         {
             name = "sram",
-            command = "riscv32-none-elf-objcopy -O verilog --verilog-data-width 16 " ..
+            command = cfg.toolchain_prefix .. "objcopy -O verilog --verilog-data-width 16 " ..
                       "--only-section=.rodata* " ..
                       "--only-section=.data* " ..
                       "--only-section=.sdata* " ..
@@ -90,7 +104,7 @@ harness.add_tool({
         },
         {
             name = "mem",
-            command = "riscv32-none-elf-objcopy -O verilog --verilog-data-width 16 " ..
+            command = cfg.toolchain_prefix .. "objcopy -O verilog --verilog-data-width 16 " ..
                       "--only-section=.text* " ..
                       "--only-section=.rodata* " ..
                       "--only-section=.data* " ..
@@ -107,7 +121,7 @@ harness.add_tool({
         },
         {
             name = "dump",
-            command = "riscv32-none-elf-objdump -S $elf > $out_dir/prog.dump ",
+            command = cfg.toolchain_prefix .. "objdump -S $elf > $out_dir/prog.dump ",
             inputs = { "elf" },
             outputs = {
                 { name = "dump", filename = "prog.dump" }
@@ -152,7 +166,7 @@ harness.add_suite({
     tool = "riscv_gcc",
     plusargs = {},
     vars = {
-        cflags = cfg.cflags_base,
+        cflags = cfg.cflags_base .. "-O0",
         ld = "programs/link.ld",
         crt_obj = harness.abspath(crt.outputs.obj) 
     },
@@ -174,16 +188,11 @@ harness.add_simulator({
     name = "vsim",
     compile_rule = 
         "rm -rf $out_dir/work && " ..
-        
         "tools/vsim_container.sh " ..
         "\"vlog -sv -createlib -timescale \\\"1ns/1ps\\\" -work $out_dir/work -f $filelist -l $out_dir/compile.log\" && " ..
-        
         "echo '#!/bin/sh' > $out_dir/run_vsim && " ..
-        
         "echo 'exec tools/vsim_container.sh vsim -c -work $out_dir/work -do \"log -r /*; run -all; quit\" top_tb_wrapper \"$$@\"' >> $out_dir/run_vsim && " ..
-        
         "chmod +x $out_dir/run_vsim",
-
     outputs = {
         { name = "bin", filename = "run_vsim" }
     },
@@ -239,43 +248,49 @@ harness.add_testbench({
     sw_deps = {}
 })
 
--- Parameter set definitions
+local defines_base = {
+    DELAYER_LEN         = "5",
+    N_ENTRIES_SB        = "8",
+    N_ENTRIES_ROB       = "8",
+    DCACHE_STORE_POLICY = '"wb"',
+    XLEN                = "32",
+    MEM_SIZE_KB         = "2*1024",
+    CACHE_SETS          = "4",
+    CACHE_WAYS          = "4",
+}
+
 harness.add_param_set({
     name = "base",
-    defines = {
-        DELAYER_LEN = "5",
-        DCACHE_STORE_POLICY_WB = ""
-    },
+    defines = defines_base,
     plusargs = {},
     sim_templates = {}
 })
 
 harness.add_param_set({
     name = "base_wt",
-    defines = {
-        DELAYER_LEN = "5",
-        DCACHE_STORE_POLICY_WT = ""
-    },
+    defines = merge(defines_base, {
+        DCACHE_STORE_POLICY = '"wt"',
+    }),
     plusargs = {},
     sim_templates = {}
 })
 
 harness.add_param_set({
     name = "delayer_10",
-    defines = {
+    defines = merge(defines_base, {
         DELAYER_LEN = "10",
         DCACHE_STORE_POLICY_WB = "0"
-    },
+    }),
     plusargs = {},
     sim_templates = {}
 })
 
 harness.add_param_set({
     name = "delayer_1",
-    defines = {
+    defines = merge(defines_base, {
         DELAYER_LEN = "1",
         DCACHE_STORE_POLICY_WB = "0"
-    },
+    }),
     plusargs = {},
     sim_templates = {}
 })
@@ -339,7 +354,8 @@ harness.add_experiment({
 harness.add_experiment({
     name = "gandul-cosim",
     testbench = "gandul.cosim",
-    param_sets = { "base", "base_wt", "delayer_1", "delayer_10" },
+    param_sets = { "base", "base_wt" };
+    -- param_sets = { "base", "base_wt", "delayer_1", "delayer_10" },
     suites = { "isa" },
     simulators = { "verilator" }
 })

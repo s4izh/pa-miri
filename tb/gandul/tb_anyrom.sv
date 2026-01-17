@@ -1,3 +1,5 @@
+`include "harness_params.svh"
+
 module tb (
     input logic clk,
     input logic reset_n
@@ -5,11 +7,13 @@ module tb (
 
     parameter int DEFAULT_TIMEOUT_CYCLES = 1000;
 
-    parameter int XLEN = 32;
+    parameter int XLEN = `XLEN;
+
     parameter int MEM_ALEN = 12;
     parameter int MEM_DLEN = 128;
-    parameter int CACHE_WAYS = 4;
-    parameter int CACHE_SETS = 4;
+
+    parameter int CACHE_WAYS = `CACHE_WAYS;
+    parameter int CACHE_SETS = `CACHE_SETS;
 
     logic                mem_valid_o;
     logic [MEM_ALEN-1:0] mem_addr_o;

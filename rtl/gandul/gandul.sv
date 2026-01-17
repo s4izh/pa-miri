@@ -5,6 +5,8 @@ import alu_pkg::*;
 import rv_isa_pkg::*;
 import rob_pkg::*;
 
+`include "harness_params.svh"
+
 module gandul# (
     parameter int XLEN = 32,
     parameter int N_PHY_REG = 32,
@@ -46,6 +48,11 @@ module gandul# (
     // data mem interfacing
     dmem_if_in_t  dmem_if_in;
     dmem_if_out_t dmem_if_out;
+
+    // store buffer signals (allocation handshake between 2d and 4m)
+    logic       sb_full;
+    sbid_t      sb_alloc_idx;
+    logic       sb_alloc_en;
 
     // Hazard control
     // Detection
@@ -95,9 +102,18 @@ module gandul# (
     logic rob_can_commit_xcpt;
     assign rob_can_commit_xcpt = ~(waiting_for_memory_4m | ~icache_dreq_ready | ~rob_issue_rsp.ready);
 
-    assign stall_1f     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
-    assign stall_2d     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
-    assign stall_3e     = waiting_for_memory_4m | (~icache_dreq_ready & jump_or_branch_3e); // TOCHECK
+    logic stall_for_sb_full;
+    assign stall_for_sb_full = is_st_2d & sb_full;
+
+    // assign stall_1f     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
+    // assign stall_2d     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
+    // assign stall_3e     = waiting_for_memory_4m | (~icache_dreq_ready & jump_or_branch_3e); // TOCHECK
+    // assign stall_4m     = waiting_for_memory_4m;
+    // assign stall_muldiv = 0;
+
+    assign stall_1f     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready | stall_for_sb_full;
+    assign stall_2d     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready | stall_for_sb_full;
+    assign stall_3e     = waiting_for_memory_4m | (~icache_dreq_ready & jump_or_branch_3e); 
     assign stall_4m     = waiting_for_memory_4m;
     assign stall_muldiv = 0;
 
@@ -113,7 +129,6 @@ module gandul# (
     // Muldiv functional unit
     signals_muldiv_in_t  muldiv_input;
     signals_muldiv_out_t muldiv_output;
-
 
     // =========================================================================
     // = Reorder Buffer
@@ -149,7 +164,8 @@ module gandul# (
     // To stage_2d
     cam_rsp_t   rob_cam_rsp_rs2;
 
-    assign rob_issue_req.valid   = s_2d_d.valid | muldiv_input.valid; // & ~xcpt_illegal_ins
+    // assign rob_issue_req.valid   = s_2d_d.valid | muldiv_input.valid; // & ~xcpt_illegal_ins
+    assign rob_issue_req.valid   = (s_2d_d.valid | muldiv_input.valid) & ~stall_for_sb_full; // & ~xcpt_illegal_ins
     assign rob_issue_req.pc      = s_1f_q.pc;
     assign rob_issue_req.dbg_ins = muldiv_input.valid ? muldiv_input.ins : s_1f_q.ins;
     assign rob_issue_req.rd_we   = muldiv_input.valid ? 1 : s_2d_d.is_wb;
@@ -305,7 +321,9 @@ module gandul# (
         .rs2_addr_o(rs2_addr),
         .rs2_valid_o(rs2_valid),
         .is_st_o(is_st_2d),
-        .robid_i(rob_issue_rsp.robid)
+        .robid_i(rob_issue_rsp.robid),
+        .sb_alloc_idx_i(sb_alloc_idx),
+        .sb_alloc_en_o(sb_alloc_en)
     );
 
     decoupling_reg #(
@@ -369,7 +387,17 @@ module gandul# (
         // Trap
         .noop_i(noop_4m),
         .stall_i(stall_4m),
-        .waiting_for_memory_o(waiting_for_memory_4m)
+        .waiting_for_memory_o(waiting_for_memory_4m),
+        .flush_i(rob_trap_valid), 
+        
+        // SB Allocation (Connected to 2D)
+        .sb_alloc_en_i(sb_alloc_en), 
+        .sb_alloc_idx_o(sb_alloc_idx), 
+        .sb_full_o(sb_full),
+        
+        // SB Commit (From ROB)
+        .rob_commit_sb_valid_i(rob_commit_sb.valid), 
+        .rob_commit_sb_idx_i(rob_commit_sb.sbid)
     );
 
     decoupling_reg #(
@@ -478,6 +506,5 @@ module gandul# (
         .bypass_4m_3e_sel_o(bypass_4m_3e_sel),
         .fwd_unit_hazard_o(data_hazard)
     );
-
 endmodule
 

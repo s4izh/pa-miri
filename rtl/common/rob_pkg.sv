@@ -1,14 +1,10 @@
-package rob_pkg;
+`include "harness_params.svh"
 
-    // Parameters
-    `define XLEN          32
-    `define N_ENTRIES_ROB 8
-    `define N_ENTRIES_SB  8
+package rob_pkg;
+    import store_buffer_pkg::*; // for sbid_t
 
     // Basic ID types
     typedef logic[$clog2(`N_ENTRIES_ROB)-1:0] robid_t;
-    // TODO: use propper store buffer id when we have it
-    typedef logic[$clog2(`N_ENTRIES_SB)-1:0] sbid_t;
 
     // Issue interfaces types
     typedef struct packed {
