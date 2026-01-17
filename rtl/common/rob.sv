@@ -4,7 +4,7 @@ import store_buffer_pkg::*;
 
 module rob #(
     parameter int XLEN = `XLEN,
-    parameter int N_ENTRIES = `N_ENTRIES_ROB
+    parameter int N_ENTRIES = `ROB_N_ENTRIES
 ) (
     input logic clk,
     input logic reset_n,

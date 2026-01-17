@@ -4,7 +4,7 @@ package rob_pkg;
     import store_buffer_pkg::*; // for sbid_t
 
     // Basic ID types
-    typedef logic[$clog2(`N_ENTRIES_ROB)-1:0] robid_t;
+    typedef logic[$clog2(`ROB_N_ENTRIES)-1:0] robid_t;
 
     // Issue interfaces types
     typedef struct packed {

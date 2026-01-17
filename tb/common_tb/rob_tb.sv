@@ -5,8 +5,8 @@ module tb (
     input logic reset_n
 );
     // Parameters
-    localparam int XLEN = `XLEN;
-    localparam int N_ENTRIES = `N_ENTRIES_ROB;
+    localparam int XLEN = 32;
+    localparam int N_ENTRIES = 8;
 
     issue_req_t issue_req_i;
     issue_rsp_t issue_rsp_o;
