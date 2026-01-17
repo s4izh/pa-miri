@@ -158,7 +158,6 @@ module store_buffer #(
                         buffer[head_ptr].allocated <= 1'b0;
                         buffer[head_ptr].valid     <= 1'b0;
                         buffer[head_ptr].committed <= 1'b0;
-                        
                         head_ptr <= next_head;
 
                         // check if next entry is also ready to drain

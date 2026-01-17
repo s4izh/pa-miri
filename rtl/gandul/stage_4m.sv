@@ -94,7 +94,7 @@ module stage_4m #(
     // 2. Store Buffer Instance
     // -------------------------------------------------------------------------
     // Execution Update: Only write to SB if valid, not stalled, AND ALIGNED.
-    assign sb_ce    = pipe_store_valid & ~stall_i & ~addr_misaligned; 
+    assign sb_ce    = pipe_store_valid & ~stall_i & ~addr_misaligned;
     assign sb_idx   = _i.sbid;
     assign sb_addr  = _i.alu_result;
     assign sb_data  = _i.rs2_data;
@@ -143,23 +143,22 @@ module stage_4m #(
     );
 
     // Arbitration (Pipeline Load vs SB Drain)
+    logic ld_req_ready;
     logic ld_req_valid;
-    
-    always_comb begin
-        ld_req_valid = 0;
-        if (pipe_load_valid && !sb_stall && !sb_hit && !addr_misaligned) begin
-            ld_req_valid = 1;
-        end
-    end
+
+    assign ld_req_valid = pipe_load_valid & ~sb_stall & ~sb_hit & ~addr_misaligned;
 
     dcache_arbiter #(
         .XLEN(XLEN)
     ) internal_arbiter (
+        .clk,
+        .reset_n,
         // Priority 1: Pipeline Load
         .ld_req_valid_i (ld_req_valid),
         .ld_req_addr_i  (_i.alu_result),
         .ld_req_width_i (_i.memop_width),
-        
+        .ld_req_ready_o (ld_req_ready),
+
         // Priority 2: Store Buffer Drain
         .sb_req_valid_i (sb_dreq_valid),
         .sb_req_addr_i  (sb_dreq_addr),
@@ -228,7 +227,7 @@ module stage_4m #(
     // - SB Hazard: We need to wait for store data to arrive in buffer
     // - D$ Busy: We requested a load but D$ is handling refill or drain
     assign waiting_for_memory_o = (pipe_load_valid && !addr_misaligned && sb_stall) || 
-                                  (ld_req_valid && !dc_req_ready);
+                                  (ld_req_valid && !ld_req_ready);
 
     // Pipeline Register Outputs
     always_comb begin
