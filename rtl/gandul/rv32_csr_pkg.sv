@@ -4,7 +4,6 @@ package rv32_csr_pkg;
     localparam logic[11:0] CSR_ADDR_MHARTID  = 12'hF14;
 
     // Machine Trap Setup
-    localparam logic[11:0] CSR_ADDR_MSTATUS  = 12'h300;
     localparam logic[11:0] CSR_ADDR_MTVEC    = 12'h305;
 
     // Machine Trap Handling

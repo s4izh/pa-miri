@@ -12,7 +12,7 @@
 -f $(PROJ_DIR)/rtl/common/branch_predictor.f
 -f $(PROJ_DIR)/rtl/gandul/rv_decoder.f
 -f $(PROJ_DIR)/rtl/gandul/rv_datapath_pkg.f
--f $(PROJ_DIR)/rtl/gandul/rv32_csr.sv
+-f $(PROJ_DIR)/rtl/gandul/rv32_csr.f
 $(PROJ_DIR)/rtl/gandul/stage_2d.sv
 $(PROJ_DIR)/rtl/gandul/stage_3e.sv
 $(PROJ_DIR)/rtl/gandul/stage_4m.sv

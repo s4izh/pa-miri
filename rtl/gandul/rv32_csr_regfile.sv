@@ -14,8 +14,7 @@ module rv32_csr_regfile #(
     output logic [XLEN-1:0] write_data_i,
     // Exceptions
     output logic            xcpt_o,
-    // Core state and other control signals
-    output logic [XLEN-1:0] status_o,
+    // Control signals coming from csrs
     output logic [XLEN-1:0] trap_addr_o
 );
     logic [1:0] current_priv;
@@ -31,7 +30,6 @@ module rv32_csr_regfile #(
 
     assign current_priv = 2'b11;
 
-    assign status_o = csr_mstatus;
     assign trap_addr_o = csr_mtvec;
     assign xcpt_o = xcpt_read | xcpt_write;
 
@@ -39,10 +37,9 @@ module rv32_csr_regfile #(
     always_comb begin
         read_data_o = '0;
         xcpt_read = ~can_read(read_addr_i, current_priv);
-        if (~xcpt_read) begin // The read is not illegal
+        if (~xcpt_read) begin
             case (read_addr_i)
                 CSR_ADDR_MHARTID:  read_data_o = csr_mhartid;
-                CSR_ADDR_MSTATUS:  read_data_o = csr_mstatus;
                 CSR_ADDR_MTVEC:    read_data_o = csr_mtvec;
                 CSR_ADDR_MSCRATCH: read_data_o = csr_mscratch;
                 CSR_ADDR_MEPC:     read_data_o = csr_mepc;
