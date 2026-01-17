@@ -154,11 +154,41 @@ harness.add_suite({
     tool = "riscv_gcc",
     plusargs = {},
     vars = {
-        cflags = cfg.cflags_base,
+        cflags = cfg.cflags_base .. "-O0",
         ld = "programs/link.ld"
     },
     program_overrides = {},
     sw_deps = {}
+})
+
+harness.add_suite({
+    name = "benchmarks_O0",
+    base_dir = "programs/benchmarks",
+    pattern = "**/*.c",
+    tool = "riscv_gcc",
+    plusargs = {},
+    vars = {
+        cflags = cfg.cflags_base .. "-O0",
+        ld = "programs/link.ld",
+        crt_obj = harness.abspath(crt.outputs.obj) 
+    },
+    program_overrides = {},
+    sw_deps = { crt.outputs.obj } 
+})
+
+harness.add_suite({
+    name = "benchmarks_O1",
+    base_dir = "programs/benchmarks",
+    pattern = "**/*.c",
+    tool = "riscv_gcc",
+    plusargs = {},
+    vars = {
+        cflags = cfg.cflags_base .. "-O1",
+        ld = "programs/link.ld",
+        crt_obj = harness.abspath(crt.outputs.obj) 
+    },
+    program_overrides = {},
+    sw_deps = { crt.outputs.obj } 
 })
 
 harness.add_suite({
@@ -173,21 +203,6 @@ harness.add_suite({
     },
     program_overrides = {},
     sw_deps = {}
-})
-
-harness.add_suite({
-    name = "benchmarks",
-    base_dir = "programs/benchmarks",
-    pattern = "**/*.c",
-    tool = "riscv_gcc",
-    plusargs = {},
-    vars = {
-        cflags = cfg.cflags_base .. "-O0",
-        ld = "programs/link.ld",
-        crt_obj = harness.abspath(crt.outputs.obj) 
-    },
-    program_overrides = {},
-    sw_deps = { crt.outputs.obj } 
 })
 
 -- Simulator definitions
@@ -268,7 +283,7 @@ local defines_base = {
     DELAYER_LEN         = "5",
     SB_ENABLE           = "1",
     SB_N_ENTRIES        = "8",
-    SB_DRAIN_THRESHOLD  = "4",
+    SB_DRAIN_THRESHOLD  = "6",
     ROB_N_ENTRIES       = "8",
     DCACHE_STORE_POLICY = '"wb"',
     XLEN                = "32",
@@ -363,7 +378,7 @@ harness.add_experiment({
     name = "gandul-benchmarks",
     testbench = "gandul.anyrom",
     param_sets = { "base" },
-    suites = { "benchmarks" },
+    suites = { "benchmarks_O0" },
     simulators = { "verilator" }
 })
 
@@ -379,7 +394,8 @@ harness.add_experiment({
 harness.add_experiment({
     name = "gandul-cosim-benchmarks",
     testbench = "gandul.cosim",
-    param_sets = { "base", "base_wt", "delayer_1", "delayer_10" },
-    suites = { "benchmarks" },
+    param_sets = { "base" };
+    -- param_sets = { "base", "base_wt", "delayer_1", "delayer_10" },
+    suites = { "benchmarks_O0", "benchmarks_O1" },
     simulators = { "verilator" }
 })
