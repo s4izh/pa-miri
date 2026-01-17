@@ -55,7 +55,8 @@ module dcache_arbiter #(
         case (state)
             IDLE: begin
                 if (ld_req_valid_i) begin
-                    next_state = SERVING_LD;
+                    if (~dc_ready_i)
+                        next_state = SERVING_LD;
                     dc_valid_o = 1;
                     dc_we_o    = 0;
                     dc_addr_o  = ld_req_addr_i;
@@ -63,7 +64,8 @@ module dcache_arbiter #(
                     ld_req_ready_o = dc_ready_i;
                     sb_req_ready_o = 0;
                 end else if (sb_req_valid_i) begin
-                    next_state = SERVING_SB;
+                    if(~dc_ready_i)
+                        next_state = SERVING_SB;
                     dc_valid_o = 1;
                     dc_we_o    = 1;
                     dc_addr_o  = sb_req_addr_i;
