@@ -22,6 +22,22 @@ local function merge(...)
     return result
 end
 
+local function dump(o, indent)
+    indent = indent or 0
+    local spacing = string.rep("  ", indent)
+
+    if type(o) == 'table' then
+        local s = '{\n'
+        for k, v in pairs(o) do
+            if type(k) ~= 'number' then k = '"'..k..'"' end
+            s = s .. spacing .. "  [" .. k .. "] = " .. dump(v, indent + 1) .. ",\n"
+        end
+        return s .. spacing .. '}'
+    else
+        return tostring(o)
+    end
+end
+
 local cfg = {
     cflags_base = "-march=rv32im -mabi=ilp32 -Iprograms -g ",
     toolchain_prefix = "riscv32-none-elf-"
@@ -250,7 +266,9 @@ harness.add_testbench({
 
 local defines_base = {
     DELAYER_LEN         = "5",
-    N_ENTRIES_SB        = "8",
+    SB_ENABLE           = "1",
+    SB_N_ENTRIES        = "8",
+    SB_DRAIN_THRESHOLD  = "1",
     N_ENTRIES_ROB       = "8",
     DCACHE_STORE_POLICY = '"wb"',
     XLEN                = "32",
@@ -279,7 +297,6 @@ harness.add_param_set({
     name = "delayer_10",
     defines = merge(defines_base, {
         DELAYER_LEN = "10",
-        DCACHE_STORE_POLICY_WB = "0"
     }),
     plusargs = {},
     sim_templates = {}
@@ -289,7 +306,6 @@ harness.add_param_set({
     name = "delayer_1",
     defines = merge(defines_base, {
         DELAYER_LEN = "1",
-        DCACHE_STORE_POLICY_WB = "0"
     }),
     plusargs = {},
     sim_templates = {}

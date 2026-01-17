@@ -2,6 +2,8 @@ import rv_datapath_pkg::*;
 import store_buffer_pkg::*;
 import rob_pkg::*; 
 
+`include "harness_params.svh"
+
 module stage_4m #(
     parameter int XLEN = 32,
     parameter int WAYS = 4,
@@ -98,10 +100,7 @@ module stage_4m #(
     assign sb_data  = _i.rs2_data;
     assign sb_width = _i.memop_width;
 
-    store_buffer #(
-        .DEPTH(8),
-        .DRAIN_THRESHOLD(4)
-    ) sb (
+    store_buffer sb_inst (
         .clk(clk),
         .reset_n(reset_n),
 

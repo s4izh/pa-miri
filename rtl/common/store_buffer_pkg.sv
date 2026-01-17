@@ -4,7 +4,7 @@
 `include "harness_params.svh"
 
 package store_buffer_pkg;
-    typedef logic[$clog2(`N_ENTRIES_SB)-1:0] sbid_t;
+    typedef logic[$clog2(`SB_N_ENTRIES)-1:0] sbid_t;
 endpackage
 
 `endif

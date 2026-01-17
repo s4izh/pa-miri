@@ -7,9 +7,9 @@ import store_buffer_pkg::*;
 import memory_controller_pkg::*;
 
 module store_buffer #(
-    parameter int XLEN = 32,
-    parameter int DEPTH = 8,
-    parameter int DRAIN_THRESHOLD = 6
+    parameter int XLEN = `XLEN,
+    parameter int DEPTH = `SB_N_ENTRIES,
+    parameter int DRAIN_THRESHOLD = `SB_DRAIN_THRESHOLD
 ) (
     input logic clk,
     input logic reset_n,
