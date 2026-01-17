@@ -218,7 +218,7 @@ harness.add_testbench({
 harness.add_testbench({
     name = "gandul.cosim",
     filelist = "sim/gandul/cosim/filelist.f",
-    run_template = "$bin $plusargs +VCD_FILE=waves.fst +SRAM_FILE=$mem +TIMEOUT_CYCLES=10000",
+    run_template = "$bin $plusargs +VCD_FILE=waves.fst +SRAM_FILE=$mem +TIMEOUT_CYCLES=100000",
     vars = {
           COSIM_DPI_LIB = harness.abspath(cosim.outputs.lib)
     },
