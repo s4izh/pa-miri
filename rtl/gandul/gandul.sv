@@ -76,6 +76,16 @@ module gandul# (
     logic icache_dreq_ready;
     logic [XLEN-1:0] icache_drsp_data;
 
+    // branch predictor signals
+    logic [XLEN-1:0] bp_pred_target;
+    logic            bp_pred_taken;
+    
+    logic            is_control_3e; // is instruction in EX a control flow?
+    logic            branch_real_taken_3e; // actual outcome in EX
+    logic [XLEN-1:0] branch_real_target_3e;// actual target in EX
+    logic            misprediction;   // did we mess up?
+    logic            flush_pipeline;  // flush signal
+
     // are we jumping or branching in the execute stage?
     logic jump_or_branch_3e;
     assign jump_or_branch_3e = (taken_branch || pc_sel[1]) && s_2d_q.valid;
@@ -86,21 +96,30 @@ module gandul# (
     logic trap_valid_1f, trap_valid_2d;
 
     // TODO: change all of this for rob outputs
-    assign trap_valid_1f = xcpt_icache & s_1f_d.valid & ~jump_or_branch_3e;
-    assign trap_valid_2d = xcpt_illegal_ins & s_1f_q.valid & ~jump_or_branch_3e;
+    // assign trap_valid_1f = xcpt_icache & s_1f_d.valid & ~jump_or_branch_3e;
+    // assign trap_valid_2d = xcpt_illegal_ins & s_1f_q.valid & ~jump_or_branch_3e;
+
+    // Use icache_dreq_ready directly to break loop through s_1f_d
+    assign trap_valid_1f = xcpt_icache & icache_dreq_ready & ~flush_pipeline & ~pending_jump_valid;
+    assign trap_valid_2d = xcpt_illegal_ins & s_1f_q.valid & ~flush_pipeline & ~pending_jump_valid;
 
     assign rob_trap_valid = rob_commit.valid & rob_commit.xcpt;
     assign frontend_trap_valid = trap_valid_1f | trap_valid_2d;
 
-    assign noop_1f     = jump_or_branch_3e | frontend_trap_valid | rob_trap_valid;
-    assign noop_2d     = jump_or_branch_3e | frontend_trap_valid | rob_trap_valid;
+    // inject a noop on 1f and 2d if we have a pending jump
+    // a jump is pending if we were doing a request to icache while
+    // the pc changed, this means the fetched ins isn't the one we wanted to
+    // go, so we propagate a nop down the pipeline
+    assign noop_1f     = flush_pipeline | frontend_trap_valid | rob_trap_valid | pending_jump_valid;
+    assign noop_2d     = flush_pipeline | frontend_trap_valid | rob_trap_valid | pending_jump_valid;
     assign noop_3e     = rob_trap_valid;
     assign noop_4m     = rob_trap_valid;
     assign noop_5w     = rob_trap_valid;
     assign noop_muldiv = rob_trap_valid;
 
     logic rob_can_commit_xcpt;
-    assign rob_can_commit_xcpt = ~(waiting_for_memory_4m | ~icache_dreq_ready | ~rob_issue_rsp.ready);
+    // assign rob_can_commit_xcpt = ~(waiting_for_memory_4m | ~icache_dreq_ready | ~rob_issue_rsp.ready);
+    assign rob_can_commit_xcpt = ~(waiting_for_memory_4m | ~rob_issue_rsp.ready);
 
     logic stall_for_sb_full;
     assign stall_for_sb_full = is_st_2d & sb_full;
@@ -113,7 +132,8 @@ module gandul# (
 
     assign stall_1f     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready | stall_for_sb_full;
     assign stall_2d     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready | stall_for_sb_full;
-    assign stall_3e     = waiting_for_memory_4m | (~icache_dreq_ready & jump_or_branch_3e);
+    // assign stall_3e     = waiting_for_memory_4m | (~icache_dreq_ready & jump_or_branch_3e);
+    assign stall_3e     = waiting_for_memory_4m;
     assign stall_4m     = waiting_for_memory_4m;
     assign stall_muldiv = 0;
 
@@ -217,28 +237,63 @@ module gandul# (
     // =========================================================================
     // = Stage 1: Fetch
     // =========================================================================
+
+    logic            req_jump_valid;
+    logic [XLEN-1:0] req_jump_target;
+
+    always_comb begin
+        req_jump_valid  = 0;
+        req_jump_target = '0;
+        
+        if (rob_trap_valid) begin
+            req_jump_valid = 1;
+            req_jump_target = 'h2000;
+        end 
+        else if (flush_pipeline) begin
+            req_jump_valid = 1;
+            if (is_control_3e) req_jump_target = branch_real_target_3e;
+            else               req_jump_target = s_3e_d.pc + 4;
+        end
+        else if (frontend_trap_valid) begin
+            req_jump_valid  = 1;
+            req_jump_target = 'h2000;
+        end
+    end
+
+    // buffer jump if an icache request is running 
+    logic            pending_jump_valid;
+    logic [XLEN-1:0] pending_jump_target;
+
+    always_ff @(posedge clk) begin
+        if (!reset_n) begin
+            pending_jump_valid <= 0;
+            pending_jump_target <= '0;
+        end else begin
+            if (icache_dreq_ready) begin
+                pending_jump_valid <= 0;
+            end else if (req_jump_valid) begin
+                pending_jump_valid <= 1;
+                pending_jump_target <= req_jump_target;
+            end
+        end
+    end
+
     // pc
     always @(posedge clk) begin
         if (!reset_n) begin
             pc <= 'h1000;
         end else begin
-            if (frontend_trap_valid | rob_trap_valid) begin
-                pc <= 'h2000;
-            end else begin
-                if (!stall_1f) begin
-                    case (pc_sel)
-                        MUX_PC_NEXT:
-                            pc <= pc + 4;
-                        MUX_PC_BRANCH:
-                            if (taken_branch)
-                                pc <= s_3e_d.alu_result;
-                            else
-                                pc <= pc + 4;
-                        MUX_PC_JAL:
-                            pc <= s_3e_d.alu_result;
-                        MUX_PC_JALR:
-                            pc <= {s_3e_d.alu_result[31:1], 1'b0};
-                    endcase
+            if (icache_dreq_ready) begin
+                if (pending_jump_valid) begin
+                    pc <= pending_jump_target;
+                end else if (req_jump_valid) begin
+                    pc <= req_jump_target;
+                end else if (!stall_1f) begin
+                    if (bp_pred_taken) begin
+                        pc <= bp_pred_target;
+                    end else begin
+                        pc <= pc + 4;
+                    end
                 end
             end
         end
@@ -269,13 +324,17 @@ module gandul# (
     );
 
     // pipeline
-    assign s_1f_d.valid = icache_dreq_ready;
-    assign s_1f_d.pc = pc;
     always_comb begin
+        s_1f_d.valid = icache_dreq_ready;
+        s_1f_d.pc = pc;
+        s_1f_d.pred_target = bp_pred_target;
+
         if (noop_1f | stall_1f) begin
             s_1f_d.ins = 32'h00000033; // noop (add x0, x0, x0)
+            s_1f_d.pred_taken = 0;
         end else begin
-            s_1f_d.ins = icache_drsp_data;
+            s_1f_d.ins        = icache_drsp_data;
+            s_1f_d.pred_taken = bp_pred_taken; // Use BP output
         end
     end
 
@@ -471,6 +530,9 @@ module gandul# (
         end
     end
 
+    logic [XLEN-1:0] fwd_data_3e;
+    assign fwd_data_3e = (s_3e_d.wb_sel == MUX_WB_PC_NEXT) ? s_3e_d.pc + 4 : s_3e_d.alu_result;
+
     fwd_unit #(
         .XLEN(XLEN)
     ) fwd_unit_inst (
@@ -480,16 +542,16 @@ module gandul# (
         .rs2_valid_2d_i(rs2_valid),
         .is_st_2d_i(is_st_2d),
         // stage 3 inputs
-        .valid_3e_i(s_2d_q.valid),
+        .valid_3e_i(s_3e_d.valid),
         .rd_3e_i(s_3e_d.rd_addr),
         .rd_is_wb_3e_i(s_3e_d.is_wb & s_3e_d.valid & (s_3e_d.ins != 32'h00000033)),
         .is_ld_3e_i(s_3e_d.is_ld),
-        .data_3e_i(s_3e_d.alu_result), // I think that if 3E is PC_NEXT (JAL), this is wrong
+        .data_3e_i(fwd_data_3e),
         .robid_3e_i(s_3e_d.robid),
         // stage 4 inputs
         .rd_4m_i(s_4m_d.rd_addr),
         .rd_is_wb_4m_i(s_4m_d.is_wb & s_4m_d.valid & (s_4m_d.ins != 32'h00000033)),
-        .data_4m_i(fwd_data_4m), // TODO: proper mux this in stage 4
+        .data_4m_i(fwd_data_4m),
         .robid_4m_i(s_4m_d.robid),
         // stage 5 inputs
         .rd_5w_i(s_5w_d.rd_addr),
@@ -507,5 +569,74 @@ module gandul# (
         .bypass_4m_3e_sel_o(bypass_4m_3e_sel),
         .fwd_unit_hazard_o(data_hazard)
     );
+
+    localparam string _BP_ENABLE = `BP_ENABLE;
+
+    generate
+        if (_BP_ENABLE == "yes") begin
+            branch_predictor bp_inst (
+                .clk(clk),
+                .reset_n(reset_n),
+                // 1f interface
+                .req_pc_i(pc),
+                .pred_taken_o(bp_pred_taken),
+                .pred_target_o(bp_pred_target),
+                // 3e interface
+                .upd_valid_i(is_control_3e && s_3e_d.valid), 
+                .upd_pc_i(s_3e_d.pc),
+                .upd_taken_i(branch_real_taken_3e),
+                .upd_target_i(branch_real_target_3e),
+                .upd_is_cond_i(pc_sel == MUX_PC_BRANCH) 
+            );
+        end 
+        else begin
+            assign bp_pred_taken  = 1'b0;
+            assign bp_pred_target = '0;
+        end
+    endgenerate
+
+    assign is_control_3e = (pc_sel != MUX_PC_NEXT);
+
+    always_comb begin
+        branch_real_taken_3e = 1'b0;
+        branch_real_target_3e = s_3e_d.pc + 4; 
+
+        case (pc_sel)
+            MUX_PC_BRANCH: begin 
+                branch_real_taken_3e = taken_branch;
+                if (taken_branch) branch_real_target_3e = s_3e_d.alu_result;
+            end
+            MUX_PC_JAL, MUX_PC_JALR: begin
+                branch_real_taken_3e = 1'b1;
+                if (pc_sel == MUX_PC_JALR) 
+                    branch_real_target_3e = {s_3e_d.alu_result[31:1], 1'b0};
+                else 
+                    branch_real_target_3e = s_3e_d.alu_result;
+            end
+            default: ;
+        endcase
+    end
+
+    // detect misprediction
+    always_comb begin
+        misprediction = 1'b0;
+        if (s_3e_d.valid) begin
+            if (is_control_3e) begin
+                // direction mismatch
+                if (s_3e_d.pred_taken != branch_real_taken_3e) 
+                    misprediction = 1'b1;
+                // target mismatch (if taken)
+                else if (s_3e_d.pred_taken && (s_3e_d.pred_target != branch_real_target_3e)) 
+                    misprediction = 1'b1;
+            end else begin
+                // aliasing (predicted taken on non-control instr)
+                // We must flush and redirect to the correct next sequential PC
+                if (s_3e_d.pred_taken) misprediction = 1'b1;
+            end
+        end
+    end
+
+    assign flush_pipeline = misprediction;
+
 endmodule
 

@@ -39,6 +39,9 @@ package rv_datapath_pkg;
         logic                  valid;
         logic [`INS_WIDTH-1:0] ins;
         logic [`XLEN-1:0]      pc;
+
+        logic                  pred_taken;
+        logic [`XLEN-1:0]      pred_target;
     } signals_fetch_t;
 
     typedef struct packed {
@@ -75,6 +78,9 @@ package rv_datapath_pkg;
 
         // PC
         logic [`XLEN-1:0] pc;
+
+        logic             pred_taken;
+        logic [`XLEN-1:0] pred_target;
     } signals_decode_t;
 
     typedef struct packed {
@@ -100,6 +106,9 @@ package rv_datapath_pkg;
 
         // PC
         logic [`XLEN-1:0] pc;
+
+        logic             pred_taken;
+        logic [`XLEN-1:0] pred_target;
     } signals_execute_t;
 
     typedef struct packed {

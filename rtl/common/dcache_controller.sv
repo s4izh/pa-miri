@@ -41,7 +41,7 @@ module dcache_controller #(
     assign word_offset = dreq_addr_i[OFFSET_WORDS+OFFSET_BYTES-1:OFFSET_BYTES];
 
     assign creq_valid_o = dreq_valid_i & ~xcpt_misaligned;
-    assign creq_we_o    = dreq_valid_i & dreq_we_i;
+    assign creq_we_o    = dreq_valid_i & dreq_we_i & ~xcpt_misaligned;
     assign creq_addr_o  = {dreq_addr_i[XLEN-1:OFFSET_BYTES+OFFSET_WORDS],4'b0000};
     assign drsp_xcpt_o  = dreq_valid_i & xcpt_misaligned;
 

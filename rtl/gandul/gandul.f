@@ -9,6 +9,7 @@
 -f $(PROJ_DIR)/rtl/common/memory_arbitrer.f
 -f $(PROJ_DIR)/rtl/common/dcache_arbitrer.f
 -f $(PROJ_DIR)/rtl/common/rob.f
+-f $(PROJ_DIR)/rtl/common/branch_predictor.f
 -f $(PROJ_DIR)/rtl/gandul/rv_decoder.f
 -f $(PROJ_DIR)/rtl/gandul/rv_datapath_pkg.f
 $(PROJ_DIR)/rtl/gandul/stage_2d.sv

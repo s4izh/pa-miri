@@ -283,6 +283,8 @@ local defines_base = {
     DELAYER_LEN         = "5",
     SB_N_ENTRIES        = "8",
     SB_DRAIN_THRESHOLD  = "6",
+    BP_ENABLE           = '"no"',
+    BP_N_ENTRIES        = "64",
     ROB_N_ENTRIES       = "8",
     DCACHE_STORE_POLICY = '"wb"',
     XLEN                = "32",
@@ -294,6 +296,15 @@ local defines_base = {
 harness.add_param_set({
     name = "base",
     defines = defines_base,
+    plusargs = {},
+    sim_templates = {}
+})
+
+harness.add_param_set({
+    name = "base_bp",
+    defines = merge(defines_base, {
+        BP_ENABLE = '"yes"',
+    }),
     plusargs = {},
     sim_templates = {}
 })
@@ -311,7 +322,7 @@ harness.add_param_set({
     name = "sb_drain_1_wt",
     defines = merge(defines_base, {
         DCACHE_STORE_POLICY = '"wt"',
-        SB_DRAIN_THRESHOLD  = "6",
+        SB_DRAIN_THRESHOLD  = "1",
     }),
     plusargs = {},
     sim_templates = {}
@@ -321,7 +332,7 @@ harness.add_param_set({
     name = "sb_drain_1_wb",
     defines = merge(defines_base, {
         DCACHE_STORE_POLICY = '"wb"',
-        SB_DRAIN_THRESHOLD  = "6",
+        SB_DRAIN_THRESHOLD  = "1",
     }),
     plusargs = {},
     sim_templates = {}
@@ -419,11 +430,19 @@ harness.add_experiment({
 })
 
 harness.add_experiment({
+    name = "gandul-cosim-bp",
+    testbench = "gandul.cosim",
+    param_sets = { "base_less_mem" },
+    suites = { "isa" },
+    simulators = { "verilator" }
+})
+
+harness.add_experiment({
     name = "gandul-cosim-benchmarks",
     testbench = "gandul.cosim",
-    param_sets = { "base" };
+    param_sets = { "base", "base_bp" };
     -- suites = { "benchmarks_O0", "benchmarks_O1" },
-    suites = { "benchmarks_O1" },
+    suites = { "benchmarks_O0" },
     simulators = { "verilator" }
 })
 

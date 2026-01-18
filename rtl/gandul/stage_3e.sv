@@ -67,6 +67,9 @@ module stage_3e #(
     `PROPAGATE(sbid);
     `PROPAGATE(is_fence);
 
+    `PROPAGATE(pred_taken);
+    `PROPAGATE(pred_target);
+
     assign _o.rs2_data = (_i.bypass_4m_3e_sel) ? bypass_4m_3e_data_i : _i.rs2_data;
 
     // Outputs

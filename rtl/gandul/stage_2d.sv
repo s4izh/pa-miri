@@ -92,6 +92,9 @@ module stage_2d #(
             // muldiv fu
             _o_muldiv.valid = 0;
             _o_muldiv.ins   = 32'h00000033; // noop (add x0, x0, x0)
+
+            _o.pred_taken   = 0;
+            _o.pred_target  = 0;
         end else if (is_muldiv) begin
             // ISSUE MULDIV
             // alumem fu
@@ -103,6 +106,9 @@ module stage_2d #(
             // muldiv fu
             _o_muldiv.valid = _i.valid;
             _o_muldiv.ins   = _i.ins;
+
+            _o.pred_taken   = _i.pred_taken;
+            _o.pred_target  = _i.pred_target;
         end else begin
             // ISSUE ALUMEM
             // alumem fu
@@ -114,6 +120,9 @@ module stage_2d #(
             // muldiv fu
             _o_muldiv.valid = 0;
             _o_muldiv.ins   = 32'h00000033; // noop (add x0, x0, x0)
+
+            _o.pred_taken   = _i.pred_taken;
+            _o.pred_target  = _i.pred_target;
         end
     end
 
