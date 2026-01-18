@@ -105,8 +105,8 @@
 
 .macro write_tohost_success
     check_all_registers
-    shift_30_registers_right
-    shift_30_registers_left
+    # shift_30_registers_right
+    # shift_30_registers_left
     li t0, 0
     sw t0, -4(zero)
     fence
@@ -114,8 +114,8 @@
 
 .macro write_tohost_failure
     check_all_registers
-    shift_registers_right
-    shift_registers_left
+    # shift_registers_right
+    # shift_registers_left
     li t0, 1
     sw t0, -4(zero)
     fence
@@ -123,8 +123,8 @@
 
 .macro check_test
     check_all_registers
-    shift_30_registers_right
-    shift_30_registers_left
+    # shift_30_registers_right
+    # shift_30_registers_left
 .endm
 
 .endif
