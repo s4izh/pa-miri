@@ -1,6 +1,6 @@
-import rv32_csr_pkg::*;
+import csr_pkg::*;
 
-module rv32_csr_regfile #(
+module csr_regfile #(
     parameter int XLEN = 32
 ) (
     input logic clk,
@@ -21,7 +21,6 @@ module rv32_csr_regfile #(
     logic xcpt_write, xcpt_read;
     // CSRs
     logic [XLEN-1:0] csr_mhartid;
-    logic [XLEN-1:0] csr_mstatus;
     logic [XLEN-1:0] csr_mtvec;
     logic [XLEN-1:0] csr_mscratch;
     logic [XLEN-1:0] csr_mepc;
