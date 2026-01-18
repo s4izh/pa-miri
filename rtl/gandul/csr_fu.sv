@@ -1,4 +1,4 @@
-import csr_pkg::*;
+import rv_datapath_pkg::*;
 
 module csr_fu #(
     parameter int XLEN = 32

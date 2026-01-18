@@ -41,6 +41,10 @@ module rv_decoder #(
     output logic             is_muldiv_o,
     output muldiv_op_e       muldiv_op_o,
 
+    // TODO
+    output logic             is_csr_o,
+    output csr_op_e          csr_op_o,
+
     output logic             is_fence_o
 );
     logic [6:0] opcode;

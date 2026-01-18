@@ -10,8 +10,9 @@ module stage_2d #(
     input logic reset_n,
     // Pipeline input/output
     input  signals_fetch_t         _i,
-    output signals_decode_t        _o,
+    output signals_decode_t        _o_alumem,
     output signals_muldiv_in_t     _o_muldiv,
+    output signals_csr_in_t     _o_csr,
     // Write-back
     input logic                    rd_we_i,
     input logic [$clog2(NREG)-1:0] rd_addr_i,
@@ -40,7 +41,7 @@ module stage_2d #(
 );
 
     logic [$clog2(NREG)-1:0] rs1_addr, rs2_addr;
-    logic is_wb, is_st, is_muldiv;
+    logic is_wb, is_st, is_muldiv, is_csr;
     mux_pc_sel_e pc_sel;
     logic [XLEN-1:0] rf_rs1_data, rf_rs2_data;
     logic noop_q;
@@ -76,13 +77,16 @@ module stage_2d #(
     assign _o_muldiv.rs2   = (bypass_rs2_sel_i == '1) ? bypass_rs2_data_i : rf_rs2_data;
     assign _o_muldiv.robid = robid_i;
 
+    // CSR
+    // TODO
+
     // STORE BUFFER
     assign _o.sbid       = sb_alloc_idx_i;
     assign sb_alloc_en_o = _i.valid & is_st & ~stall_i & ~noop_i & ~noop_q;
 
     always_comb begin
         if ((noop_i | noop_q | stall_i)) begin
-            // NOOP BOTH WAYS
+            // NOOP ALL WAYS
             // alumem fu
             _o.valid        = 0;
             _o.is_wb        = 0;
@@ -92,7 +96,10 @@ module stage_2d #(
             // muldiv fu
             _o_muldiv.valid = 0;
             _o_muldiv.ins   = 32'h00000033; // noop (add x0, x0, x0)
-
+            // csr fu
+            _o_csr.valid    = 0;
+            _o_csr.ins      = 32'h00000033; // noop (add x0, x0, x0)
+            // branch predictor control
             _o.pred_taken   = 0;
             _o.pred_target  = 0;
         end else if (is_muldiv) begin
@@ -106,7 +113,27 @@ module stage_2d #(
             // muldiv fu
             _o_muldiv.valid = _i.valid;
             _o_muldiv.ins   = _i.ins;
-
+            // csr fu
+            _o_csr.valid    = 0;
+            _o_csr.ins      = 32'h00000033; // noop (add x0, x0, x0)
+            // branch predictor cotnrol
+            _o.pred_taken   = _i.pred_taken;
+            _o.pred_target  = _i.pred_target;
+        end else if (is_csr) begin
+            // ISSUE MULDIV
+            // alumem fu
+            _o.valid        = 0;
+            _o.is_wb        = 0;
+            _o.is_st        = 0;
+            _o.pc_sel       = MUX_PC_NEXT;
+            _o.ins          = 32'h00000033; // noop (add x0, x0, x0)
+            // muldiv fu
+            _o_muldiv.valid = 0;
+            _o_muldiv.ins   = 32'h00000033; // noop (add x0, x0, x0)
+            // csr fu
+            _o_csr.valid    = _i.valid;
+            _o_csr.ins      = _i.ins;
+            // branch predictor control
             _o.pred_taken   = _i.pred_taken;
             _o.pred_target  = _i.pred_target;
         end else begin
@@ -120,7 +147,10 @@ module stage_2d #(
             // muldiv fu
             _o_muldiv.valid = 0;
             _o_muldiv.ins   = 32'h00000033; // noop (add x0, x0, x0)
-
+            // csr fu
+            _o_csr.valid    = 0;
+            _o_csr.ins      = 32'h00000033; // noop (add x0, x0, x0)
+            // branch predictor control
             _o.pred_taken   = _i.pred_taken;
             _o.pred_target  = _i.pred_target;
         end
@@ -156,6 +186,10 @@ module stage_2d #(
 
         .is_muldiv_o(is_muldiv),
         .muldiv_op_o(_o_muldiv.op),
+
+        .is_csr_o(is_csr),
+        .csr_op_o(_o_csr.csr_op),
+
         .is_fence_o(_o.is_fence)
     );
 

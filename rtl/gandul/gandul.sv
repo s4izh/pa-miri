@@ -116,6 +116,7 @@ module gandul# (
     assign noop_4m     = rob_trap_valid;
     assign noop_5w     = rob_trap_valid;
     assign noop_muldiv = rob_trap_valid;
+    assign noop_csrfu  = rob_trap_valid;
 
     logic rob_can_commit_xcpt;
     // assign rob_can_commit_xcpt = ~(waiting_for_memory_4m | ~icache_dreq_ready | ~rob_issue_rsp.ready);
@@ -136,6 +137,7 @@ module gandul# (
     assign stall_3e     = waiting_for_memory_4m;
     assign stall_4m     = waiting_for_memory_4m;
     assign stall_muldiv = 0;
+    assign stall_csrfu  = 0;
 
     // Data memory interface
     assign dmem_if_in.valid = dmem_valid_i;
@@ -149,6 +151,10 @@ module gandul# (
     // Muldiv functional unit
     signals_muldiv_in_t  muldiv_input;
     signals_muldiv_out_t muldiv_output;
+
+    // CSR functional unit
+    signals_csr_in_t     csr_input;
+    signals_csr_out_t    csr_output;
 
     // =========================================================================
     // = Reorder Buffer
@@ -361,6 +367,7 @@ module gandul# (
         ._i(s_1f_q),
         ._o(s_2d_d),
         ._o_muldiv(muldiv_input),
+        ._o_csr(csr_input),
         // Write-back
         .rd_we_i(rob_commit_rf.rd_we),
         .rd_addr_i(rob_commit_rf.rd_addr),
@@ -514,6 +521,21 @@ module gandul# (
         ._o(muldiv_output),
         .noop_i(noop_muldiv),
         .stall_i(stall_muldiv)
+    );
+
+    // =========================================================================
+    // = CSR operations Functional Unit
+    // =========================================================================
+
+    csr_fu #(
+        .XLEN(XLEN)
+    ) csr_fu_inst (
+        .clk,
+        .reset_n,
+        ._i(csr_input),
+        ._o(csr_output),
+        .noop_i(noop_csrfu),
+        .stall_i(stall_csrfu)
     );
 
     // =========================================================================
