@@ -49,7 +49,7 @@ module tlb_direct_mapped#(
     assign index_tw = vaddr_tw_i[OFFSET_WIDTH +: INDEX_WIDTH];
     assign offset_tw = vaddr_tw_i[0 +: OFFSET_WIDTH];
 
-    always_ff @(posedge clk or negedge reset_n) begin
+    always_ff @(posedge clk) begin
         if (!reset_n) begin
             for (int i = 0; i < NUM_ENTRIES; i++) begin
                 tlb[i].valid <= 0;

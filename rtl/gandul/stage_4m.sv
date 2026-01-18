@@ -13,27 +13,26 @@ module stage_4m #(
     input logic clk,
     input logic reset_n,
     
-    // --- Pipeline input/output ---
+    // pipeline input/output
     input  signals_execute_t _i,
     output signals_memory_t  _o,
     
-    // --- Trap/Control ---
-    input logic          stall_i,
-    input logic          noop_i,
+    // trap/control
+    input  logic         stall_i,
+    input  logic         noop_i,
     output logic         waiting_for_memory_o,
-    input logic          flush_i, 
+    input  logic         flush_i, 
     
-    // --- Store Buffer Allocation (Back-pressure to Stage 2D) ---
-    // Note: 'en' comes from 2D, 'idx' and 'full' go TO 2D
+    // store buffer allocation (from Stage 2D)
     input  logic         sb_alloc_en_i,
     output sbid_t        sb_alloc_idx_o,
     output logic         sb_full_o,
     
-    // --- Store Buffer Commit (Interface with ROB) ---
+    // store buffer commit (interface with ROB)
     input  logic         rob_commit_sb_valid_i,
     input  sbid_t        rob_commit_sb_idx_i,
 
-    // --- Memory Refill Interface (To SoC/Arbitrer) ---
+    // memory refill interface
     output dmem_if_out_t dmem_o,
     input  dmem_if_in_t  dmem_i
 );
@@ -47,7 +46,7 @@ module stage_4m #(
     logic pipe_store_valid;
     logic addr_misaligned;
 
-    // Store Buffer Signals (Internal)
+    // store buffer signals
     logic            sb_ce;
     sbid_t           sb_idx;
     logic [XLEN-1:0] sb_addr, sb_data;
@@ -56,25 +55,22 @@ module stage_4m #(
     logic [XLEN-1:0] sb_fwd_data;
     logic            sb_empty; 
     
-    // Drain Signals (SB -> Arbiter)
+    // drain signals (SB -> Arbiter)
     logic            sb_dreq_valid, sb_dreq_ready;
     logic [XLEN-1:0] sb_dreq_addr, sb_dreq_data;
     logic            sb_dreq_we;
     memop_width_e    sb_dreq_width;
 
-    // Arbiter -> Cache Signals (Internal)
+    // arbiter -> cache signals (Internal)
     logic             dc_req_valid, dc_req_ready;
     logic [XLEN-1:0]  dc_req_addr, dc_req_data;
     logic             dc_req_we;
     memop_width_e     dc_req_width;
 
-    // Cache -> Stage Signals (Internal)
+    // cache -> stage signals (Internal)
     logic [XLEN-1:0]  dc_rsp_data;
     logic             dc_rsp_xcpt;
 
-    // -------------------------------------------------------------------------
-    // 1. Control Signals & Alignment Check
-    // -------------------------------------------------------------------------
     assign pipe_load_valid  = _i.valid & _i.is_ld;
     assign pipe_store_valid = _i.valid & _i.is_st;
 
@@ -90,9 +86,6 @@ module stage_4m #(
         end
     end
 
-    // -------------------------------------------------------------------------
-    // 2. Store Buffer Instance
-    // -------------------------------------------------------------------------
     // Execution Update: Only write to SB if valid, not stalled, AND ALIGNED.
     assign sb_ce    = pipe_store_valid & ~stall_i & ~addr_misaligned;
     assign sb_idx   = _i.sbid;
@@ -104,28 +97,28 @@ module stage_4m #(
         .clk(clk),
         .reset_n(reset_n),
 
-        // --- Allocation (From Stage 2D) ---
+        // Allocation (From Stage 2D)
         .alloc_en_i(sb_alloc_en_i),
         .alloc_idx_o(sb_alloc_idx_o),
         .sb_full_o(sb_full_o),
 
-        // --- Execute (Data Update from Pipeline) ---
+        // Execute (Data Update from Pipeline)
         .creq_en_i(sb_ce),
         .creq_idx_i(sb_idx),
         .creq_addr_i(sb_addr),
         .creq_data_i(sb_data),
         .creq_width_i(sb_width),
 
-        // --- Commit (From ROB) ---
+        // Commit (From ROB)
         .commit_en_i(rob_commit_sb_valid_i),
         .commit_idx_i(rob_commit_sb_idx_i),
 
-        // --- Control ---
-        .fence_i(1'b0), // Ignored for now as per instruction
+        // Control
+        .fence_i(_i.is_fence & _i.valid),
         .flush_i(flush_i),
         .sb_empty_o(sb_empty),
 
-        // --- Forwarding (Hazard Check for Loads) ---
+        // Forwarding (Hazard Check for Loads)
         .ld_addr_i(_i.alu_result),
         .ld_width_i(_i.memop_width),
         .ld_age_tag_i(_i.sbid), 
@@ -133,7 +126,7 @@ module stage_4m #(
         .ld_stall_o(sb_stall),
         .ld_data_o(sb_fwd_data),
 
-        // --- DCache Drain Interface ---
+        // DCache Drain Interface
         .dreq_valid_o(sb_dreq_valid),
         .dreq_ready_i(sb_dreq_ready),
         .dreq_addr_o(sb_dreq_addr),
@@ -175,9 +168,6 @@ module stage_4m #(
         .dc_width_o     (dc_req_width)
     );
 
-    // -------------------------------------------------------------------------
-    // 4. L1 Data Cache Instance
-    // -------------------------------------------------------------------------
     dcache_wrapper #(
         .XLEN(XLEN),
         .WAYS(WAYS),
@@ -208,10 +198,8 @@ module stage_4m #(
         .frsp_data_i(dmem_i.data)
     );
 
-    // -------------------------------------------------------------------------
-    // 5. Data Path & Stall Logic
-    // -------------------------------------------------------------------------
-    
+    // Data Path and Logic
+
     // Mux Data: Store Buffer Forwarding OR D-Cache Response
     assign load_final_data = (sb_hit) ? sb_fwd_data : dc_rsp_data;
 
@@ -226,8 +214,10 @@ module stage_4m #(
     // Stall logic
     // - SB Hazard: We need to wait for store data to arrive in buffer
     // - D$ Busy: We requested a load but D$ is handling refill or drain
+    // - SB fence: a fence instruction was requested, wait till all stores are sent to cache
     assign waiting_for_memory_o = (pipe_load_valid && !addr_misaligned && sb_stall) || 
-                                  (ld_req_valid && !ld_req_ready);
+                                  (ld_req_valid && !ld_req_ready) ||
+                                  (_i.valid && _i.is_fence && !sb_empty);
 
     // Pipeline Register Outputs
     always_comb begin
@@ -255,7 +245,6 @@ module stage_4m #(
         end
     end
 
-    // Passthroughs
     `PROPAGATE(pc);
     `PROPAGATE(wb_sel);
     `PROPAGATE(rd_addr);
@@ -263,7 +252,7 @@ module stage_4m #(
     `PROPAGATE(robid);
     `PROPAGATE(sbid);
 
-    // Final result selection (Sign Extension)
+    // final result selection (Sign Extension)
     always_comb begin
         if (_i.ld_unsigned == 1)
             _o.mem_result = load_final_data;

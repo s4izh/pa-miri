@@ -33,7 +33,6 @@ _start:
 
     sw   a0, 0(s0)
 
-
     la   s0, store_target0
     lw   t0, 0(s0)
     lw   t1, 4(s0)
@@ -52,7 +51,6 @@ _start:
     lw t0, 1(s0)
     lw t0, 2(s0)
     lw t0, 3(s0)
-
 
 fail_loop:
     write_tohost_failure

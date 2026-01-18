@@ -125,30 +125,35 @@ trap_t cosim_execute(cosim_t *soc, decoded_instruction_t *di) {
 		case INSTRUCTION_OP_LB:
 			if (!cosim_dmem_read(soc, soc->hart.gpr[di->rs1] + sext(di->imm, 12), 8, &read_value)) {
 				trap = TRAP_ERR;
+                break;
 			}
 			soc->hart.gpr[di->rd] = sext(read_value, 8);
 			break;
 		case INSTRUCTION_OP_LH:
 			if (!cosim_dmem_read(soc, soc->hart.gpr[di->rs1] + sext(di->imm, 12), 16, &read_value)) {
 				trap = TRAP_ERR;
+                break;
 			}
 			soc->hart.gpr[di->rd] = sext(read_value, 16);
 			break;
 		case INSTRUCTION_OP_LW:
 			if (!cosim_dmem_read(soc, soc->hart.gpr[di->rs1] + sext(di->imm, 12), 32, &read_value)) {
 				trap = TRAP_ERR;
+                break;
 			}
 			soc->hart.gpr[di->rd] = sext(read_value, 32);
 			break;
 		case INSTRUCTION_OP_LBU:
 			if (!cosim_dmem_read(soc, soc->hart.gpr[di->rs1] + sext(di->imm, 12), 8, &read_value)) {
 				trap = TRAP_ERR;
+                break;
 			}
 			soc->hart.gpr[di->rd] = read_value;
 			break;
 		case INSTRUCTION_OP_LHU:
 			if (!cosim_dmem_read(soc, soc->hart.gpr[di->rs1] + sext(di->imm, 12), 16, &read_value)) {
 				trap = TRAP_ERR;
+                break;
 			}
 			soc->hart.gpr[di->rd] = read_value;
 			break;
@@ -277,6 +282,8 @@ trap_t cosim_execute(cosim_t *soc, decoded_instruction_t *di) {
         // Unimplemented
 		case INSTRUCTION_OP_FENCE:
 		case INSTRUCTION_OP_FENCE_I:
+            // fences do nothing on cosim
+            break;
 		case INSTRUCTION_OP_ECALL:
 		case INSTRUCTION_OP_EBREAK:
 		case INSTRUCTION_OP_CSRRW:

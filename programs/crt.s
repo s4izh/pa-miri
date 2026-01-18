@@ -7,7 +7,9 @@ _start:
     li sp, 0xfffffff8
     jal ra, main
 write_tohost:
+    check_test
     sw a0, -4(zero)
+    fence
     j write_tohost
 
 .global _trap_handler

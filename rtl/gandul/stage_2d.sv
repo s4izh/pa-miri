@@ -146,7 +146,8 @@ module stage_2d #(
         .ld_unsigned_o(_o.ld_unsigned),
 
         .is_muldiv_o(is_muldiv),
-        .muldiv_op_o(_o_muldiv.op)
+        .muldiv_op_o(_o_muldiv.op),
+        .is_fence_o(_o.is_fence)
     );
 
     rv_regfile #(

@@ -281,7 +281,6 @@ harness.add_testbench({
 
 local defines_base = {
     DELAYER_LEN         = "5",
-    SB_ENABLE           = "1",
     SB_N_ENTRIES        = "8",
     SB_DRAIN_THRESHOLD  = "6",
     ROB_N_ENTRIES       = "8",
@@ -295,6 +294,35 @@ local defines_base = {
 harness.add_param_set({
     name = "base",
     defines = defines_base,
+    plusargs = {},
+    sim_templates = {}
+})
+
+harness.add_param_set({
+    name = "base_less_mem",
+    defines = merge(defines_base, {
+        MEM_SIZE_KB         = "512",
+    }),
+    plusargs = {},
+    sim_templates = {}
+})
+
+harness.add_param_set({
+    name = "sb_drain_1_wt",
+    defines = merge(defines_base, {
+        DCACHE_STORE_POLICY = '"wt"',
+        SB_DRAIN_THRESHOLD  = "6",
+    }),
+    plusargs = {},
+    sim_templates = {}
+})
+
+harness.add_param_set({
+    name = "sb_drain_1_wb",
+    defines = merge(defines_base, {
+        DCACHE_STORE_POLICY = '"wb"',
+        SB_DRAIN_THRESHOLD  = "6",
+    }),
     plusargs = {},
     sim_templates = {}
 })
@@ -377,7 +405,7 @@ harness.add_experiment({
 harness.add_experiment({
     name = "gandul-benchmarks",
     testbench = "gandul.anyrom",
-    param_sets = { "base" },
+    param_sets = { "base_less_mem" },
     suites = { "benchmarks_O0" },
     simulators = { "verilator" }
 })
@@ -385,8 +413,7 @@ harness.add_experiment({
 harness.add_experiment({
     name = "gandul-cosim",
     testbench = "gandul.cosim",
-    param_sets = { "base", "base_wt" };
-    -- param_sets = { "base", "base_wt", "delayer_1", "delayer_10" },
+    param_sets = { "base_less_mem",  "base_wt", "sb_drain_1_wb", "sb_drain_1_wt",},
     suites = { "isa" },
     simulators = { "verilator" }
 })
@@ -395,7 +422,15 @@ harness.add_experiment({
     name = "gandul-cosim-benchmarks",
     testbench = "gandul.cosim",
     param_sets = { "base" };
-    -- param_sets = { "base", "base_wt", "delayer_1", "delayer_10" },
+    -- suites = { "benchmarks_O0", "benchmarks_O1" },
+    suites = { "benchmarks_O1" },
+    simulators = { "verilator" }
+})
+
+harness.add_experiment({
+    name = "gandul-cosim-benchmarks-wb-wt",
+    testbench = "gandul.cosim",
+    param_sets = { "base",  "base_wt", "sb_drain_1_wb", "sb_drain_1_wt",},
     suites = { "benchmarks_O0", "benchmarks_O1" },
     simulators = { "verilator" }
 })

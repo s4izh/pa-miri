@@ -69,7 +69,10 @@ package rv_datapath_pkg;
         // ROB things
         robid_t           robid;
         logic             xcpt;
+
         sbid_t            sbid;
+        logic             is_fence;
+
         // PC
         logic [`XLEN-1:0] pc;
     } signals_decode_t;
@@ -91,7 +94,10 @@ package rv_datapath_pkg;
         // ROB things
         robid_t           robid;
         logic             xcpt;
+
         sbid_t            sbid;
+        logic             is_fence;
+
         // PC
         logic [`XLEN-1:0] pc;
     } signals_execute_t;

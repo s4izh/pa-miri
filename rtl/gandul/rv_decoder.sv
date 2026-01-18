@@ -39,7 +39,9 @@ module rv_decoder #(
     output logic             ld_unsigned_o,
 
     output logic             is_muldiv_o,
-    output muldiv_op_e       muldiv_op_o
+    output muldiv_op_e       muldiv_op_o,
+
+    output logic             is_fence_o
 );
     logic [6:0] opcode;
     logic [2:0] funct3;
@@ -131,8 +133,9 @@ module rv_decoder #(
         compare_op_o    = COMPARE_OP_NONE;
         ld_unsigned_o   = 1'b0;
         memop_width_o   = MEMOP_WIDTH_32;
-        is_muldiv_o        = 0;
+        is_muldiv_o     = 0;
         muldiv_op_o     = MULDIV_OP_MUL;
+        is_fence_o      = 0;
 
         case (opcode)
             // x[rd] = sext(immediate[31:12] << 12)
@@ -287,7 +290,9 @@ module rv_decoder #(
             end
 
             // we can ignore fences and others for now
-            OPCODE_FENCE,
+            OPCODE_FENCE: begin
+                is_fence_o = 1;
+            end
             OPCODE_SYSTEM: begin
                 // logic
             end
