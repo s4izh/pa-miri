@@ -3,7 +3,6 @@ package csr_pkg;
     `define XLEN 32
 
     typedef enum {
-        CSR_OP_NOOP,
         CSR_OP_RW,
         CSR_OP_RS,
         CSR_OP_RC
@@ -16,10 +15,13 @@ package csr_pkg;
         logic [11:0]      csr_addr;
         logic [`XLEN-1:0] csr_data;
         // Destination reg info
-        logic [`XLEN-1:0] rd_addr;
+        logic [4:0]       rd_addr;
         // Source reg info
-        logic [`XLEN-1:0] rs1_addr;
+        logic [4:0]       rs1_addr;
         logic [`XLEN-1:0] rs1_data;
+        // uimm info
+        logic             uimm_valid;
+        logic [4:0]       uimm;
         // ROB signals
         robid_t           robid;
     } signals_csr_in_t;

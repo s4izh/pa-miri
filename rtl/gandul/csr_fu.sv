@@ -1,7 +1,7 @@
 import csr_pkg::*;
 
 module csr_fu #(
-    parameter int XLEN = 32,
+    parameter int XLEN = 32
 ) (
     input  logic clk,
     input  logic reset_n,
@@ -11,8 +11,6 @@ module csr_fu #(
     input  logic             noop_i,
     input  logic             stall_i
 );
-
-
     signals_csr_in_t  _i_q;
     signals_csr_out_t _o_d, _o_q;
     logic [XLEN-1:0]  csr_data_tmp;
@@ -42,19 +40,39 @@ module csr_fu #(
         _o_d = '0;
         csr_data_tmp = '0;
 
-        if (_i_q.valid) begin
-            _o_d.rd_we    = (_i_q.rd_addr != '0)  & (_i_q.c != CSR_OP_NOOP);
-            _o_d.csr_we   = (_i_q.rs1_addr != '0) & (_i_q.c != CSR_OP_NOOP);
-            case (_i_q.csr_op)
-                CSR_OP_RW: csr_data_tmp = _i_q.csr_data;
-                CSR_OP_RS: csr_data_tmp = _i_q.csr_data | _i_q.rs1_data;
-                CSR_OP_RC: csr_data_tmp = _i_q.csr_data & ~_i_q.rs1_data;
-                // CSR_OP_NOOP,
-                default:   csr_data_tmp = '0;
-            endcase
-            _o_d.rd_data  = csr_data_tmp;
-            _o_d.csr_data = _i_q.rs1;
-        end
+        case (_i_q.csr_op)
+            CSR_OP_RW: begin
+                _o_d.rd_we   = (_i_q.rd_addr != '0);
+                _o_d.csr_we  = 1;
+                if (uimm_valid) csr_data_tmp = $unsigned(_i_q.uimm);
+                else            csr_data_tmp = _i_q.rs1_data;
+            end
+            CSR_OP_RS: begin
+                _o_d.rd_we   = 1;
+                if (uimm_valid) begin
+                    _o_d.csr_we  = (_i_q.uimm != '0);
+                    csr_data_tmp = _i_q.csr_data | $unsigned(_i_q.uimm);
+                end else begin
+                    _o_d.csr_we  = (_i_q.rs1_addr != '0);
+                    csr_data_tmp = _i_q.csr_data | _i_q.rs1_data;
+                end
+            end
+            CSR_OP_RC: begin
+                _o_d.rd_we   = 1;
+                if (uimm_valid) begin
+                    _o_d.csr_we  = (_i_q.uimm != '0);
+                    csr_data_tmp = _i_q.csr_data | $unsigned(_i_q.uimm);
+                end else begin
+                    _o_d.csr_we  = (_i_q.rs1_addr != '0);
+                    csr_data_tmp = _i_q.csr_data | _i_q.rs1_data;
+                end
+            end
+            default: begin
+                csr_data_tmp = '0;
+            end
+        endcase
+        _o_d.rd_data  = _o_d.csr_data;
+        _o_d.csr_data = csr_data_tmp;
     end
 
     // _o_d.()
