@@ -61,6 +61,46 @@ static bool cosim_dmem_write(cosim_t *soc, u32 addr, u8 len, word value) {
     return true;
 }
 
+typedef enum {
+    CSR_OP_RW,
+    CSR_OP_RS,
+    CSR_OP_RC,
+} csr_op_e;
+
+static trap_t cosim_perform_csr_op(cosim_t *soc, decoded_instruction_t *di, uint32_t *csr, csr_op_e csr_op, bool uimm_valid) {
+    uint32_t tmp_new_rd, tmp_new_csr;
+    // Assign new rd value
+    tmp_new_rd = *csr;
+    // Assign new csr value
+    switch (csr_op) {
+        case CSR_OP_RW:
+            if (uimm_valid) tmp_new_csr = (uint32_t)di->rs1;
+            else            tmp_new_csr = soc->hart.gpr[di->rs1];
+            break;
+        case CSR_OP_RS:
+            if (uimm_valid) tmp_new_csr = tmp_new_rd | (uint32_t)di->rs1;
+            else            tmp_new_csr = tmp_new_rd | soc->hart.gpr[di->rs1];
+            break;
+        case CSR_OP_RC:
+            if (uimm_valid) tmp_new_csr = tmp_new_rd & ~(uint32_t)di->rs1;
+            else            tmp_new_csr = tmp_new_rd & ~soc->hart.gpr[di->rs1];
+            break;
+    };
+    if (di->rd != 0) soc->hart.gpr[di->rd] = tmp_new_rd;
+    if (di->rs1 != 0) *csr = tmp_new_csr;
+    return TRAP_OK;
+}
+
+static trap_t cosim_csr_op(cosim_t *soc, decoded_instruction_t *di, csr_op_e csr_op, bool uimm_valid) {
+    switch ((di->original_instruction >> 20)) {
+        case 0x305: return cosim_perform_csr_op(soc, di, &soc->hart.csr.mtvec , csr_op, uimm_valid);
+        case 0x341: return cosim_perform_csr_op(soc, di, &soc->hart.csr.mepc  , csr_op, uimm_valid);
+        case 0x342: return cosim_perform_csr_op(soc, di, &soc->hart.csr.mcause, csr_op, uimm_valid);
+        case 0x343: return cosim_perform_csr_op(soc, di, &soc->hart.csr.mtval , csr_op, uimm_valid);
+    };
+    return TRAP_ERR;
+}
+
 trap_t cosim_execute(cosim_t *soc, decoded_instruction_t *di) {
     bool update_pc = true;
 	dword tmp_overflow;
@@ -284,14 +324,15 @@ trap_t cosim_execute(cosim_t *soc, decoded_instruction_t *di) {
 		case INSTRUCTION_OP_FENCE_I:
             // fences do nothing on cosim
             break;
+		case INSTRUCTION_OP_CSRRW:  trap = cosim_csr_op(soc, di, CSR_OP_RW, false); break;
+		case INSTRUCTION_OP_CSRRS:  trap = cosim_csr_op(soc, di, CSR_OP_RS, false); break;
+		case INSTRUCTION_OP_CSRRC:  trap = cosim_csr_op(soc, di, CSR_OP_RC, false); break;
+		case INSTRUCTION_OP_CSRRWI: trap = cosim_csr_op(soc, di, CSR_OP_RW, true) ; break;
+		case INSTRUCTION_OP_CSRRSI: trap = cosim_csr_op(soc, di, CSR_OP_RS, true) ; break;
+		case INSTRUCTION_OP_CSRRCI: trap = cosim_csr_op(soc, di, CSR_OP_RC, true) ; break;
+
 		case INSTRUCTION_OP_ECALL:
 		case INSTRUCTION_OP_EBREAK:
-		case INSTRUCTION_OP_CSRRW:
-		case INSTRUCTION_OP_CSRRS:
-		case INSTRUCTION_OP_CSRRC:
-		case INSTRUCTION_OP_CSRRWI:
-		case INSTRUCTION_OP_CSRRSI:
-		case INSTRUCTION_OP_CSRRCI:
 			fprintf(stderr, "UNIMPLEMENTED: %s\n", rve_instruction_op_to_cstr(di->op));
 			trap = TRAP_ERR;
 			break;

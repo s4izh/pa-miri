@@ -41,9 +41,7 @@ module csr_regfile #(
             xcpt_read = ~can_read(read_addr_i, current_priv);
             if (~xcpt_read) begin
                 case (read_addr_i)
-                    CSR_ADDR_MHARTID:  read_data_o = csr_mhartid;
                     CSR_ADDR_MTVEC:    read_data_o = csr_mtvec;
-                    CSR_ADDR_MSCRATCH: read_data_o = csr_mscratch;
                     CSR_ADDR_MEPC:     read_data_o = csr_mepc;
                     CSR_ADDR_MCAUSE:   read_data_o = csr_mcause;
                     CSR_ADDR_MTVAL:    read_data_o = csr_mtval;
@@ -68,9 +66,7 @@ module csr_regfile #(
                 xcpt_write = ~can_write(write_addr_i, current_priv);
                 if (~xcpt_write) begin
                     case(write_addr_i)
-                        CSR_ADDR_MHARTID:  csr_mhartid  <= write_data_i;
                         CSR_ADDR_MTVEC:    csr_mtvec    <= write_data_i;
-                        CSR_ADDR_MSCRATCH: csr_mscratch <= write_data_i;
                         CSR_ADDR_MEPC:     csr_mepc     <= write_data_i;
                         CSR_ADDR_MCAUSE:   csr_mcause   <= write_data_i;
                         CSR_ADDR_MTVAL:    csr_mtval    <= write_data_i;
