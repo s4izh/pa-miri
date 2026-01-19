@@ -17,6 +17,11 @@ package rob_pkg;
     } issue_req_t;
 
     typedef struct packed {
+        logic             csr_we;
+        logic [11:0]      csr_addr;
+    } issue_req_csr_t;
+
+    typedef struct packed {
         logic             ready;
         robid_t           robid;
     } issue_rsp_t;
@@ -30,6 +35,14 @@ package rob_pkg;
         // We know if the sbid will be valid at issue time (is_st)
         sbid_t            sbid;
     } complete_t;
+
+    typedef struct packed {
+        logic             valid;
+        robid_t           robid;
+        logic [`XLEN-1:0] rd_result;
+        logic [`XLEN-1:0] csr_result;
+        logic             xcpt;
+    } complete_csr_t;
 
     // Commit interfaces types
     typedef struct packed {
@@ -51,12 +64,23 @@ package rob_pkg;
         sbid_t            sbid;
     } commit_sb_t;
 
+    typedef struct packed {
+        logic             csr_we;
+        logic [11:0]      csr_addr;
+        logic [`XLEN-1:0] csr_data;
+    } commit_csr_t;
+
     // Interface types to peek youngest register values
     // (make rob act as content addressable memory)
     typedef struct packed {
         logic             valid;
         logic [4:0]       addr;
     } cam_req_t;
+
+    typedef struct packed {
+        logic             valid;
+        logic [11:0]      addr;
+    } cam_req_csr_t;
 
     typedef struct packed {
         logic             valid;

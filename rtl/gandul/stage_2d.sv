@@ -12,11 +12,15 @@ module stage_2d #(
     input  signals_fetch_t         _i,
     output signals_decode_t        _o_alumem,
     output signals_muldiv_in_t     _o_muldiv,
-    output signals_csr_in_t     _o_csr,
-    // Write-back
-    input logic                    rd_we_i,
-    input logic [$clog2(NREG)-1:0] rd_addr_i,
-    input logic [XLEN-1:0]         rd_data_i,
+    output signals_csr_in_t        _o_csr,
+    // Write-back - Scalar Register
+    input  logic                    rd_we_i,
+    input  logic [$clog2(NREG)-1:0] rd_addr_i,
+    input  logic [XLEN-1:0]         rd_data_i,
+    // Write-back - CSR
+    input  logic                    csr_we_i,
+    input  logic [11:0]             csr_waddr_i,
+    input  logic [XLEN-1:0]         csr_wdata_i,
     // Exceptions
     output logic xcpt_illegal_ins_o,
     // Hazard detection
@@ -24,8 +28,10 @@ module stage_2d #(
     input  logic                    stall_i,
     input  logic                    bypass_rs1_sel_i,
     input  logic                    bypass_rs2_sel_i,
+    input  logic                    bypass_csr_sel_i,
     input  logic [XLEN-1:0]         bypass_rs1_data_i,
     input  logic [XLEN-1:0]         bypass_rs2_data_i,
+    input  logic [XLEN-1:0]         bypass_csr_data_i,
     input  logic                    bypass_4m_3e_sel_i,
     output logic [$clog2(NREG)-1:0] rs1_addr_o,
     output logic                    rs1_valid_o,
@@ -34,7 +40,7 @@ module stage_2d #(
     output logic                    is_st_o,
     // rob
     input  robid_t                  robid_i,
-
+    output issue_req_csr_t          rob_issue_req_csr_o,
     // store buffer allocation interface
     input  sbid_t                   sb_alloc_idx_i,
     output logic                    sb_alloc_en_o
@@ -46,6 +52,13 @@ module stage_2d #(
     logic [XLEN-1:0] rf_rs1_data, rf_rs2_data;
     logic noop_q;
 
+    logic            dec_csr_re, dec_csr_we;
+    logic [11:0]     dec_csr_raddr;
+    logic [XLEN-1:0] csr_rf_rdata;
+
+    logic xcpt_decoder, xcpt_csr_rf;
+
+    assign xcpt_illegal_ins_o = xcpt_decoder | xcpt_csr_rf;
 
     always_ff @(posedge clk) begin
         if (!reset_n) begin
@@ -63,36 +76,42 @@ module stage_2d #(
     assign rs1_addr_o  = rs1_addr;
     assign rs2_addr_o  = rs2_addr;
 
-    // ALUMEM
-    assign _o.pc       = _i.pc;
-    assign _o.rs1_data = (bypass_rs1_sel_i == '1) ? bypass_rs1_data_i : rf_rs1_data;
-    assign _o.rs2_data = (bypass_rs2_sel_i == '1) ? bypass_rs2_data_i : rf_rs2_data;
+    // ALUMEM fu
+    assign _o_alumem.pc       = _i.pc;
+    assign _o_alumem.rs1_data = (bypass_rs1_sel_i == '1) ? bypass_rs1_data_i : rf_rs1_data;
+    assign _o_alumem.rs2_data = (bypass_rs2_sel_i == '1) ? bypass_rs2_data_i : rf_rs2_data;
 
-    assign _o.bypass_4m_3e_sel = bypass_4m_3e_sel_i;
-    assign _o.robid            = robid_i;
-    assign _o.xcpt             = 0;
+    assign _o_alumem.bypass_4m_3e_sel = bypass_4m_3e_sel_i;
+    assign _o_alumem.robid            = robid_i;
+    assign _o_alumem.xcpt             = 0;
 
-    // MULDIV
+    // MULDIV fu
     assign _o_muldiv.rs1   = (bypass_rs1_sel_i == '1) ? bypass_rs1_data_i : rf_rs1_data;
     assign _o_muldiv.rs2   = (bypass_rs2_sel_i == '1) ? bypass_rs2_data_i : rf_rs2_data;
     assign _o_muldiv.robid = robid_i;
 
-    // CSR
-    // TODO
+    // CSR fu
+    assign _o_csr.csr_data = (bypass_csr_sel_i == '1) ? bypass_csr_data_i : csr_rf_rdata;
+    assign _o_csr.rs1_data = (bypass_rs1_sel_i == '1) ? bypass_rs1_data_i : rf_rs1_data;
+    assign _o_csr.uimm     = rs1_addr;
+    assign _o_csr.robid    = robid_i;
+    // CSR issue req
+    assign rob_issue_req_csr_o.csr_we   = is_csr & dec_csr_we;
+    assign rob_issue_req_csr_o.csr_addr = dec_csr_raddr;
 
     // STORE BUFFER
-    assign _o.sbid       = sb_alloc_idx_i;
+    assign _o_alumem.sbid       = sb_alloc_idx_i;
     assign sb_alloc_en_o = _i.valid & is_st & ~stall_i & ~noop_i & ~noop_q;
 
     always_comb begin
-        if ((noop_i | noop_q | stall_i)) begin
+        if (noop_i | noop_q | stall_i) begin
             // NOOP ALL WAYS
             // alumem fu
-            _o.valid        = 0;
-            _o.is_wb        = 0;
-            _o.is_st        = 0;
-            _o.pc_sel       = MUX_PC_NEXT;
-            _o.ins          = 32'h00000033; // noop (add x0, x0, x0)
+            _o_alumem.valid        = 0;
+            _o_alumem.is_wb        = 0;
+            _o_alumem.is_st        = 0;
+            _o_alumem.pc_sel       = MUX_PC_NEXT;
+            _o_alumem.ins          = 32'h00000033; // noop (add x0, x0, x0)
             // muldiv fu
             _o_muldiv.valid = 0;
             _o_muldiv.ins   = 32'h00000033; // noop (add x0, x0, x0)
@@ -105,11 +124,11 @@ module stage_2d #(
         end else if (is_muldiv) begin
             // ISSUE MULDIV
             // alumem fu
-            _o.valid        = 0;
-            _o.is_wb        = 0;
-            _o.is_st        = 0;
-            _o.pc_sel       = MUX_PC_NEXT;
-            _o.ins          = 32'h00000033; // noop (add x0, x0, x0)
+            _o_alumem.valid        = 0;
+            _o_alumem.is_wb        = 0;
+            _o_alumem.is_st        = 0;
+            _o_alumem.pc_sel       = MUX_PC_NEXT;
+            _o_alumem.ins          = 32'h00000033; // noop (add x0, x0, x0)
             // muldiv fu
             _o_muldiv.valid = _i.valid;
             _o_muldiv.ins   = _i.ins;
@@ -122,11 +141,11 @@ module stage_2d #(
         end else if (is_csr) begin
             // ISSUE MULDIV
             // alumem fu
-            _o.valid        = 0;
-            _o.is_wb        = 0;
-            _o.is_st        = 0;
-            _o.pc_sel       = MUX_PC_NEXT;
-            _o.ins          = 32'h00000033; // noop (add x0, x0, x0)
+            _o_alumem.valid        = 0;
+            _o_alumem.is_wb        = 0;
+            _o_alumem.is_st        = 0;
+            _o_alumem.pc_sel       = MUX_PC_NEXT;
+            _o_alumem.ins          = 32'h00000033; // noop (add x0, x0, x0)
             // muldiv fu
             _o_muldiv.valid = 0;
             _o_muldiv.ins   = 32'h00000033; // noop (add x0, x0, x0)
@@ -139,11 +158,11 @@ module stage_2d #(
         end else begin
             // ISSUE ALUMEM
             // alumem fu
-            _o.valid        = _i.valid;
-            _o.is_wb        = is_wb;
-            _o.is_st        = is_st;
-            _o.pc_sel       = pc_sel;
-            _o.ins          = _i.ins;
+            _o_alumem.valid        = _i.valid;
+            _o_alumem.is_wb        = is_wb;
+            _o_alumem.is_st        = is_st;
+            _o_alumem.pc_sel       = pc_sel;
+            _o_alumem.ins          = _i.ins;
             // muldiv fu
             _o_muldiv.valid = 0;
             _o_muldiv.ins   = 32'h00000033; // noop (add x0, x0, x0)
@@ -161,36 +180,62 @@ module stage_2d #(
     ) dec_inst (
         .ins_i(_i.ins),
 
-        .alu_op_o(_o.alu_op),
-        .alu_op1_sel_o(_o.alu_op1_sel),
-        .alu_op2_sel_o(_o.alu_op2_sel),
-        .wb_sel_o(_o.wb_sel),
+        .alu_op_o(_o_alumem.alu_op),
+        .alu_op1_sel_o(_o_alumem.alu_op1_sel),
+        .alu_op2_sel_o(_o_alumem.alu_op2_sel),
+        .wb_sel_o(_o_alumem.wb_sel),
 
         .pc_sel_o(pc_sel),
-        .illegal_ins_o(xcpt_illegal_ins_o),
+        .illegal_ins_o(xcpt_decoder),
 
         .is_wb_o(is_wb),
-        .is_ld_o(_o.is_ld),
+        .is_ld_o(_o_alumem.is_ld),
         .is_st_o(is_st),
 
         .rs1_addr_o(rs1_addr),
         .rs1_valid_o(rs1_valid_o),
         .rs2_addr_o(rs2_addr),
         .rs2_valid_o(rs2_valid_o),
-        .rd_addr_o(_o.rd_addr),
-        .immed_o(_o.immed),
+        .rd_addr_o(_o_alumem.rd_addr),
+        .immed_o(_o_alumem.immed),
 
-        .compare_op_o(_o.compare_op),
-        .memop_width_o(_o.memop_width),
-        .ld_unsigned_o(_o.ld_unsigned),
+        .compare_op_o(_o_alumem.compare_op),
+        .memop_width_o(_o_alumem.memop_width),
+        .ld_unsigned_o(_o_alumem.ld_unsigned),
 
         .is_muldiv_o(is_muldiv),
         .muldiv_op_o(_o_muldiv.op),
 
         .is_csr_o(is_csr),
+        .csr_we_o(dec_csr_we),
+        .csr_re_o(dec_csr_re),
+        .csr_addr_o(dec_csr_raddr),
         .csr_op_o(_o_csr.csr_op),
+        .csr_uses_uimm_o(_o_csr.uimm_valid),
 
-        .is_fence_o(_o.is_fence)
+        .is_fence_o(_o_alumem.is_fence)
+    );
+
+    csr_regfile #(
+        .XLEN(XLEN)
+    ) csr_regs_inst (
+        .clk,
+        .reset_n,
+        .read_en_i(dec_csr_re),
+        .read_addr_i(dec_csr_raddr),
+        .read_data_o(csr_rf_rdata),
+
+        .write_en_i(csr_we_i),
+        .write_addr_i(csr_waddr_i),
+        .write_data_i(csr_wdata_i),
+
+        .xcpt_o(xcpt_csr_rf),
+
+        // TODO
+        // .capture_xcpt_valid_i(),
+        // .capture_xcpt_pc_i()
+
+        .trap_addr_o() // TODO
     );
 
     rv_regfile #(

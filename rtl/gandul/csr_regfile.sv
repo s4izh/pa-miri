@@ -6,12 +6,13 @@ module csr_regfile #(
     input logic clk,
     input logic reset_n,
     // Read port
+    input  logic            read_en_i,
     input  logic [11:0]     read_addr_i,
     output logic [XLEN-1:0] read_data_o,
     // Write port
     input  logic            write_en_i,
     input  logic [11:0]     write_addr_i,
-    output logic [XLEN-1:0] write_data_i,
+    input  logic [XLEN-1:0] write_data_i,
     // Exceptions
     output logic            xcpt_o,
     // Control signals coming from csrs
@@ -35,24 +36,26 @@ module csr_regfile #(
     // Read
     always_comb begin
         read_data_o = '0;
-        xcpt_read = ~can_read(read_addr_i, current_priv);
-        if (~xcpt_read) begin
-            case (read_addr_i)
-                CSR_ADDR_MHARTID:  read_data_o = csr_mhartid;
-                CSR_ADDR_MTVEC:    read_data_o = csr_mtvec;
-                CSR_ADDR_MSCRATCH: read_data_o = csr_mscratch;
-                CSR_ADDR_MEPC:     read_data_o = csr_mepc;
-                CSR_ADDR_MCAUSE:   read_data_o = csr_mcause;
-                CSR_ADDR_MTVAL:    read_data_o = csr_mtval;
-                default:           xcpt_read = '1;
-            endcase
+        xcpt_read   =  0;
+        if (read_en_i) begin
+            xcpt_read = ~can_read(read_addr_i, current_priv);
+            if (~xcpt_read) begin
+                case (read_addr_i)
+                    CSR_ADDR_MHARTID:  read_data_o = csr_mhartid;
+                    CSR_ADDR_MTVEC:    read_data_o = csr_mtvec;
+                    CSR_ADDR_MSCRATCH: read_data_o = csr_mscratch;
+                    CSR_ADDR_MEPC:     read_data_o = csr_mepc;
+                    CSR_ADDR_MCAUSE:   read_data_o = csr_mcause;
+                    CSR_ADDR_MTVAL:    read_data_o = csr_mtval;
+                    default:           xcpt_read = '1;
+                endcase
+            end
         end
     end
 
     // Write
     always @(posedge clk) begin
         if (!reset_n) begin
-            csr_mstatus  <= '0;
             csr_mtvec    <= '0;
             csr_mhartid  <= '0;
             csr_mscratch <= '0;
@@ -61,20 +64,20 @@ module csr_regfile #(
             csr_mtval    <= '0;
             xcpt_write    = '0;
         end else begin
-            xcpt_write = write_en_i & ~can_write(write_addr_i, current_priv);
-            if (write_en_i & ~xcpt_write) begin
-                case(write_addr_i)
-                    CSR_ADDR_MHARTID:  csr_mhartid  <= write_data_i;
-                    CSR_ADDR_MSTATUS:  csr_mstatus  <= write_data_i;
-                    CSR_ADDR_MTVEC:    csr_mtvec    <= write_data_i;
-                    CSR_ADDR_MSCRATCH: csr_mscratch <= write_data_i;
-                    CSR_ADDR_MEPC:     csr_mepc     <= write_data_i;
-                    CSR_ADDR_MCAUSE:   csr_mcause   <= write_data_i;
-                    CSR_ADDR_MTVAL:    csr_mtval    <= write_data_i;
-                    default:           xcpt_write = '1;
-                endcase
+            if (write_en_i) begin
+                xcpt_write = ~can_write(write_addr_i, current_priv);
+                if (~xcpt_write) begin
+                    case(write_addr_i)
+                        CSR_ADDR_MHARTID:  csr_mhartid  <= write_data_i;
+                        CSR_ADDR_MTVEC:    csr_mtvec    <= write_data_i;
+                        CSR_ADDR_MSCRATCH: csr_mscratch <= write_data_i;
+                        CSR_ADDR_MEPC:     csr_mepc     <= write_data_i;
+                        CSR_ADDR_MCAUSE:   csr_mcause   <= write_data_i;
+                        CSR_ADDR_MTVAL:    csr_mtval    <= write_data_i;
+                        default:           xcpt_write = '1;
+                    endcase
+                end
             end
-
         end
     end
 

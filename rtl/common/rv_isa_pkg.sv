@@ -69,6 +69,14 @@ package rv_isa_pkg;
     localparam logic [6:0] F7_SRL    = 7'b0000000;
     localparam logic [6:0] F7_MULDIV = 7'b0000001;
 
+    // funct3 for CSR[RW|RC|RS][I]
+    localparam logic [2:0] F3_CSRRW  = 3'b001;
+    localparam logic [2:0] F3_CSRRS  = 3'b010;
+    localparam logic [2:0] F3_CSRRC  = 3'b011;
+    localparam logic [2:0] F3_CSRRWI = 3'b101;
+    localparam logic [2:0] F3_CSRRSI = 3'b110;
+    localparam logic [2:0] F3_CSRRCI = 3'b111;
+
     // EXCEPTIONS and INTERRUPTS: interrupt bit is the MSB of mcause
     localparam logic [31:0] MCAUSE_INTERRUPT_BIT     = 32'h8000_0000;
 

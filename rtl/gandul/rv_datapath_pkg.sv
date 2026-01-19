@@ -192,16 +192,10 @@ package rv_datapath_pkg;
         logic             valid;
         logic [`XLEN-1:0] ins;
         csr_op_e          csr_op;
-        // CSR info
         logic [`XLEN-1:0] csr_data;
-        // Destination reg info
-        logic [4:0]       rd_addr;
-        // Source reg info
-        logic [4:0]       rs1_addr;
         logic [`XLEN-1:0] rs1_data;
-        // uimm info
         logic             uimm_valid;
-        logic [XLEN-1:0]  uimm;
+        logic [4:0]       uimm;
         // ROB signals
         robid_t           robid;
     } signals_csr_in_t;
@@ -209,13 +203,8 @@ package rv_datapath_pkg;
     typedef struct {
         logic             valid;
         logic [`XLEN-1:0] ins;
-        // Result of the source register
-        logic             rd_we;
         logic [`XLEN-1:0] rd_data;
-        // Result of the csr
-        logic             csr_we;
         logic [`XLEN-1:0] csr_data;
-        // ROB signals
         robid_t           robid;
         // Exceptions for csr_fu are generated in 2d. So this signal is always 0 (for now)
         logic             xcpt;

@@ -43,7 +43,11 @@ module rv_decoder #(
 
     // TODO
     output logic             is_csr_o,
+    output logic             csr_we_o,
+    output logic             csr_re_o,
+    output logic [11:0]      csr_addr_o,
     output csr_op_e          csr_op_o,
+    output logic             csr_uses_uimm_o,
 
     output logic             is_fence_o
 );
@@ -124,6 +128,8 @@ module rv_decoder #(
         endcase
     end
 
+    assign csr_addr_o = ins_i[31:20];
+
     always_comb begin
         alu_op_o        = ALU_ADD;
         pc_sel_o        = MUX_PC_NEXT;
@@ -139,6 +145,11 @@ module rv_decoder #(
         memop_width_o   = MEMOP_WIDTH_32;
         is_muldiv_o     = 0;
         muldiv_op_o     = MULDIV_OP_MUL;
+        is_csr_o        = 0;
+        csr_we_o        = 0;
+        csr_re_o        = 0;
+        csr_op_o        = CSR_OP_RW;
+        csr_uses_uimm_o = 0;
         is_fence_o      = 0;
 
         case (opcode)
@@ -297,8 +308,33 @@ module rv_decoder #(
             OPCODE_FENCE: begin
                 is_fence_o = 1;
             end
+
             OPCODE_SYSTEM: begin
-                // logic
+                csr_uses_uimm_o = funct3[2];
+                case (funct3)
+                    F3_CSRRW, F3_CSRRWI: begin
+                        csr_op_o = CSR_OP_RW;
+                        csr_we_o = 1;
+                        if (csr_uses_uimm_o) csr_re_o = (rs1_addr_o != '0);
+                        else                 csr_re_o = (rd_addr_o != '0);
+                    end
+                    F3_CSRRS, F3_CSRRSI: begin
+                        csr_op_o = CSR_OP_RS;
+                        if (csr_uses_uimm_o) csr_we_o = (rs1_addr_o != '0);
+                        else                 csr_we_o = (rd_addr_o != '0);
+                        csr_re_o = 1;
+                    end
+                    F3_CSRRC, F3_CSRRCI: begin
+                        csr_op_o = CSR_OP_RC;
+                        if (csr_uses_uimm_o) csr_we_o = (rs1_addr_o != '0);
+                        else                 csr_we_o = (rd_addr_o != '0);
+                        csr_re_o = 1;
+                    end
+                    default: begin
+                        illegal_ins_o = 1'b1;
+                    end
+                endcase
+                is_csr_o = ~illegal_ins_o;
             end
 
             default: begin

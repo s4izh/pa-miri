@@ -59,16 +59,14 @@ module gandul# (
     logic rs1_valid, rs2_valid;
     logic [$clog2(N_PHY_REG)-1:0] rs1_addr, rs2_addr;
     // Control
-    logic noop_1f, noop_2d, noop_3e, noop_4m, noop_5w;
-    logic stall_1f, stall_2d, stall_3e, stall_4m;
-    logic noop_muldiv;
-    logic stall_muldiv;
+    logic noop_1f, noop_2d, noop_3e, noop_4m, noop_5w, noop_muldiv, noop_csr;
+    logic stall_1f, stall_2d, stall_3e, stall_4m, stall_muldiv, stall_csr;
     logic data_hazard;
     // Signals from 2d to forwarding unit (to avoid UNOPTFLAT)
     logic is_st_2d;
     // Bypass control
-    logic bypass_rs1_2d_sel, bypass_rs2_2d_sel;
-    logic [XLEN-1:0] bypass_rs1_2d_data, bypass_rs2_2d_data;
+    logic bypass_rs1_2d_sel, bypass_rs2_2d_sel, bypass_csr_2d_sel;
+    logic [XLEN-1:0] bypass_rs1_2d_data, bypass_rs2_2d_data, bypass_csr_2d_data;
     logic bypass_4m_3e_sel;
 
     logic waiting_for_memory_4m;
@@ -116,7 +114,7 @@ module gandul# (
     assign noop_4m     = rob_trap_valid;
     assign noop_5w     = rob_trap_valid;
     assign noop_muldiv = rob_trap_valid;
-    assign noop_csrfu  = rob_trap_valid;
+    assign noop_csr    = rob_trap_valid;
 
     logic rob_can_commit_xcpt;
     // assign rob_can_commit_xcpt = ~(waiting_for_memory_4m | ~icache_dreq_ready | ~rob_issue_rsp.ready);
@@ -137,7 +135,7 @@ module gandul# (
     assign stall_3e     = waiting_for_memory_4m;
     assign stall_4m     = waiting_for_memory_4m;
     assign stall_muldiv = 0;
-    assign stall_csrfu  = 0;
+    assign stall_csr  = 0;
 
     // Data memory interface
     assign dmem_if_in.valid = dmem_valid_i;
@@ -162,35 +160,43 @@ module gandul# (
 
     // // === ISSUE ===
     // From stage_2d
-    issue_req_t rob_issue_req;
+    issue_req_t     rob_issue_req;
+    issue_req_csr_t rob_issue_req_csr;
     // To stage_2d
-    issue_rsp_t rob_issue_rsp;
+    issue_rsp_t     rob_issue_rsp;
 
     // // === COMPLETE ===
     // From wb in normal FU
-    complete_t  rob_complete_alumem;
+    complete_t      rob_complete_alumem;
     // From wb in muldiv FU
-    complete_t  rob_complete_muldiv;
+    complete_t      rob_complete_muldiv;
+    // From wb in muldiv FU
+    complete_csr_t  rob_complete_csr;
 
     // // === COMMIT ===
     // To pc_sel
-    commit_t    rob_commit;
+    commit_t        rob_commit;
     // To regfile
-    commit_rf_t rob_commit_rf;
+    commit_rf_t     rob_commit_rf;
     // To store-buffer
-    commit_sb_t rob_commit_sb;
+    commit_sb_t     rob_commit_sb;
+    // To CSR regfile
+    commit_csr_t    rob_commit_csr;
 
     // // === CAM ===
     // From stage_2d
-    cam_req_t   rob_cam_req_rs1;
+    cam_req_t       rob_cam_req_rs1;
     // To stage_2d
-    cam_rsp_t   rob_cam_rsp_rs1;
+    cam_rsp_t       rob_cam_rsp_rs1;
     // From stage_2d
-    cam_req_t   rob_cam_req_rs2;
+    cam_req_t       rob_cam_req_rs2;
     // To stage_2d
-    cam_rsp_t   rob_cam_rsp_rs2;
+    cam_rsp_t       rob_cam_rsp_rs2;
+    // From stage_2d
+    cam_req_csr_t   rob_cam_req_csr;
+    // To stage_2d
+    cam_rsp_t       rob_cam_rsp_csr;
 
-    // assign rob_issue_req.valid   = s_2d_d.valid | muldiv_input.valid; // & ~xcpt_illegal_ins
     assign rob_issue_req.valid   = (s_2d_d.valid | muldiv_input.valid) & ~stall_for_sb_full; // & ~xcpt_illegal_ins
     assign rob_issue_req.pc      = s_1f_q.pc;
     assign rob_issue_req.dbg_ins = muldiv_input.valid ? muldiv_input.ins : s_1f_q.ins;
@@ -199,24 +205,32 @@ module gandul# (
     assign rob_issue_req.is_st   = muldiv_input.valid ? 0 : s_2d_d.is_st;
 
     // Complete alumem
-    assign rob_complete_alumem.valid  = s_5w_d.valid;
-    assign rob_complete_alumem.robid  = s_5w_d.robid;
-    assign rob_complete_alumem.result = s_5w_d.rd_data;
-    assign rob_complete_alumem.xcpt   = s_5w_d.xcpt;
-    assign rob_complete_alumem.sbid   = s_5w_d.sbid;
+    assign rob_complete_alumem.valid   = s_5w_d.valid;
+    assign rob_complete_alumem.robid   = s_5w_d.robid;
+    assign rob_complete_alumem.result  = s_5w_d.rd_data;
+    assign rob_complete_alumem.xcpt    = s_5w_d.xcpt;
+    assign rob_complete_alumem.sbid    = s_5w_d.sbid;
 
     // Complete muldiv
-    assign rob_complete_muldiv.valid  = muldiv_output.valid;
-    assign rob_complete_muldiv.robid  = muldiv_output.robid;
-    assign rob_complete_muldiv.result = muldiv_output.result;
-    assign rob_complete_muldiv.xcpt   = muldiv_output.xcpt;
-    assign rob_complete_muldiv.sbid   = '0;
+    assign rob_complete_muldiv.valid   = muldiv_output.valid;
+    assign rob_complete_muldiv.robid   = muldiv_output.robid;
+    assign rob_complete_muldiv.result  = muldiv_output.result;
+    assign rob_complete_muldiv.xcpt    = muldiv_output.xcpt;
+    assign rob_complete_muldiv.sbid    = '0;
+
+    // Complete CSR
+    assign rob_complete_csr.valid      = csr_output.valid;
+    assign rob_complete_csr.robid      = csr_output.robid;
+    assign rob_complete_csr.rd_result  = csr_output.rd_data;
+    assign rob_complete_csr.csr_result = csr_output.csr_data;
+    assign rob_complete_csr.xcpt       = csr_output.xcpt;
 
     // CAM
     assign rob_cam_req_rs1.valid = rs1_valid;
     assign rob_cam_req_rs1.addr  = rs1_addr;
     assign rob_cam_req_rs2.valid = rs2_valid;
     assign rob_cam_req_rs2.addr  = rs2_addr;
+    // assign rob_cam_req_csr.valid = csr_re;
 
 
     rob rob_inst (
@@ -224,20 +238,25 @@ module gandul# (
         .reset_n,
 
         .issue_req_i(rob_issue_req),
+        .issue_req_csr_i(rob_issue_req_csr),
         .issue_rsp_o(rob_issue_rsp),
 
         .complete_alumem_i(rob_complete_alumem),
         .complete_muldiv_i(rob_complete_muldiv),
+        .complete_csr_i(rob_complete_csr),
 
         .can_commit_xcpt_i(rob_can_commit_xcpt),
         .commit_o(rob_commit),
         .commit_rf_o(rob_commit_rf),
         .commit_sb_o(rob_commit_sb),
+        .commit_csr_o(rob_commit_csr),
 
         .cam_req_rs1_i(rob_cam_req_rs1),
         .cam_rsp_rs1_o(rob_cam_rsp_rs1),
         .cam_req_rs2_i(rob_cam_req_rs2),
-        .cam_rsp_rs2_o(rob_cam_rsp_rs2)
+        .cam_rsp_rs2_o(rob_cam_rsp_rs2),
+        .cam_req_csr_i(rob_cam_req_csr),
+        .cam_rsp_csr_o(rob_cam_rsp_csr)
     );
 
     // =========================================================================
@@ -365,13 +384,17 @@ module gandul# (
         .reset_n,
         // Pipeline input/output
         ._i(s_1f_q),
-        ._o(s_2d_d),
+        ._o_alumem(s_2d_d),
         ._o_muldiv(muldiv_input),
         ._o_csr(csr_input),
-        // Write-back
+        // Write-back - Scalar register
         .rd_we_i(rob_commit_rf.rd_we),
         .rd_addr_i(rob_commit_rf.rd_addr),
         .rd_data_i(rob_commit_rf.rd_data),
+        // Write-back - CSR
+        .csr_we_i(rob_commit_csr.csr_we),
+        .csr_waddr_i(rob_commit_csr.csr_waddr),
+        .csr_wdata_i(rob_commit_csr.csr_wdata),
         // Exceptions
         .xcpt_illegal_ins_o(xcpt_illegal_ins),
         // Hazard detection
@@ -379,8 +402,10 @@ module gandul# (
         .stall_i(stall_2d),
         .bypass_rs1_sel_i(bypass_rs1_2d_sel),
         .bypass_rs2_sel_i(bypass_rs2_2d_sel),
+        .bypass_csr_sel_i(bypass_csr_2d_sel),
         .bypass_rs1_data_i(bypass_rs1_2d_data),
         .bypass_rs2_data_i(bypass_rs2_2d_data),
+        .bypass_csr_data_i(bypass_csr_2d_data),
         .bypass_4m_3e_sel_i(bypass_4m_3e_sel),
         .rs1_addr_o(rs1_addr),
         .rs1_valid_o(rs1_valid),
@@ -388,6 +413,7 @@ module gandul# (
         .rs2_valid_o(rs2_valid),
         .is_st_o(is_st_2d),
         .robid_i(rob_issue_rsp.robid),
+        .rob_issue_req_csr_o(rob_issue_req_csr),
         .sb_alloc_idx_i(sb_alloc_idx),
         .sb_alloc_en_o(sb_alloc_en)
     );
@@ -534,8 +560,8 @@ module gandul# (
         .reset_n,
         ._i(csr_input),
         ._o(csr_output),
-        .noop_i(noop_csrfu),
-        .stall_i(stall_csrfu)
+        .noop_i(noop_csr),
+        .stall_i(stall_csr)
     );
 
     // =========================================================================
@@ -583,11 +609,14 @@ module gandul# (
         // rob inputs
         .rob_cam_rs1_i(rob_cam_rsp_rs1),
         .rob_cam_rs2_i(rob_cam_rsp_rs2),
+        .rob_cam_csr_i(rob_cam_rsp_csr),
         // outputs
         .bypass_rs1_2d_sel_o(bypass_rs1_2d_sel),
         .bypass_rs2_2d_sel_o(bypass_rs2_2d_sel),
+        .bypass_csr_2d_sel_o(bypass_csr_2d_sel),
         .bypass_rs1_2d_data_o(bypass_rs1_2d_data),
         .bypass_rs2_2d_data_o(bypass_rs2_2d_data),
+        .bypass_csr_2d_data_o(bypass_csr_2d_data),
         .bypass_4m_3e_sel_o(bypass_4m_3e_sel),
         .fwd_unit_hazard_o(data_hazard)
     );

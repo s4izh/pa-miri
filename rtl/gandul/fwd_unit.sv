@@ -30,18 +30,21 @@ module fwd_unit #(
     // rob inputs
     input  rob_pkg::cam_rsp_t rob_cam_rs1_i,
     input  rob_pkg::cam_rsp_t rob_cam_rs2_i,
+    input  rob_pkg::cam_rsp_t rob_cam_csr_i,
 
     // bypass outputs
     output logic              bypass_rs1_2d_sel_o,
     output logic              bypass_rs2_2d_sel_o,
+    output logic              bypass_csr_2d_sel_o,
     output logic [XLEN-1:0]   bypass_rs1_2d_data_o,
     output logic [XLEN-1:0]   bypass_rs2_2d_data_o,
+    output logic [XLEN-1:0]   bypass_csr_2d_data_o,
     output logic              bypass_4m_3e_sel_o,
     output logic              fwd_unit_hazard_o
 );
 
     logic rd_3e_not_zero, rd_4m_not_zero, rd_5w_not_zero;
-    logic hazard_ld, hazard_rob_rs1, hazard_rob_rs2;
+    logic hazard_ld, hazard_rob_rs1, hazard_rob_rs2, hazard_rob_csr;
 
     assign rd_3e_not_zero = (rd_3e_i != '0);
     assign rd_4m_not_zero = (rd_4m_i != '0);
@@ -117,7 +120,21 @@ module fwd_unit #(
         // else, registers
     end
 
-    assign fwd_unit_hazard_o = hazard_ld | hazard_rob_rs1 | hazard_rob_rs2;
+    always_comb begin
+        bypass_csr_2d_sel_o = 0;
+        bypass_csr_2d_data_o = '0;
+        if (rob_cam_csr_i.valid) begin
+            if (rob_cam_csr_i.complete) begin
+                bypass_csr_2d_sel_o  = 1;
+                bypass_csr_2d_data_o = rob_cam_csr_i.value;
+            end else begin
+                hazard_rob_csr = 1;
+            end
+        end
+        // else, csr register value
+    end
+
+    assign fwd_unit_hazard_o = hazard_ld | hazard_rob_rs1 | hazard_rob_rs2 | hazard_rob_csr;
 
 
 endmodule
