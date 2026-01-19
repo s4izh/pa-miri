@@ -151,7 +151,7 @@ module stage_2d #(
             _o_alumem.pred_taken  = _i.pred_taken;
             _o_alumem.pred_target = _i.pred_target;
         end else if (is_csr) begin
-            // ISSUE MULDIV
+            // ISSUE CSR
             // alumem fu
             _o_alumem.valid       = 0;
             _o_alumem.is_wb       = 0;
