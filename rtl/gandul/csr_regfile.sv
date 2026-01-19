@@ -22,9 +22,7 @@ module csr_regfile #(
     logic [1:0] current_priv;
     logic xcpt_write, xcpt_read;
     // CSRs
-    logic [XLEN-1:0] csr_mhartid;
     logic [XLEN-1:0] csr_mtvec;
-    logic [XLEN-1:0] csr_mscratch;
     logic [XLEN-1:0] csr_mepc;
     logic [XLEN-1:0] csr_mcause;
     logic [XLEN-1:0] csr_mtval;
@@ -56,9 +54,7 @@ module csr_regfile #(
     assign xcpt_write = ~can_write(write_addr_i, current_priv);
     always @(posedge clk) begin
         if (!reset_n) begin
-            csr_mtvec    <= '0;
-            csr_mhartid  <= '0;
-            csr_mscratch <= '0;
+            csr_mtvec    <= 'h2000;
             csr_mepc     <= '0;
             csr_mcause   <= '0;
             csr_mtval    <= '0;
