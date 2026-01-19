@@ -63,7 +63,7 @@ module stage_2d #(
     assign csr_re_o    = dec_csr_re;
     assign csr_raddr_o = dec_csr_raddr;
 
-    assign xcpt_illegal_ins_o = xcpt_decoder | xcpt_csr_rf;
+    assign xcpt_illegal_ins_o = xcpt_decoder; // | xcpt_csr_rf;
 
     assign is_st_o = is_st;
     assign rs1_addr_o  = rs1_addr;

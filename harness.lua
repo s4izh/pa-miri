@@ -208,7 +208,7 @@ harness.add_suite({
 -- Simulator definitions
 harness.add_simulator({
     name = "verilator",
-    compile_rule = "verilator -j 8 --cc --binary --build -O3 --trace-fst --trace-structs --timing -f $filelist --top-module top_tb_wrapper --Mdir $out_dir -o Vtop",
+    compile_rule = "verilator -j 8 --cc --binary --build -O3 --trace-fst --trace-structs -report-unoptflat --timing -f $filelist --top-module top_tb_wrapper --Mdir $out_dir -o Vtop",
     outputs = {
         { name = "bin", filename = "Vtop" }
     },

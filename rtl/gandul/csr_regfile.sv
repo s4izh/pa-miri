@@ -31,7 +31,7 @@ module csr_regfile #(
     assign current_priv = 2'b11;
 
     assign trap_addr_o = csr_mtvec;
-    assign xcpt_o = xcpt_read | xcpt_write;
+    assign xcpt_o = (xcpt_read & read_en_i) | (xcpt_write & write_en_i);
 
     // Read
     always_comb begin
@@ -41,17 +41,18 @@ module csr_regfile #(
             xcpt_read = ~can_read(read_addr_i, current_priv);
             if (~xcpt_read) begin
                 case (read_addr_i)
-                    CSR_ADDR_MTVEC:    read_data_o = csr_mtvec;
-                    CSR_ADDR_MEPC:     read_data_o = csr_mepc;
-                    CSR_ADDR_MCAUSE:   read_data_o = csr_mcause;
-                    CSR_ADDR_MTVAL:    read_data_o = csr_mtval;
-                    default:           xcpt_read = '1;
+                    CSR_ADDR_MTVEC:  read_data_o = csr_mtvec;
+                    CSR_ADDR_MEPC:   read_data_o = csr_mepc;
+                    CSR_ADDR_MCAUSE: read_data_o = csr_mcause;
+                    CSR_ADDR_MTVAL:  read_data_o = csr_mtval;
+                    default:         xcpt_read = '1;
                 endcase
             end
         end
     end
 
     // Write
+    assign xcpt_write = ~can_write(write_addr_i, current_priv);
     always @(posedge clk) begin
         if (!reset_n) begin
             csr_mtvec    <= '0;
@@ -62,17 +63,14 @@ module csr_regfile #(
             csr_mtval    <= '0;
             xcpt_write    = '0;
         end else begin
-            if (write_en_i) begin
-                xcpt_write = ~can_write(write_addr_i, current_priv);
-                if (~xcpt_write) begin
-                    case(write_addr_i)
-                        CSR_ADDR_MTVEC:    csr_mtvec    <= write_data_i;
-                        CSR_ADDR_MEPC:     csr_mepc     <= write_data_i;
-                        CSR_ADDR_MCAUSE:   csr_mcause   <= write_data_i;
-                        CSR_ADDR_MTVAL:    csr_mtval    <= write_data_i;
-                        default:           xcpt_write = '1;
-                    endcase
-                end
+            if (~xcpt_write) begin
+                case(write_addr_i)
+                    CSR_ADDR_MTVEC:  csr_mtvec    <= write_data_i;
+                    CSR_ADDR_MEPC:   csr_mepc     <= write_data_i;
+                    CSR_ADDR_MCAUSE: csr_mcause   <= write_data_i;
+                    CSR_ADDR_MTVAL:  csr_mtval    <= write_data_i;
+                    default:         xcpt_write = '1;
+                endcase
             end
         end
     end
