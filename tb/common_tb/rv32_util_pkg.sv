@@ -14,12 +14,13 @@ package rv32_util_pkg;
 
     function automatic string disasm_rv32i(logic [31:0] instr);
         string s;
-        logic [6:0]  opcode = instr[6:0];
-        logic [4:0]  rd     = instr[11:7];
-        logic [2:0]  funct3 = instr[14:12];
-        logic [4:0]  rs1    = instr[19:15];
-        logic [4:0]  rs2    = instr[24:20];
-        logic [6:0]  funct7 = instr[31:25];
+        logic [6:0]  opcode   = instr[6:0];
+        logic [4:0]  rd       = instr[11:7];
+        logic [2:0]  funct3   = instr[14:12];
+        logic [4:0]  rs1      = instr[19:15];
+        logic [4:0]  rs2      = instr[24:20];
+        logic [6:0]  funct7   = instr[31:25];
+        logic [11:0] csr_addr = instr[31:20];
         case (opcode)
             7'b0110111: s = $sformatf("lui   %s, 0x%05x", regname(rd), instr[31:12]);
             7'b0010111: s = $sformatf("auipc %s, 0x%05x", regname(rd), instr[31:12]);
@@ -99,7 +100,17 @@ package rv32_util_pkg;
                 if (instr == 32'h00000073) s = "ecall";
                 else if (instr == 32'h00100073) s = "ebreak";
                 else if (funct3 == 3'b000 && instr[31:20] == 12'h302) s = "mret";
-                else s = "system";
+                else begin
+                    case (funct3)
+                        3'b001:  s = $sformatf("csrrw  %s, 0x%x, %s", regname(rd), csr_addr, regname(rs1));
+                        3'b010:  s = $sformatf("csrrc  %s, 0x%x, %s", regname(rd), csr_addr, regname(rs1));
+                        3'b011:  s = $sformatf("csrrs  %s, 0x%x, %s", regname(rd), csr_addr, regname(rs1));
+                        3'b101:  s = $sformatf("csrrwi %s, 0x%x, 0x%x", regname(rd), csr_addr, rs1);
+                        3'b110:  s = $sformatf("csrrci %s, 0x%x, 0x%x", regname(rd), csr_addr, rs1);
+                        3'b111:  s = $sformatf("csrrsi %s, 0x%x, 0x%x", regname(rd), csr_addr, rs1);
+                        default: s = "???";
+                    endcase
+                end
             end
 
             default: s = $sformatf("unknown  0x%08x", instr);

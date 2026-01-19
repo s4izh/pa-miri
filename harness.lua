@@ -39,7 +39,7 @@ local function dump(o, indent)
 end
 
 local cfg = {
-    cflags_base = "-march=rv32im -mabi=ilp32 -Iprograms -g ",
+    cflags_base = "-march=rv32im_zicsr -mabi=ilp32 -Iprograms -g ",
     toolchain_prefix = "riscv32-none-elf-"
 }
 
