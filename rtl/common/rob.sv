@@ -125,10 +125,10 @@ module rob #(
             entries[tail_q].csr_we     <= issue_req_csr_i.csr_we;
             entries[tail_q].csr_addr   <= issue_req_csr_i.csr_addr;
             entries[tail_q].sbid       <= '0;
-            entries[tail_q].complete   <=  0;
+            entries[tail_q].complete   <= issue_req_i.xcpt;
             entries[tail_q].rd_result  <= '0;
             entries[tail_q].csr_result <= '0;
-            entries[tail_q].xcpt       <=  0;
+            entries[tail_q].xcpt       <= issue_req_i.xcpt;
         end
         // Complete alumem
         if (complete_alumem_i.valid) begin

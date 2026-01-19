@@ -34,7 +34,7 @@ module gandul# (
     // pc
     logic [XLEN-1:0] pc;
     // trap control signals
-    logic frontend_trap_valid, rob_trap_valid, xcpt_illegal_ins, xcpt_icache;
+    logic rob_trap_valid, xcpt_2d, xcpt_icache;
     // branch control
     logic taken_branch;
     // mux selectors
@@ -79,12 +79,11 @@ module gandul# (
     // branch predictor signals
     logic [XLEN-1:0] bp_pred_target;
     logic            bp_pred_taken;
-    
+
     logic            is_control_3e; // is instruction in EX a control flow?
     logic            branch_real_taken_3e; // actual outcome in EX
     logic [XLEN-1:0] branch_real_target_3e;// actual target in EX
     logic            misprediction;   // did we mess up?
-    logic            flush_pipeline;  // flush signal
 
     // are we jumping or branching in the execute stage?
     logic jump_or_branch_3e;
@@ -93,25 +92,15 @@ module gandul# (
     // use s_1f_q.valid (input to decode) instead of s_2d_d.valid (output of decode)
     // this avoids the circular loop where trap -> noop -> s_2d_d.valid=0 -> trap=0
     // we must manually mask with jump_or_branch_3e because a branch should kill the trap
-    logic trap_valid_1f, trap_valid_2d;
-
-    // TODO: change all of this for rob outputs
-    // assign trap_valid_1f = xcpt_icache & s_1f_d.valid & ~jump_or_branch_3e;
-    // assign trap_valid_2d = xcpt_illegal_ins & s_1f_q.valid & ~jump_or_branch_3e;
-
     // Use icache_dreq_ready directly to break loop through s_1f_d
-    assign trap_valid_1f = xcpt_icache & icache_dreq_ready & ~flush_pipeline & ~pending_jump_valid;
-    assign trap_valid_2d = xcpt_illegal_ins & s_1f_q.valid & ~flush_pipeline & ~pending_jump_valid;
-
     assign rob_trap_valid = rob_commit.valid & rob_commit.xcpt;
-    assign frontend_trap_valid = trap_valid_1f | trap_valid_2d;
 
     // inject a noop on 1f and 2d if we have a pending jump
     // a jump is pending if we were doing a request to icache while
     // the pc changed, this means the fetched ins isn't the one we wanted to
     // go, so we propagate a nop down the pipeline
-    assign noop_1f     = flush_pipeline | frontend_trap_valid | rob_trap_valid | pending_jump_valid;
-    assign noop_2d     = flush_pipeline | frontend_trap_valid | rob_trap_valid | pending_jump_valid;
+    assign noop_1f     = misprediction | rob_trap_valid | pending_jump_valid;
+    assign noop_2d     = misprediction | rob_trap_valid | pending_jump_valid;
     assign noop_3e     = rob_trap_valid;
     assign noop_4m     = rob_trap_valid;
     assign noop_5w     = rob_trap_valid;
@@ -124,12 +113,6 @@ module gandul# (
 
     logic stall_for_sb_full;
     assign stall_for_sb_full = is_st_2d & sb_full;
-
-    // assign stall_1f     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
-    // assign stall_2d     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready;
-    // assign stall_3e     = waiting_for_memory_4m | (~icache_dreq_ready & jump_or_branch_3e); // TOCHECK
-    // assign stall_4m     = waiting_for_memory_4m;
-    // assign stall_muldiv = 0;
 
     assign stall_1f     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready | stall_for_sb_full;
     assign stall_2d     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready | stall_for_sb_full;
@@ -203,6 +186,7 @@ module gandul# (
     assign rob_issue_req.valid   = (s_2d_d.valid | muldiv_input.valid | csr_input.valid) & ~stall_for_sb_full;
     assign rob_issue_req.pc      = s_1f_q.pc;
     assign rob_issue_req.rd_addr = s_2d_d.rd_addr;
+    assign rob_issue_req.xcpt    = xcpt_2d;
     always_comb begin
         if (muldiv_input.valid) begin
             rob_issue_req.dbg_ins = muldiv_input.ins;
@@ -285,23 +269,23 @@ module gandul# (
     always_comb begin
         req_jump_valid  = 0;
         req_jump_target = '0;
-        
+
         if (rob_trap_valid) begin
             req_jump_valid = 1;
             req_jump_target = 'h2000;
-        end 
-        else if (flush_pipeline) begin
+        end
+        else if (misprediction) begin
             req_jump_valid = 1;
             if (is_control_3e) req_jump_target = branch_real_target_3e;
             else               req_jump_target = s_3e_d.pc + 4;
         end
-        else if (frontend_trap_valid) begin
-            req_jump_valid  = 1;
-            req_jump_target = 'h2000;
-        end
+        // else if (frontend_trap_valid) begin
+        //     req_jump_valid  = 1;
+        //     req_jump_target = 'h2000;
+        // end
     end
 
-    // buffer jump if an icache request is running 
+    // buffer jump if an icache request is running
     logic            pending_jump_valid;
     logic [XLEN-1:0] pending_jump_target;
 
@@ -349,7 +333,7 @@ module gandul# (
         .clk,
         .reset_n,
         // Data req
-        .dreq_valid_i(reset_n & !(trap_valid_2d)),
+        .dreq_valid_i(reset_n),
         .dreq_ready_o(icache_dreq_ready),
         .dreq_addr_i(pc),
         .dreq_width_i(MEMOP_WIDTH_32),
@@ -364,11 +348,15 @@ module gandul# (
         .frsp_data_i(imem_data_i)
     );
 
+    logic trap_valid_1f;
+    assign trap_valid_1f = xcpt_icache & icache_dreq_ready & ~misprediction & ~pending_jump_valid;
+
     // pipeline
     always_comb begin
         s_1f_d.valid = icache_dreq_ready;
         s_1f_d.pc = pc;
         s_1f_d.pred_target = bp_pred_target;
+        s_1f_d.xcpt = trap_valid_1f;
 
         if (noop_1f | stall_1f) begin
             s_1f_d.ins = 32'h00000033; // noop (add x0, x0, x0)
@@ -411,8 +399,8 @@ module gandul# (
         .csr_we_i(rob_commit_csr.csr_we),
         .csr_waddr_i(rob_commit_csr.csr_addr),
         .csr_wdata_i(rob_commit_csr.csr_data),
-        // Exceptions
-        .xcpt_illegal_ins_o(xcpt_illegal_ins),
+        // Exception
+        .xcpt_2d_o(xcpt_2d),
         // Hazard detection
         .noop_i(noop_2d),
         .stall_i(stall_2d),
@@ -500,15 +488,15 @@ module gandul# (
         .noop_i(noop_4m),
         .stall_i(stall_4m),
         .waiting_for_memory_o(waiting_for_memory_4m),
-        .flush_i(rob_trap_valid), 
-        
+        .flush_i(rob_trap_valid),
+
         // SB Allocation (Connected to 2D)
-        .sb_alloc_en_i(sb_alloc_en), 
-        .sb_alloc_idx_o(sb_alloc_idx), 
+        .sb_alloc_en_i(sb_alloc_en),
+        .sb_alloc_idx_o(sb_alloc_idx),
         .sb_full_o(sb_full),
-        
+
         // SB Commit (From ROB)
-        .rob_commit_sb_valid_i(rob_commit_sb.valid), 
+        .rob_commit_sb_valid_i(rob_commit_sb.valid),
         .rob_commit_sb_idx_i(rob_commit_sb.sbid)
     );
 
@@ -653,13 +641,13 @@ module gandul# (
                 .pred_taken_o(bp_pred_taken),
                 .pred_target_o(bp_pred_target),
                 // 3e interface
-                .upd_valid_i(is_control_3e && s_3e_d.valid), 
+                .upd_valid_i(is_control_3e && s_3e_d.valid),
                 .upd_pc_i(s_3e_d.pc),
                 .upd_taken_i(branch_real_taken_3e),
                 .upd_target_i(branch_real_target_3e),
-                .upd_is_cond_i(pc_sel == MUX_PC_BRANCH) 
+                .upd_is_cond_i(pc_sel == MUX_PC_BRANCH)
             );
-        end 
+        end
         else begin
             assign bp_pred_taken  = 1'b0;
             assign bp_pred_target = '0;
@@ -670,18 +658,18 @@ module gandul# (
 
     always_comb begin
         branch_real_taken_3e = 1'b0;
-        branch_real_target_3e = s_3e_d.pc + 4; 
+        branch_real_target_3e = s_3e_d.pc + 4;
 
         case (pc_sel)
-            MUX_PC_BRANCH: begin 
+            MUX_PC_BRANCH: begin
                 branch_real_taken_3e = taken_branch;
                 if (taken_branch) branch_real_target_3e = s_3e_d.alu_result;
             end
             MUX_PC_JAL, MUX_PC_JALR: begin
                 branch_real_taken_3e = 1'b1;
-                if (pc_sel == MUX_PC_JALR) 
+                if (pc_sel == MUX_PC_JALR)
                     branch_real_target_3e = {s_3e_d.alu_result[31:1], 1'b0};
-                else 
+                else
                     branch_real_target_3e = s_3e_d.alu_result;
             end
             default: ;
@@ -694,10 +682,10 @@ module gandul# (
         if (s_3e_d.valid) begin
             if (is_control_3e) begin
                 // direction mismatch
-                if (s_3e_d.pred_taken != branch_real_taken_3e) 
+                if (s_3e_d.pred_taken != branch_real_taken_3e)
                     misprediction = 1'b1;
                 // target mismatch (if taken)
-                else if (s_3e_d.pred_taken && (s_3e_d.pred_target != branch_real_target_3e)) 
+                else if (s_3e_d.pred_taken && (s_3e_d.pred_target != branch_real_target_3e))
                     misprediction = 1'b1;
             end else begin
                 // aliasing (predicted taken on non-control instr)
@@ -706,8 +694,6 @@ module gandul# (
             end
         end
     end
-
-    assign flush_pipeline = misprediction;
 
 endmodule
 

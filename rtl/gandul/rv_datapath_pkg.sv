@@ -39,6 +39,7 @@ package rv_datapath_pkg;
         logic                  valid;
         logic [`INS_WIDTH-1:0] ins;
         logic [`XLEN-1:0]      pc;
+        logic                  xcpt;
 
         logic                  pred_taken;
         logic [`XLEN-1:0]      pred_target;

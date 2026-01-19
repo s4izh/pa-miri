@@ -22,7 +22,7 @@ module stage_2d #(
     input  logic [11:0]             csr_waddr_i,
     input  logic [XLEN-1:0]         csr_wdata_i,
     // Exceptions
-    output logic xcpt_illegal_ins_o,
+    output logic                    xcpt_2d_o,
     // Hazard detection
     input  logic                    noop_i,
     input  logic                    stall_i,
@@ -70,7 +70,7 @@ module stage_2d #(
     assign csr_re_o    = dec_csr_re;
     assign csr_raddr_o = dec_csr_raddr;
 
-    assign xcpt_illegal_ins_o = xcpt_decoder; // | xcpt_csr_rf;
+    assign xcpt_2d_o = xcpt_decoder & _i.valid | _i.xcpt; // | xcpt_csr_rf;
 
     assign is_st_o = is_st;
     assign rs1_addr_o  = rs1_addr;
@@ -116,7 +116,7 @@ module stage_2d #(
     end
 
     always_comb begin
-        if (noop_i | noop_q | stall_i) begin
+        if (noop_i | noop_q | stall_i | xcpt_2d_o) begin
             // NOOP ALL WAYS
             // alumem fu
             _o_alumem.valid  = 0;
@@ -243,10 +243,6 @@ module stage_2d #(
 
         .capture_xcpt_i(capture_xcpt_csr),
         .xcpt_o(xcpt_csr_rf),
-
-        // TODO
-        // .capture_xcpt_valid_i(),
-        // .capture_xcpt_pc_i()
 
         .trap_addr_o() // TODO
     );

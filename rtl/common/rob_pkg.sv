@@ -14,6 +14,7 @@ package rob_pkg;
         logic             rd_we;
         logic [4:0]       rd_addr;
         logic             is_st;
+        logic             xcpt;
     } issue_req_t;
 
     typedef struct packed {
