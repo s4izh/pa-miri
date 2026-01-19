@@ -146,7 +146,7 @@ module rob #(
         end
         // Complete csr
         if (complete_csr_i.valid) begin
-            entries[complete_muldiv_i.robid].complete  <= 1;
+            entries[complete_csr_i.robid].complete     <= 1;
             entries[complete_csr_i.robid].rd_result    <= complete_csr_i.rd_result;
             entries[complete_csr_i.robid].csr_result   <= complete_csr_i.csr_result;
             entries[complete_csr_i.robid].xcpt         <= complete_csr_i.xcpt;

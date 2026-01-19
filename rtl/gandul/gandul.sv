@@ -197,12 +197,25 @@ module gandul# (
     // To stage_2d
     cam_rsp_t       rob_cam_rsp_csr;
 
-    assign rob_issue_req.valid   = (s_2d_d.valid | muldiv_input.valid) & ~stall_for_sb_full; // & ~xcpt_illegal_ins
+    // Issue
+    assign rob_issue_req.valid   = (s_2d_d.valid | muldiv_input.valid | csr_input.valid) & ~stall_for_sb_full;
     assign rob_issue_req.pc      = s_1f_q.pc;
-    assign rob_issue_req.dbg_ins = muldiv_input.valid ? muldiv_input.ins : s_1f_q.ins;
-    assign rob_issue_req.rd_we   = muldiv_input.valid ? 1 : s_2d_d.is_wb;
     assign rob_issue_req.rd_addr = s_2d_d.rd_addr;
-    assign rob_issue_req.is_st   = muldiv_input.valid ? 0 : s_2d_d.is_st;
+    always_comb begin
+        if (muldiv_input.valid) begin
+            rob_issue_req.dbg_ins = muldiv_input.ins;
+            rob_issue_req.is_st   = 0;
+            rob_issue_req.rd_we   = 1;
+        end else if (csr_input.valid) begin
+            rob_issue_req.dbg_ins = csr_input.ins;
+            rob_issue_req.is_st   = 0;
+            rob_issue_req.rd_we   = 1;
+        end else begin
+            rob_issue_req.dbg_ins = s_2d_d.ins;
+            rob_issue_req.is_st   = s_2d_d.is_st;
+            rob_issue_req.rd_we   = s_2d_d.is_wb;
+        end
+    end
 
     // Complete alumem
     assign rob_complete_alumem.valid   = s_5w_d.valid;

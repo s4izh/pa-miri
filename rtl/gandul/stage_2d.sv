@@ -60,18 +60,6 @@ module stage_2d #(
 
     assign xcpt_illegal_ins_o = xcpt_decoder | xcpt_csr_rf;
 
-    always_ff @(posedge clk) begin
-        if (!reset_n) begin
-            noop_q <= 0;
-        end else begin
-            if (stall_i && noop_i) begin
-                noop_q <= '1;
-            end else if (!stall_i) begin
-                noop_q <= '0;
-            end
-        end
-    end
-
     assign is_st_o = is_st;
     assign rs1_addr_o  = rs1_addr;
     assign rs2_addr_o  = rs2_addr;
@@ -100,8 +88,20 @@ module stage_2d #(
     assign rob_issue_req_csr_o.csr_addr = dec_csr_raddr;
 
     // STORE BUFFER
-    assign _o_alumem.sbid       = sb_alloc_idx_i;
-    assign sb_alloc_en_o = _i.valid & is_st & ~stall_i & ~noop_i & ~noop_q;
+    assign _o_alumem.sbid = sb_alloc_idx_i;
+    assign sb_alloc_en_o  = _i.valid & is_st & ~stall_i & ~noop_i & ~noop_q;
+
+    always_ff @(posedge clk) begin
+        if (!reset_n) begin
+            noop_q <= 0;
+        end else begin
+            if (stall_i && noop_i) begin
+                noop_q <= '1;
+            end else if (!stall_i) begin
+                noop_q <= '0;
+            end
+        end
+    end
 
     always_comb begin
         if (noop_i | noop_q | stall_i) begin
