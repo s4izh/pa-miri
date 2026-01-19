@@ -37,6 +37,8 @@ module stage_2d #(
     output logic                    rs1_valid_o,
     output logic [$clog2(NREG)-1:0] rs2_addr_o,
     output logic                    rs2_valid_o,
+    output logic [11:0]             csr_raddr_o,
+    output logic                    csr_re_o,
     output logic                    is_st_o,
     // rob
     input  robid_t                  robid_i,
@@ -57,6 +59,9 @@ module stage_2d #(
     logic [XLEN-1:0] csr_rf_rdata;
 
     logic xcpt_decoder, xcpt_csr_rf;
+
+    assign csr_re_o    = dec_csr_re;
+    assign csr_raddr_o = dec_csr_raddr;
 
     assign xcpt_illegal_ins_o = xcpt_decoder | xcpt_csr_rf;
 

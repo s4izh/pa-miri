@@ -58,6 +58,8 @@ module gandul# (
     // Detection
     logic rs1_valid, rs2_valid;
     logic [$clog2(N_PHY_REG)-1:0] rs1_addr, rs2_addr;
+    logic csr_re;
+    logic [11:0] csr_raddr;
     // Control
     logic noop_1f, noop_2d, noop_3e, noop_4m, noop_5w, noop_muldiv, noop_csr;
     logic stall_1f, stall_2d, stall_3e, stall_4m, stall_muldiv, stall_csr;
@@ -243,7 +245,8 @@ module gandul# (
     assign rob_cam_req_rs1.addr  = rs1_addr;
     assign rob_cam_req_rs2.valid = rs2_valid;
     assign rob_cam_req_rs2.addr  = rs2_addr;
-    // assign rob_cam_req_csr.valid = csr_re;
+    assign rob_cam_req_csr.valid = csr_re;
+    assign rob_cam_req_csr.addr  = csr_raddr;
 
 
     rob rob_inst (
@@ -424,6 +427,8 @@ module gandul# (
         .rs1_valid_o(rs1_valid),
         .rs2_addr_o(rs2_addr),
         .rs2_valid_o(rs2_valid),
+        .csr_raddr_o(csr_raddr),
+        .csr_re_o(csr_re),
         .is_st_o(is_st_2d),
         .robid_i(rob_issue_rsp.robid),
         .rob_issue_req_csr_o(rob_issue_req_csr),
