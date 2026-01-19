@@ -432,6 +432,8 @@ module gandul# (
         .is_st_o(is_st_2d),
         .robid_i(rob_issue_rsp.robid),
         .rob_issue_req_csr_o(rob_issue_req_csr),
+        .rob_commit_xcpt_valid_i(rob_trap_valid),
+        .rob_commit_xcpt_pc_i(rob_commit.pc),
         .sb_alloc_idx_i(sb_alloc_idx),
         .sb_alloc_en_o(sb_alloc_en)
     );

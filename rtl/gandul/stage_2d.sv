@@ -43,6 +43,8 @@ module stage_2d #(
     // rob
     input  robid_t                  robid_i,
     output issue_req_csr_t          rob_issue_req_csr_o,
+    input  logic                    rob_commit_xcpt_valid_i,
+    input  logic [XLEN-1:0]         rob_commit_xcpt_pc_i,
     // store buffer allocation interface
     input  sbid_t                   sb_alloc_idx_i,
     output logic                    sb_alloc_en_o
@@ -59,6 +61,11 @@ module stage_2d #(
     logic [XLEN-1:0] csr_rf_rdata;
 
     logic xcpt_decoder, xcpt_csr_rf;
+
+    capture_xcpt_t capture_xcpt_csr;
+
+    assign capture_xcpt_csr.valid = rob_commit_xcpt_valid_i;
+    assign capture_xcpt_csr.pc    = rob_commit_xcpt_pc_i;
 
     assign csr_re_o    = dec_csr_re;
     assign csr_raddr_o = dec_csr_raddr;
@@ -234,6 +241,7 @@ module stage_2d #(
         .write_addr_i(csr_waddr_i),
         .write_data_i(csr_wdata_i),
 
+        .capture_xcpt_i(capture_xcpt_csr),
         .xcpt_o(xcpt_csr_rf),
 
         // TODO

@@ -1,4 +1,9 @@
 package csr_pkg;
+    typedef struct packed {
+        logic        valid;
+        logic [31:0] pc;
+    } capture_xcpt_t;
+
     // Machine Trap Setup
     localparam logic[11:0] CSR_ADDR_MTVEC    = 12'h305;
     // Machine Trap Handling

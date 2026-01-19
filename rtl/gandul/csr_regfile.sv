@@ -14,6 +14,7 @@ module csr_regfile #(
     input  logic [11:0]     write_addr_i,
     input  logic [XLEN-1:0] write_data_i,
     // Exceptions
+    input  capture_xcpt_t   capture_xcpt_i,
     output logic            xcpt_o,
     // Control signals coming from csrs
     output logic [XLEN-1:0] trap_addr_o
@@ -63,7 +64,9 @@ module csr_regfile #(
             csr_mtval    <= '0;
             xcpt_write    = '0;
         end else begin
-            if (~xcpt_write) begin
+            if (capture_xcpt_i.valid) begin
+                csr_mepc <= capture_xcpt_i.pc;
+            end else if (~xcpt_write) begin
                 case(write_addr_i)
                     CSR_ADDR_MTVEC:  csr_mtvec    <= write_data_i;
                     CSR_ADDR_MEPC:   csr_mepc     <= write_data_i;
