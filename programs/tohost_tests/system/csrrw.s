@@ -5,8 +5,8 @@ test_memory: .word 0
 .section .text
 _start:
     li t0, 0x2000
-    csrw mtval, t0
-    csrr t1, mtval
+    csrw mtvec, t0
+    csrr t1, mtvec
     beq t0, t1, pass_loop
 fail_loop:
     write_tohost_failure
