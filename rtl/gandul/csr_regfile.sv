@@ -84,7 +84,7 @@ module csr_regfile #(
         eleven2ten = addr[11:10];
         nine2eight = addr[9:8];
         seven2four = addr[7:4];
-        if (nine2eight >= current_priv) return 0;
+        if (nine2eight > current_priv) return 0;
         if (eleven2ten == 2'b01 && seven2four == 4'b1011) return 0;
         return 1;
     endfunction
@@ -95,7 +95,7 @@ module csr_regfile #(
         eleven2ten = addr[11:10];
         nine2eight = addr[9:8];
         seven2four = addr[7:4];
-        if (nine2eight >= current_priv) return 0;
+        if (nine2eight > current_priv) return 0;
         if (eleven2ten == 2'b01 && seven2four == 4'b1011) return 0;
         if (
             eleven2ten == 2'b11 && (
