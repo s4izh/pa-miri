@@ -107,71 +107,71 @@ module stage_2d #(
         if (noop_i | noop_q | stall_i) begin
             // NOOP ALL WAYS
             // alumem fu
-            _o_alumem.valid        = 0;
-            _o_alumem.is_wb        = 0;
-            _o_alumem.is_st        = 0;
-            _o_alumem.pc_sel       = MUX_PC_NEXT;
-            _o_alumem.ins          = 32'h00000033; // noop (add x0, x0, x0)
+            _o_alumem.valid  = 0;
+            _o_alumem.is_wb  = 0;
+            _o_alumem.is_st  = 0;
+            _o_alumem.pc_sel = MUX_PC_NEXT;
+            _o_alumem.ins    = 32'h00000033; // noop (add x0, x0, x0)
             // muldiv fu
-            _o_muldiv.valid = 0;
-            _o_muldiv.ins   = 32'h00000033; // noop (add x0, x0, x0)
+            _o_muldiv.valid  = 0;
+            _o_muldiv.ins    = 32'h00000033; // noop (add x0, x0, x0)
             // csr fu
             _o_csr.valid    = 0;
             _o_csr.ins      = 32'h00000033; // noop (add x0, x0, x0)
             // branch predictor control
-            _o.pred_taken   = 0;
-            _o.pred_target  = 0;
+            _o_alumem.pred_taken   = 0;
+            _o_alumem.pred_target  = 0;
         end else if (is_muldiv) begin
             // ISSUE MULDIV
             // alumem fu
-            _o_alumem.valid        = 0;
-            _o_alumem.is_wb        = 0;
-            _o_alumem.is_st        = 0;
-            _o_alumem.pc_sel       = MUX_PC_NEXT;
-            _o_alumem.ins          = 32'h00000033; // noop (add x0, x0, x0)
+            _o_alumem.valid       = 0;
+            _o_alumem.is_wb       = 0;
+            _o_alumem.is_st       = 0;
+            _o_alumem.pc_sel      = MUX_PC_NEXT;
+            _o_alumem.ins         = 32'h00000033; // noop (add x0, x0, x0)
             // muldiv fu
-            _o_muldiv.valid = _i.valid;
-            _o_muldiv.ins   = _i.ins;
+            _o_muldiv.valid       = _i.valid;
+            _o_muldiv.ins         = _i.ins;
             // csr fu
-            _o_csr.valid    = 0;
-            _o_csr.ins      = 32'h00000033; // noop (add x0, x0, x0)
-            // branch predictor cotnrol
-            _o.pred_taken   = _i.pred_taken;
-            _o.pred_target  = _i.pred_target;
+            _o_csr.valid          = 0;
+            _o_csr.ins            = 32'h00000033; // noop (add x0, x0, x0)
+            // branch predictor control
+            _o_alumem.pred_taken  = _i.pred_taken;
+            _o_alumem.pred_target = _i.pred_target;
         end else if (is_csr) begin
             // ISSUE MULDIV
             // alumem fu
-            _o_alumem.valid        = 0;
-            _o_alumem.is_wb        = 0;
-            _o_alumem.is_st        = 0;
-            _o_alumem.pc_sel       = MUX_PC_NEXT;
-            _o_alumem.ins          = 32'h00000033; // noop (add x0, x0, x0)
+            _o_alumem.valid       = 0;
+            _o_alumem.is_wb       = 0;
+            _o_alumem.is_st       = 0;
+            _o_alumem.pc_sel      = MUX_PC_NEXT;
+            _o_alumem.ins         = 32'h00000033; // noop (add x0, x0, x0)
             // muldiv fu
-            _o_muldiv.valid = 0;
-            _o_muldiv.ins   = 32'h00000033; // noop (add x0, x0, x0)
+            _o_muldiv.valid       = 0;
+            _o_muldiv.ins         = 32'h00000033; // noop (add x0, x0, x0)
             // csr fu
-            _o_csr.valid    = _i.valid;
-            _o_csr.ins      = _i.ins;
+            _o_csr.valid          = _i.valid;
+            _o_csr.ins            = _i.ins;
             // branch predictor control
-            _o.pred_taken   = _i.pred_taken;
-            _o.pred_target  = _i.pred_target;
+            _o_alumem.pred_taken  = _i.pred_taken;
+            _o_alumem.pred_target = _i.pred_target;
         end else begin
             // ISSUE ALUMEM
             // alumem fu
-            _o_alumem.valid        = _i.valid;
-            _o_alumem.is_wb        = is_wb;
-            _o_alumem.is_st        = is_st;
-            _o_alumem.pc_sel       = pc_sel;
-            _o_alumem.ins          = _i.ins;
+            _o_alumem.valid       = _i.valid;
+            _o_alumem.is_wb       = is_wb;
+            _o_alumem.is_st       = is_st;
+            _o_alumem.pc_sel      = pc_sel;
+            _o_alumem.ins         = _i.ins;
             // muldiv fu
-            _o_muldiv.valid = 0;
-            _o_muldiv.ins   = 32'h00000033; // noop (add x0, x0, x0)
+            _o_muldiv.valid       = 0;
+            _o_muldiv.ins         = 32'h00000033; // noop (add x0, x0, x0)
             // csr fu
-            _o_csr.valid    = 0;
-            _o_csr.ins      = 32'h00000033; // noop (add x0, x0, x0)
+            _o_csr.valid          = 0;
+            _o_csr.ins            = 32'h00000033; // noop (add x0, x0, x0)
             // branch predictor control
-            _o.pred_taken   = _i.pred_taken;
-            _o.pred_target  = _i.pred_target;
+            _o_alumem.pred_taken  = _i.pred_taken;
+            _o_alumem.pred_target = _i.pred_target;
         end
     end
 

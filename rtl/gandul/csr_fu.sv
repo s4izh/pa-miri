@@ -13,7 +13,6 @@ module csr_fu #(
 );
     signals_csr_in_t  _i_q;
     signals_csr_out_t _o_d, _o_q;
-    logic [XLEN-1:0]  csr_data_tmp;
 
     decoupling_reg #(
         .regtype_t(signals_csr_in_t)
@@ -25,33 +24,37 @@ module csr_fu #(
         .q_o(_i_q)
     );
 
-    assign _o_d.valid = _i_q.valid & ~(noop_i | stall_i);
-    assign _o_d.ins   = _i_q.ins;
-    assign _o_d.robid = _i_q.robid;
+    logic [XLEN-1:0] csr_data_tmp;
+    logic [XLEN-1:0] uimm_extended;
+    assign uimm_extended = { {(XLEN-5){1'b0}}, _i_q.uimm };
+
+    assign _o_d.valid    = _i_q.valid & ~(noop_i | stall_i);
+    assign _o_d.ins      = _i_q.ins;
+    assign _o_d.rd_data  = _i_q.csr_data;
+    assign _o_d.csr_data = csr_data_tmp;
+    assign _o_d.robid    = _i_q.robid;
+    assign _o_d.xcpt     = 0;
 
     // CSR "ALU"
     always_comb begin
-        _o_d = '0;
         csr_data_tmp = '0;
         case (_i_q.csr_op)
             CSR_OP_RW: begin
-                if (_i_q.uimm_valid) csr_data_tmp = $unsigned(_i_q.uimm);
+                if (_i_q.uimm_valid) csr_data_tmp = uimm_extended;
                 else                 csr_data_tmp = _i_q.rs1_data;
             end
             CSR_OP_RS: begin
-                if (_i_q.uimm_valid) csr_data_tmp = _i_q.csr_data | $unsigned(_i_q.uimm);
+                if (_i_q.uimm_valid) csr_data_tmp = _i_q.csr_data | uimm_extended;
                 else                 csr_data_tmp = _i_q.csr_data | _i_q.rs1_data;
             end
             CSR_OP_RC: begin
-                if (_i_q.uimm_valid) csr_data_tmp = _i_q.csr_data & ~$unsigned(_i_q.uimm);
+                if (_i_q.uimm_valid) csr_data_tmp = _i_q.csr_data & ~uimm_extended;
                 else                 csr_data_tmp = _i_q.csr_data & ~_i_q.rs1_data;
             end
             default: begin
                 csr_data_tmp = '0;
             end
         endcase
-        _o_d.rd_data  = _o_d.csr_data;
-        _o_d.csr_data = csr_data_tmp;
     end
 
     decoupling_reg #(

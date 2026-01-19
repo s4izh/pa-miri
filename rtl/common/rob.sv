@@ -133,14 +133,14 @@ module rob #(
         // Complete alumem
         if (complete_alumem_i.valid) begin
             entries[complete_alumem_i.robid].complete <= 1;
-            entries[complete_alumem_i.robid].rd_result <= complete_alumem_i.rd_result;
+            entries[complete_alumem_i.robid].rd_result <= complete_alumem_i.result;
             entries[complete_alumem_i.robid].xcpt      <= complete_alumem_i.xcpt;
             entries[complete_alumem_i.robid].sbid      <= complete_alumem_i.sbid;
         end
         // Complete muldiv
         if (complete_muldiv_i.valid) begin
             entries[complete_muldiv_i.robid].complete  <= 1;
-            entries[complete_muldiv_i.robid].rd_result <= complete_muldiv_i.rd_result;
+            entries[complete_muldiv_i.robid].rd_result <= complete_muldiv_i.result;
             entries[complete_muldiv_i.robid].xcpt      <= complete_muldiv_i.xcpt;
             entries[complete_muldiv_i.robid].sbid      <= complete_muldiv_i.sbid;
         end

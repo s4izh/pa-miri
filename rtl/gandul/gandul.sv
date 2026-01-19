@@ -393,8 +393,8 @@ module gandul# (
         .rd_data_i(rob_commit_rf.rd_data),
         // Write-back - CSR
         .csr_we_i(rob_commit_csr.csr_we),
-        .csr_waddr_i(rob_commit_csr.csr_waddr),
-        .csr_wdata_i(rob_commit_csr.csr_wdata),
+        .csr_waddr_i(rob_commit_csr.csr_addr),
+        .csr_wdata_i(rob_commit_csr.csr_data),
         // Exceptions
         .xcpt_illegal_ins_o(xcpt_illegal_ins),
         // Hazard detection

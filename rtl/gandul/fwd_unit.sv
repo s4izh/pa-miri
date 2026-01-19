@@ -123,6 +123,8 @@ module fwd_unit #(
     always_comb begin
         bypass_csr_2d_sel_o = 0;
         bypass_csr_2d_data_o = '0;
+        hazard_rob_csr = 0;
+
         if (rob_cam_csr_i.valid) begin
             if (rob_cam_csr_i.complete) begin
                 bypass_csr_2d_sel_o  = 1;

@@ -188,7 +188,7 @@ package rv_datapath_pkg;
         CSR_OP_RC
     } csr_op_e;
 
-    typedef struct {
+    typedef struct packed {
         logic             valid;
         logic [`XLEN-1:0] ins;
         csr_op_e          csr_op;
@@ -200,7 +200,7 @@ package rv_datapath_pkg;
         robid_t           robid;
     } signals_csr_in_t;
 
-    typedef struct {
+    typedef struct packed {
         logic             valid;
         logic [`XLEN-1:0] ins;
         logic [`XLEN-1:0] rd_data;
