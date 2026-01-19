@@ -85,13 +85,8 @@ module gandul# (
     logic [XLEN-1:0] branch_real_target_3e;// actual target in EX
     logic            misprediction;   // did we mess up?
 
-    // are we jumping or branching in the execute stage?
-    logic jump_or_branch_3e;
-    assign jump_or_branch_3e = (taken_branch || pc_sel[1]) && s_2d_q.valid;
-
     // use s_1f_q.valid (input to decode) instead of s_2d_d.valid (output of decode)
     // this avoids the circular loop where trap -> noop -> s_2d_d.valid=0 -> trap=0
-    // we must manually mask with jump_or_branch_3e because a branch should kill the trap
     // Use icache_dreq_ready directly to break loop through s_1f_d
     assign rob_trap_valid = rob_commit.valid & rob_commit.xcpt;
 
@@ -116,7 +111,6 @@ module gandul# (
 
     assign stall_1f     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready | stall_for_sb_full;
     assign stall_2d     = waiting_for_memory_4m | ~icache_dreq_ready | data_hazard | ~rob_issue_rsp.ready | stall_for_sb_full;
-    // assign stall_3e     = waiting_for_memory_4m | (~icache_dreq_ready & jump_or_branch_3e);
     assign stall_3e     = waiting_for_memory_4m;
     assign stall_4m     = waiting_for_memory_4m;
     assign stall_muldiv = 0;
@@ -184,6 +178,7 @@ module gandul# (
 
     // Issue
     assign rob_issue_req.valid   = (s_2d_d.valid | muldiv_input.valid | csr_input.valid) & ~stall_for_sb_full;
+    // assign rob_issue_req.valid   = (s_2d_d.valid | xcpt_2d | muldiv_input.valid | csr_input.valid) & ~stall_for_sb_full;
     assign rob_issue_req.pc      = s_1f_q.pc;
     assign rob_issue_req.rd_addr = s_2d_d.rd_addr;
     assign rob_issue_req.xcpt    = xcpt_2d;
