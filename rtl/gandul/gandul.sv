@@ -304,8 +304,10 @@ module gandul# (
             pc <= 'h1000;
         end else begin
             if (icache_dreq_ready) begin
+                // a jump was buffered because icache was busy
                 if (pending_jump_valid) begin
                     pc <= pending_jump_target;
+                // a jump is requested on this cycle
                 end else if (req_jump_valid) begin
                     pc <= req_jump_target;
                 end else if (!stall_1f) begin
