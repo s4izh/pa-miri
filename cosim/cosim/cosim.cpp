@@ -108,6 +108,11 @@ trap_t cosim_execute(cosim_t *soc, decoded_instruction_t *di) {
     word read_value = 0;
 	trap_t trap = TRAP_OK;
 
+    if (soc->hart.pc & 0b11) {
+        trap = TRAP_ERR;
+        goto trap;
+    }
+
 	switch (di->op) {
 		case INSTRUCTION_OP_LUI:
 			soc->hart.gpr[di->rd] = di->imm; // di->imm already shifted <<12 by the decoder
@@ -342,6 +347,7 @@ trap_t cosim_execute(cosim_t *soc, decoded_instruction_t *di) {
 			break;
 	}
 
+trap:
     if (trap == TRAP_OK) {
         if (update_pc)
             soc->hart.pc += 4;

@@ -17,7 +17,7 @@ module csr_regfile #(
     input  capture_xcpt_t   capture_xcpt_i,
     output logic            xcpt_o,
     // Control signals coming from csrs
-    output logic [XLEN-1:0] trap_addr_o
+    output logic [XLEN-1:0] csr_mtvec_o
 );
     logic [1:0] current_priv;
     logic xcpt_write, xcpt_read;
@@ -29,7 +29,7 @@ module csr_regfile #(
 
     assign current_priv = 2'b11;
 
-    assign trap_addr_o = csr_mtvec;
+    assign csr_mtvec_o = csr_mtvec;
     assign xcpt_o = (xcpt_read & read_en_i) | (xcpt_write & write_en_i);
 
     // Read

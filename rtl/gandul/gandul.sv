@@ -176,23 +176,22 @@ module gandul# (
     // To stage_2d
     cam_rsp_t       rob_cam_rsp_csr;
 
+    logic rob_issue_req_2d_valid;
+
     // Issue
-    assign rob_issue_req.valid   = (s_2d_d.valid | muldiv_input.valid | csr_input.valid) & ~stall_for_sb_full;
-    // assign rob_issue_req.valid   = (s_2d_d.valid | xcpt_2d | muldiv_input.valid | csr_input.valid) & ~stall_for_sb_full;
+    assign rob_issue_req.valid   = (rob_issue_req_2d_valid) & ~stall_for_sb_full;
     assign rob_issue_req.pc      = s_1f_q.pc;
     assign rob_issue_req.rd_addr = s_2d_d.rd_addr;
     assign rob_issue_req.xcpt    = xcpt_2d;
+    assign rob_issue_req.dbg_ins = s_1f_q.ins;
     always_comb begin
         if (muldiv_input.valid) begin
-            rob_issue_req.dbg_ins = muldiv_input.ins;
             rob_issue_req.is_st   = 0;
             rob_issue_req.rd_we   = 1;
         end else if (csr_input.valid) begin
-            rob_issue_req.dbg_ins = csr_input.ins;
             rob_issue_req.is_st   = 0;
             rob_issue_req.rd_we   = 1;
         end else begin
-            rob_issue_req.dbg_ins = s_2d_d.ins;
             rob_issue_req.is_st   = s_2d_d.is_st;
             rob_issue_req.rd_we   = s_2d_d.is_wb;
         end
@@ -260,6 +259,7 @@ module gandul# (
 
     logic            req_jump_valid;
     logic [XLEN-1:0] req_jump_target;
+    logic [XLEN-1:0] csr_mtvec;
 
     always_comb begin
         req_jump_valid  = 0;
@@ -267,7 +267,7 @@ module gandul# (
 
         if (rob_trap_valid) begin
             req_jump_valid = 1;
-            req_jump_target = 'h2000;
+            req_jump_target = csr_mtvec;
         end
         else if (misprediction) begin
             req_jump_valid = 1;
@@ -395,6 +395,7 @@ module gandul# (
         .csr_waddr_i(rob_commit_csr.csr_addr),
         .csr_wdata_i(rob_commit_csr.csr_data),
         // Exception
+        .csr_mtvec_o(csr_mtvec),
         .xcpt_2d_o(xcpt_2d),
         // Hazard detection
         .noop_i(noop_2d),
@@ -414,6 +415,7 @@ module gandul# (
         .csr_re_o(csr_re),
         .is_st_o(is_st_2d),
         .robid_i(rob_issue_rsp.robid),
+        .rob_issue_req_valid_o(rob_issue_req_2d_valid),
         .rob_issue_req_csr_o(rob_issue_req_csr),
         .rob_commit_xcpt_valid_i(rob_trap_valid),
         .rob_commit_xcpt_pc_i(rob_commit.pc),

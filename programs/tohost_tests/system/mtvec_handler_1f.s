@@ -10,11 +10,7 @@ _start:
     csrr t1, mtvec
     bne  t0, t1, fail_loop
 
-    # Execute Environment Call. This raises an ilegal instruction exception (unimplemented)
-    # ecall
-
-    li t4, 0
-    div t6, t1, t4
+    j 0x1002
 
     # If the processor ignores the trap or falls through, we land here.
     j fail_loop

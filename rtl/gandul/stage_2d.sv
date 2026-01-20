@@ -22,6 +22,7 @@ module stage_2d #(
     input  logic [11:0]             csr_waddr_i,
     input  logic [XLEN-1:0]         csr_wdata_i,
     // Exceptions
+    output logic [XLEN-1:0]         csr_mtvec_o,
     output logic                    xcpt_2d_o,
     // Hazard detection
     input  logic                    noop_i,
@@ -41,6 +42,7 @@ module stage_2d #(
     output logic                    csr_re_o,
     output logic                    is_st_o,
     // rob
+    output logic                    rob_issue_req_valid_o,
     input  robid_t                  robid_i,
     output issue_req_csr_t          rob_issue_req_csr_o,
     input  logic                    rob_commit_xcpt_valid_i,
@@ -70,7 +72,7 @@ module stage_2d #(
     assign csr_re_o    = dec_csr_re;
     assign csr_raddr_o = dec_csr_raddr;
 
-    assign xcpt_2d_o = xcpt_decoder & _i.valid | _i.xcpt; // | xcpt_csr_rf;
+    assign xcpt_2d_o = (xcpt_decoder & _i.valid & ~(noop_i | noop_q | stall_i)) | _i.xcpt; // | xcpt_csr_rf;
 
     assign is_st_o = is_st;
     assign rs1_addr_o  = rs1_addr;
@@ -115,6 +117,7 @@ module stage_2d #(
         end
     end
 
+    assign rob_issue_req_valid_o = (~(noop_i | noop_q | stall_i) & _i.valid) | xcpt_2d_o;
     always_comb begin
         if (noop_i | noop_q | stall_i | xcpt_2d_o) begin
             // NOOP ALL WAYS
@@ -244,7 +247,7 @@ module stage_2d #(
         .capture_xcpt_i(capture_xcpt_csr),
         .xcpt_o(xcpt_csr_rf),
 
-        .trap_addr_o() // TODO
+        .csr_mtvec_o(csr_mtvec_o)
     );
 
     rv_regfile #(

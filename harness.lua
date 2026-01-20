@@ -441,8 +441,8 @@ harness.add_experiment({
     name = "gandul-cosim-benchmarks",
     testbench = "gandul.cosim",
     param_sets = { "base", "base_bp" };
-    -- suites = { "benchmarks_O0", "benchmarks_O1" },
-    suites = { "benchmarks_O0" },
+    -- suites = { "benchmarks_O0" },
+    suites = { "benchmarks_O0", "benchmarks_O1" },
     simulators = { "verilator" }
 })
 

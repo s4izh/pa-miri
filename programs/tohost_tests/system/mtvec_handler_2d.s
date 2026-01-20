@@ -13,8 +13,7 @@ _start:
     # Execute Environment Call. This raises an ilegal instruction exception (unimplemented)
     # ecall
 
-    li t4, 0
-    div t6, t1, t4
+    ecall
 
     # If the processor ignores the trap or falls through, we land here.
     j fail_loop

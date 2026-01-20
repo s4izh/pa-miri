@@ -180,7 +180,7 @@ module tb (
                     errors += 1;
                 end
 
-                if (ins != `ROB_COMMIT.dbg_ins) begin
+                if (!(|trap) && ins != `ROB_COMMIT.dbg_ins) begin
                     $display("ERROR - Different instruction: {dut: 0x%08x, iss: 0x%08x}",
                         `ROB_COMMIT.dbg_ins, ins);
                     errors += 1;
