@@ -253,5 +253,18 @@ ours is much more fitting for this particular instance.
 
 ## RISC-V Processor Architecture Final assignment (Gandul Lentium)
 ### 1.1 ISA
+On top of the previous assignment's ISA, we addes the whole M extension, and
+some of the CSRs that correspond to the Zicsr extension (mepc, mtvec)
+
 ### 1.2 uArch
+Stage 1 now has a branch predictor. Stage 2 reserves entries in a reorder buffer
+and, in case of stores, in a store buffer too. Then issues to one of three
+functional units: (1) alumem (same stages as previous deliverables); (2) muldiv
+(executes instructions from the M extension); (3) CSR (executes instruction that
+atomically read/modify CSRs). Exceptions are always handled by the ROB, and minimal
+state is captured when one is triggered (mepc).
+
 ### 1.3 Verification
+Harness, a tool for executing benchmarks and comparing results was added. This
+tool is more configurable than the previous orchestrator. See directory `harness`
+to check it out.
