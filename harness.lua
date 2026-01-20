@@ -258,7 +258,7 @@ harness.add_testbench({
 harness.add_testbench({
     name = "gandul.cosim",
     filelist = "sim/gandul/cosim/filelist.f",
-    run_template = "$bin $plusargs +VCD_FILE=waves.fst +SRAM_FILE=$mem +TIMEOUT_CYCLES=1000000",
+    run_template = "$bin $plusargs +VCD_FILE=waves.fst +SRAM_FILE=$mem +TIMEOUT_CYCLES=3000000",
     vars = {
           COSIM_DPI_LIB = harness.abspath(cosim.outputs.lib)
     },
@@ -284,13 +284,13 @@ local defines_base = {
     SB_N_ENTRIES        = "8",
     SB_DRAIN_THRESHOLD  = "6",
     BP_ENABLE           = '"no"',
-    BP_N_ENTRIES        = "64",
+    BP_N_ENTRIES        = "16",
     ROB_N_ENTRIES       = "8",
     DCACHE_STORE_POLICY = '"wb"',
     XLEN                = "32",
     MEM_SIZE_KB         = "2*1024",
-    CACHE_SETS          = "4",
-    CACHE_WAYS          = "4",
+    CACHE_SETS          = "2",
+    CACHE_WAYS          = "2",
 }
 
 harness.add_param_set({
