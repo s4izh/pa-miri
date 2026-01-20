@@ -198,9 +198,6 @@ module stage_4m #(
         .frsp_data_i(dmem_i.data)
     );
 
-    // Data Path and Logic
-
-    // Mux Data: Store Buffer Forwarding OR D-Cache Response
     assign load_final_data = (sb_hit) ? sb_fwd_data : dc_rsp_data;
 
     sign_extender #(
@@ -232,14 +229,14 @@ module stage_4m #(
             _o.ins    = _i.ins;
             
             if (_i.xcpt) begin
-                // Previous exception
+                // previous exception
                 _o.xcpt = _i.xcpt;
             end else if (addr_misaligned) begin
-                // Alignment exception
+                // alignment exception
                 _o.xcpt = 1'b1;
             end else begin
                 // Flag D-Cache exception only if we actually used the D-Cache data
-                // (i.e., not a store buffer hit)
+                // (not a store buffer hit)
                 _o.xcpt = dc_rsp_xcpt & pipe_load_valid & ~sb_hit;
             end
         end
