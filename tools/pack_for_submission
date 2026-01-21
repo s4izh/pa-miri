@@ -27,6 +27,7 @@ tar \
   --exclude="${ARCHIVE_NAME}" \
   --exclude='./build' \
   --exclude='./build.ninja' \
+  --exclude='./harness/target' \
   --exclude='./programs/build' \
   --transform="s,^\./,${TOP_LEVEL_DIR}/," \
   -czvf "${ARCHIVE_NAME}" \
@@ -47,15 +48,16 @@ else
   echo "--------------------------------------------------------"
 fi
 
+orig_proj_dir=$PROJ_DIR
+
 if [[ $1 == "test" ]]; then
   set -x
   tar -xzvf "${ARCHIVE_NAME}"
   cd "$TOP_LEVEL_DIR" || exit 1
 
   source set_env.sh
-  ./tools/regression --sim vsim --test gandul.anyrom
-  ./tools/regression --sim verilator --test gandul.cosim
-  # ./tools/regression --sim iverilog
+  $orig_proj_dir/harness/target/debug/harness simulate gandul-cosim
+  $orig_proj_dir/harness/target/debug/harness simulate gandul-cosim-benchmarks
   cd ..
   sudo rm -rf "$TOP_LEVEL_DIR"
 else

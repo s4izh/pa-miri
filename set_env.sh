@@ -5,4 +5,4 @@ export DOCKER_TOOLCHAIN_IMAGE="riscv-toolchain"
 export TOOLCHAIN_DIR="$PROJ_DIR/toolchains"
 export PROGRAMS_DIR="$PROJ_DIR/programs"
 
-eval "$(register-python-argcomplete orchestrator)"
+# eval "$(register-python-argcomplete orchestrator)"
