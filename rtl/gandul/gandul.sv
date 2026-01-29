@@ -102,8 +102,11 @@ module gandul# (
     assign noop_muldiv = rob_trap_valid;
     assign noop_csr    = rob_trap_valid;
 
+    logic rob_can_commit;
     logic rob_can_commit_xcpt;
+    logic sb_empty;
     // assign rob_can_commit_xcpt = ~(waiting_for_memory_4m | ~icache_dreq_ready | ~rob_issue_rsp.ready);
+    assign rob_can_commit = (rob_commit_fence.valid) ? sb_empty : 1'b1;
     assign rob_can_commit_xcpt = ~(waiting_for_memory_4m | ~rob_issue_rsp.ready);
 
     logic stall_for_sb_full;
@@ -159,6 +162,8 @@ module gandul# (
     commit_rf_t     rob_commit_rf;
     // To store-buffer
     commit_sb_t     rob_commit_sb;
+    // To store-buffer
+    commit_fence_t  rob_commit_fence;
     // To CSR regfile
     commit_csr_t    rob_commit_csr;
 
@@ -177,13 +182,15 @@ module gandul# (
     cam_rsp_t       rob_cam_rsp_csr;
 
     logic rob_issue_req_2d_valid;
+    logic is_fence;
 
     // Issue
-    assign rob_issue_req.valid   = (rob_issue_req_2d_valid) & ~stall_for_sb_full;
-    assign rob_issue_req.pc      = s_1f_q.pc;
-    assign rob_issue_req.rd_addr = s_2d_d.rd_addr;
-    assign rob_issue_req.xcpt    = xcpt_2d;
-    assign rob_issue_req.dbg_ins = s_1f_q.ins;
+    assign rob_issue_req.valid    = (rob_issue_req_2d_valid) & ~stall_for_sb_full;
+    assign rob_issue_req.pc       = s_1f_q.pc;
+    assign rob_issue_req.rd_addr  = s_2d_d.rd_addr;
+    assign rob_issue_req.xcpt     = xcpt_2d;
+    assign rob_issue_req.dbg_ins  = s_1f_q.ins;
+    assign rob_issue_req.is_fence = is_fence;
     always_comb begin
         if (muldiv_input.valid) begin
             rob_issue_req.is_st   = 0;
@@ -226,7 +233,6 @@ module gandul# (
     assign rob_cam_req_csr.valid = csr_re;
     assign rob_cam_req_csr.addr  = csr_raddr;
 
-
     rob rob_inst (
         .clk,
         .reset_n,
@@ -239,10 +245,12 @@ module gandul# (
         .complete_muldiv_i(rob_complete_muldiv),
         .complete_csr_i(rob_complete_csr),
 
+        .can_commit_i(rob_can_commit),
         .can_commit_xcpt_i(rob_can_commit_xcpt),
         .commit_o(rob_commit),
         .commit_rf_o(rob_commit_rf),
         .commit_sb_o(rob_commit_sb),
+        .commit_fence_o(rob_commit_fence),
         .commit_csr_o(rob_commit_csr),
 
         .cam_req_rs1_i(rob_cam_req_rs1),
@@ -421,6 +429,7 @@ module gandul# (
         .rob_issue_req_csr_o(rob_issue_req_csr),
         .rob_commit_xcpt_valid_i(rob_trap_valid),
         .rob_commit_xcpt_pc_i(rob_commit.pc),
+        .is_fence_o(is_fence),
         .sb_alloc_idx_i(sb_alloc_idx),
         .sb_alloc_en_o(sb_alloc_en)
     );
@@ -488,6 +497,7 @@ module gandul# (
         .stall_i(stall_4m),
         .waiting_for_memory_o(waiting_for_memory_4m),
         .flush_i(rob_trap_valid),
+        .fence_i(rob_commit_fence.valid),
 
         // SB Allocation (Connected to 2D)
         .sb_alloc_en_i(sb_alloc_en),
@@ -496,7 +506,8 @@ module gandul# (
 
         // SB Commit (From ROB)
         .rob_commit_sb_valid_i(rob_commit_sb.valid),
-        .rob_commit_sb_idx_i(rob_commit_sb.sbid)
+        .rob_commit_sb_idx_i(rob_commit_sb.sbid),
+        .sb_empty_o(sb_empty)
     );
 
     decoupling_reg #(

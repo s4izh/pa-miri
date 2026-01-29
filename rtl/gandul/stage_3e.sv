@@ -65,7 +65,6 @@ module stage_3e #(
     `PROPAGATE(xcpt);
 
     `PROPAGATE(sbid);
-    `PROPAGATE(is_fence);
 
     `PROPAGATE(pred_taken);
     `PROPAGATE(pred_target);

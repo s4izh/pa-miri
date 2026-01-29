@@ -22,15 +22,17 @@ module stage_4m #(
     input  logic         noop_i,
     output logic         waiting_for_memory_o,
     input  logic         flush_i, 
+    input  logic         fence_i, 
     
     // store buffer allocation (from Stage 2D)
     input  logic         sb_alloc_en_i,
     output sbid_t        sb_alloc_idx_o,
     output logic         sb_full_o,
-    
+
     // store buffer commit (interface with ROB)
     input  logic         rob_commit_sb_valid_i,
     input  sbid_t        rob_commit_sb_idx_i,
+    output logic         sb_empty_o, // so we can stall on fence on ROB commit
 
     // memory refill interface
     output dmem_if_out_t dmem_o,
@@ -53,7 +55,6 @@ module stage_4m #(
     memop_width_e    sb_width;
     logic            sb_hit, sb_stall;
     logic [XLEN-1:0] sb_fwd_data;
-    logic            sb_empty; 
     
     // drain signals (SB -> Arbiter)
     logic            sb_dreq_valid, sb_dreq_ready;
@@ -114,9 +115,9 @@ module stage_4m #(
         .commit_idx_i(rob_commit_sb_idx_i),
 
         // Control
-        .fence_i(_i.is_fence & _i.valid),
+        .fence_i(fence_i),
         .flush_i(flush_i),
-        .sb_empty_o(sb_empty),
+        .sb_empty_o(sb_empty_o),
 
         // Forwarding (Hazard Check for Loads)
         .ld_addr_i(_i.alu_result),
@@ -214,7 +215,7 @@ module stage_4m #(
     // - SB fence: a fence instruction was requested, wait till all stores are sent to cache
     assign waiting_for_memory_o = (pipe_load_valid && !addr_misaligned && sb_stall) || 
                                   (ld_req_valid && !ld_req_ready) ||
-                                  (_i.valid && _i.is_fence && !sb_empty);
+                                  (fence_i && !sb_empty_o);
 
     // Pipeline Register Outputs
     always_comb begin

@@ -47,6 +47,7 @@ module stage_2d #(
     output issue_req_csr_t          rob_issue_req_csr_o,
     input  logic                    rob_commit_xcpt_valid_i,
     input  logic [XLEN-1:0]         rob_commit_xcpt_pc_i,
+    output logic                    is_fence_o, // signal for rob issue
     // store buffer allocation interface
     input  sbid_t                   sb_alloc_idx_i,
     output logic                    sb_alloc_en_o
@@ -228,7 +229,7 @@ module stage_2d #(
         .csr_op_o(_o_csr.csr_op),
         .csr_uses_uimm_o(_o_csr.uimm_valid),
 
-        .is_fence_o(_o_alumem.is_fence)
+        .is_fence_o(is_fence_o)
     );
 
     csr_regfile #(
