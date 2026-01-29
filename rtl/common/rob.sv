@@ -18,6 +18,8 @@ module rob #(
     input  complete_t      complete_muldiv_i,
     // Complete instruction from csr fu
     input  complete_csr_t  complete_csr_i,
+    // Commit control (used for fence)
+    input  logic           can_commit_i,
     // Commit xcpt control
     input  logic           can_commit_xcpt_i,
     // Commit general (general info)
@@ -26,8 +28,10 @@ module rob #(
     output commit_rf_t     commit_rf_o,
     // Commit to store_buffer
     output commit_sb_t     commit_sb_o,
-    // Commit to store_buffer
+    // Commit to csr
     output commit_csr_t    commit_csr_o,
+    // Commit a fence instruction
+    output commit_fence_t  commit_fence_o,
     // Peek youngest rs1 value
     input  cam_req_t       cam_req_rs1_i,
     output cam_rsp_t       cam_rsp_rs1_o,
@@ -48,6 +52,8 @@ module rob #(
         // sb
         logic            is_st;
         sbid_t           sbid;
+        // fence
+        logic            is_fence;
         // csr
         logic            csr_we;
         logic [11:0]     csr_addr;
@@ -77,7 +83,11 @@ module rob #(
 
     logic committing_xcpt;
     logic committing_head_q, issuing_tail_q;
-    assign committing_head_q = entries[head_q].complete & ~empty & ((entries[head_q].xcpt & can_commit_xcpt_i) | ~entries[head_q].xcpt);
+    assign committing_head_q = entries[head_q].complete
+                                & ~empty
+                                & can_commit_i 
+                                & ((entries[head_q].xcpt & can_commit_xcpt_i) | ~entries[head_q].xcpt);
+
     assign committing_xcpt   = committing_head_q & entries[head_q].xcpt;
     assign issuing_tail_q    = ~committing_xcpt & issue_req_i.valid & ~full;
 
@@ -122,6 +132,7 @@ module rob #(
             entries[tail_q].rd_we      <= issue_req_i.rd_we;
             entries[tail_q].rd_addr    <= issue_req_i.rd_addr;
             entries[tail_q].is_st      <= issue_req_i.is_st;
+            entries[tail_q].is_fence   <= issue_req_i.is_fence;
             entries[tail_q].csr_we     <= issue_req_csr_i.csr_we;
             entries[tail_q].csr_addr   <= issue_req_csr_i.csr_addr;
             entries[tail_q].sbid       <= '0;
@@ -155,10 +166,18 @@ module rob #(
 
     // Commit logic
     always_comb begin
-        commit_o     = '0;
-        commit_rf_o  = '0;
-        commit_sb_o  = '0;
-        commit_csr_o = '0;
+        commit_o       = '0;
+        commit_rf_o    = '0;
+        commit_sb_o    = '0;
+        commit_csr_o   = '0;
+        commit_fence_o = '0;
+
+        if (~empty && entries[head_q].complete && ~entries[head_q].xcpt) begin
+            if (entries[head_q].is_fence) begin
+                commit_fence_o.valid = 1'b1;
+            end
+        end
+
         commit_o.dbg_robid = head_q;
         commit_o.dbg_ins   = entries[head_q].dbg_ins;
         commit_o.pc        = entries[head_q].pc;

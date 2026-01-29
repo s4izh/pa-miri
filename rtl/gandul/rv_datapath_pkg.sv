@@ -75,7 +75,6 @@ package rv_datapath_pkg;
         logic             xcpt;
 
         sbid_t            sbid;
-        logic             is_fence;
 
         // PC
         logic [`XLEN-1:0] pc;
@@ -103,7 +102,6 @@ package rv_datapath_pkg;
         logic             xcpt;
 
         sbid_t            sbid;
-        logic             is_fence;
 
         // PC
         logic [`XLEN-1:0] pc;

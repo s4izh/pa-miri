@@ -14,6 +14,7 @@ package rob_pkg;
         logic             rd_we;
         logic [4:0]       rd_addr;
         logic             is_st;
+        logic             is_fence;
         logic             xcpt;
     } issue_req_t;
 
@@ -70,6 +71,10 @@ package rob_pkg;
         logic [11:0]      csr_addr;
         logic [`XLEN-1:0] csr_data;
     } commit_csr_t;
+
+    typedef struct packed {
+        logic             valid;
+    } commit_fence_t;
 
     // Interface types to peek youngest register values
     // (make rob act as content addressable memory)
