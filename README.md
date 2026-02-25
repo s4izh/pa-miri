@@ -268,3 +268,177 @@ state is captured when one is triggered (mepc).
 Harness, a tool for executing benchmarks and comparing results was added. This
 tool is more configurable than the previous orchestrator. See directory `harness`
 to check it out.
+
+The `harness` command can be directly executed after running `nix develop` and
+then `harness-dev` (this second command for just one time).
+
+Harness configuration is defined in `harness.lua`.
+
+Example usage:
+
+```
+$ harness
+PA Orchestrator
+
+Usage: harness [OPTIONS] <COMMAND>
+
+Commands:
+  gen
+  list
+  simulate     Compile, Simulate, and Analyze an experiment
+  compile      Compile hardware and software for an experiment
+  analyze      Analyze logs for an experiment
+  clean        Remove build artifacts
+  completions
+  help         Print this message or the help of the given subcommand(s)
+
+Options:
+  -v, --verbose
+  -h, --help     Print help
+  -V, --version  Print version
+```
+
+```
+$ harness simulate
+Available Experiments:
+  - regression
+  - opt
+  - rv_pa3_cosim
+  - rob
+  - store_buffer
+  - gandul
+  - gandul-benchmarks
+  - gandul-cosim
+  - gandul-cosim-bp
+  - gandul-cosim-benchmarks
+  - gandul-cosim-benchmarks-bp
+  - gandul-cosim-benchmarks-wb-wt
+```
+
+New experiments and configurations can be defined in `harness.lua`.
+
+
+```
+$ harness simulate gandul-cosim-benchmarks-bp
+Running up to jobs 16 in parallel
+[1/38] verilator -j 8 --cc --binary --build -O3 --trace-fst --trace-stru...rgio/personal/pa-miri/build/hw/gandul.cosim/base_no_bp/verilator -o Vtop
+make: Entering directory '/home/sergio/personal/pa-miri/build/hw/gandul.cosim/base_no_bp/verilator'
+...
+rm Vtop_tb_wrapper__ALL.verilator_deplist.tmp
+make: Leaving directory '/home/sergio/personal/pa-miri/build/hw/gandul.cosim/base_no_bp/verilator'
+- V e r i l a t i o n   R e p o r t: Verilator 5.040 2025-08-30 rev v5.040
+- Verilator: Built from 5.704 MB sources in 45 modules, into 2.667 MB in 16 C++ files needing 0.008 MB
+- Verilator: Walltime 12.919 s (elab=0.021, cvt=0.212, bld=12.611); cpu 0.327 s on 8 threads; alloced 627.219 MB
+[13/38] verilator -j 8 --cc --binary --build -O3 --trace-fst --trace-str...ome/sergio/personal/pa-miri/build/hw/gandul.cosim/base/verilator -o Vtop
+make: Entering directory '/home/sergio/personal/pa-miri/build/hw/gandul.cosim/base/verilator'
+...
+- V e r i l a t i o n   R e p o r t: Verilator 5.040 2025-08-30 rev v5.040
+- Verilator: Built from 5.699 MB sources in 45 modules, into 2.759 MB in 16 C++ files needing 0.008 MB
+- Verilator: Walltime 13.342 s (elab=0.024, cvt=0.215, bld=13.028); cpu 0.338 s on 8 threads; alloced 627.371 MB
+[38/38] cd /home/sergio/personal/pa-miri/build/sim/gandul-cosim-benchmarks-bp/gandul.cosim/base_no_bp/verilator/benchmarks_O0/fibonacci && chmod +x run.sh && ./run.sh > sim.log 2>&1
+
+ EXPERIMENT: gandul-cosim-benchmarks-bp
+
+      PROCESSOR SPEEDUP ANALYSIS
+PROGRAM                        HARDWARE                       CYCLES          SPEEDUP
+------------------------------------------------------------------------------------------
+benchmarks_O0/fibonacci        gandul.cosim/base              1362165         1.00x (baseline)
+benchmarks_O0/fibonacci        gandul.cosim/base_no_bp        1852766         0.74x
+..........................................................................................
+benchmarks_O0/matrix_transpose gandul.cosim/base              30777           1.00x (baseline)
+benchmarks_O0/matrix_transpose gandul.cosim/base_no_bp        33630           0.92x
+..........................................................................................
+benchmarks_O0/my_matmul        gandul.cosim/base              677510          1.00x (baseline)
+benchmarks_O0/my_matmul        gandul.cosim/base_no_bp        705305          0.96x
+..........................................................................................
+benchmarks_O0/my_memcpy        gandul.cosim/base              2138            1.00x (baseline)
+benchmarks_O0/my_memcpy        gandul.cosim/base_no_bp        2312            0.92x
+..........................................................................................
+benchmarks_O0/pointer_chasing  gandul.cosim/base              1517            1.00x (baseline)
+benchmarks_O0/pointer_chasing  gandul.cosim/base_no_bp        1643            0.92x
+..........................................................................................
+benchmarks_O0/slides/buffer_sum gandul.cosim/base              3665            1.00x (baseline)
+benchmarks_O0/slides/buffer_sum gandul.cosim/base_no_bp        3901            0.94x
+..........................................................................................
+benchmarks_O0/slides/matmul    gandul.cosim/base              677919          1.00x (baseline)
+benchmarks_O0/slides/matmul    gandul.cosim/base_no_bp        707787          0.96x
+..........................................................................................
+benchmarks_O0/slides/memcpy    gandul.cosim/base              4540            1.00x (baseline)
+benchmarks_O0/slides/memcpy    gandul.cosim/base_no_bp        6650            0.68x
+..........................................................................................
+benchmarks_O0/vector_addition  gandul.cosim/base              2458            1.00x (baseline)
+benchmarks_O0/vector_addition  gandul.cosim/base_no_bp        2476            0.99x
+..........................................................................................
+benchmarks_O1/fibonacci        gandul.cosim/base              842945          1.00x (baseline)
+benchmarks_O1/fibonacci        gandul.cosim/base_no_bp        986993          0.85x
+..........................................................................................
+benchmarks_O1/matrix_transpose gandul.cosim/base              5663            1.00x (baseline)
+benchmarks_O1/matrix_transpose gandul.cosim/base_no_bp        6060            0.93x
+..........................................................................................
+benchmarks_O1/my_matmul        gandul.cosim/base              107057          1.00x (baseline)
+benchmarks_O1/my_matmul        gandul.cosim/base_no_bp        118447          0.90x
+..........................................................................................
+benchmarks_O1/my_memcpy        gandul.cosim/base              477             1.00x (baseline)
+benchmarks_O1/my_memcpy        gandul.cosim/base_no_bp        502             0.95x
+..........................................................................................
+benchmarks_O1/pointer_chasing  gandul.cosim/base              418             1.00x (baseline)
+benchmarks_O1/pointer_chasing  gandul.cosim/base_no_bp        463             0.90x
+..........................................................................................
+benchmarks_O1/slides/buffer_sum gandul.cosim/base              409             1.00x (baseline)
+benchmarks_O1/slides/buffer_sum gandul.cosim/base_no_bp        659             0.62x
+..........................................................................................
+benchmarks_O1/slides/matmul    gandul.cosim/base              156456          1.00x (baseline)
+benchmarks_O1/slides/matmul    gandul.cosim/base_no_bp        238762          0.66x
+..........................................................................................
+benchmarks_O1/slides/memcpy    gandul.cosim/base              676             1.00x (baseline)
+benchmarks_O1/slides/memcpy    gandul.cosim/base_no_bp        1176            0.57x
+..........................................................................................
+benchmarks_O1/vector_addition  gandul.cosim/base              136             1.00x (baseline)
+benchmarks_O1/vector_addition  gandul.cosim/base_no_bp        136             1.00x
+..........................................................................................
+
+            TESTS RESULTS
+PROGRAM                                  HARDWARE                                 CYCLES     INSTR      CPI    STATUS
+--------------------------------------------------------------------------------------------------------------
+benchmarks_O0/fibonacci                  gandul.cosim/base                        1362165    470700     2.89   PASS
+benchmarks_O0/matrix_transpose           gandul.cosim/base                        30777      11160      2.76   PASS
+benchmarks_O0/my_matmul                  gandul.cosim/base                        677510     193430     3.50   PASS
+benchmarks_O0/my_memcpy                  gandul.cosim/base                        2138       686        3.12   PASS
+benchmarks_O0/pointer_chasing            gandul.cosim/base                        1517       546        2.78   PASS
+benchmarks_O0/slides/buffer_sum          gandul.cosim/base                        3665       1842       1.99   PASS
+benchmarks_O0/slides/matmul              gandul.cosim/base                        677919     194019     3.49   PASS
+benchmarks_O0/slides/memcpy              gandul.cosim/base                        4540       3638       1.25   PASS
+benchmarks_O0/vector_addition            gandul.cosim/base                        2458       710        3.46   PASS
+benchmarks_O1/fibonacci                  gandul.cosim/base                        842945     372189     2.26   PASS
+benchmarks_O1/matrix_transpose           gandul.cosim/base                        5663       2517       2.25   PASS
+benchmarks_O1/my_matmul                  gandul.cosim/base                        107057     33353      3.21   PASS
+benchmarks_O1/my_memcpy                  gandul.cosim/base                        477        221        2.16   PASS
+benchmarks_O1/pointer_chasing            gandul.cosim/base                        418        170        2.46   PASS
+benchmarks_O1/slides/buffer_sum          gandul.cosim/base                        409        300        1.36   PASS
+benchmarks_O1/slides/matmul              gandul.cosim/base                        156456     63605      2.46   PASS
+benchmarks_O1/slides/memcpy              gandul.cosim/base                        676        557        1.21   PASS
+benchmarks_O1/vector_addition            gandul.cosim/base                        136        43         3.16   PASS
+benchmarks_O0/fibonacci                  gandul.cosim/base_no_bp                  1852766    470700     3.94   PASS
+benchmarks_O0/matrix_transpose           gandul.cosim/base_no_bp                  33630      11160      3.01   PASS
+benchmarks_O0/my_matmul                  gandul.cosim/base_no_bp                  705305     193430     3.65   PASS
+benchmarks_O0/my_memcpy                  gandul.cosim/base_no_bp                  2312       686        3.37   PASS
+benchmarks_O0/pointer_chasing            gandul.cosim/base_no_bp                  1643       546        3.01   PASS
+benchmarks_O0/slides/buffer_sum          gandul.cosim/base_no_bp                  3901       1842       2.12   PASS
+benchmarks_O0/slides/matmul              gandul.cosim/base_no_bp                  707787     194019     3.65   PASS
+benchmarks_O0/slides/memcpy              gandul.cosim/base_no_bp                  6650       3638       1.83   PASS
+benchmarks_O0/vector_addition            gandul.cosim/base_no_bp                  2476       710        3.49   PASS
+benchmarks_O1/fibonacci                  gandul.cosim/base_no_bp                  986993     372189     2.65   PASS
+benchmarks_O1/matrix_transpose           gandul.cosim/base_no_bp                  6060       2517       2.41   PASS
+benchmarks_O1/my_matmul                  gandul.cosim/base_no_bp                  118447     33353      3.55   PASS
+benchmarks_O1/my_memcpy                  gandul.cosim/base_no_bp                  502        221        2.27   PASS
+benchmarks_O1/pointer_chasing            gandul.cosim/base_no_bp                  463        170        2.72   PASS
+benchmarks_O1/slides/buffer_sum          gandul.cosim/base_no_bp                  659        300        2.20   PASS
+benchmarks_O1/slides/matmul              gandul.cosim/base_no_bp                  238762     63605      3.75   PASS
+benchmarks_O1/slides/memcpy              gandul.cosim/base_no_bp                  1176       557        2.11   PASS
+benchmarks_O1/vector_addition            gandul.cosim/base_no_bp                  136        43         3.16   PASS
+
+ALL TESTS PASSED!
+```
+
+
+
