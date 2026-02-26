@@ -1,4 +1,4 @@
-# Harness README: Technical Overview
+# Harness
 
 **Harness** is a Rust-based orchestrator designed for Hardware/Software
 co-design. It manages the complexity of verifying RTL designs against various
@@ -10,7 +10,8 @@ maintaining strict isolation between different hardware/software combinations.
 
 ### 1. The Silo (Build Isolation)
 
-Harness prevents artifact contamination by using a "Silo" structure. Every build is unique based on its parameters:
+Harness prevents artifact contamination by using a "Silo" structure. Every
+build is unique based on its parameters:
 
 * **Hardware:** `build/hw/<testbench>/<param_set>/<simulator>/`
 * **Software:** `build/sw/<suite>/<program>/`
